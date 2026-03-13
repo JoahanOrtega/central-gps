@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CustomLogo } from "@/components/shared/CustomLogo";
+import { authService } from "../services/authService";
 
-import bgImage from "../../assets/images/login-bg.jpg";
+import bgImage from "@/assets/images/login-bg.jpg";
 
 interface LoginPageProps extends React.ComponentProps<"div"> {}
 
@@ -26,6 +27,9 @@ export const LoginPage = ({ className }: LoginPageProps) => {
     remember: false,
   });
 
+  const [error, setError] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = event.target;
 
@@ -35,16 +39,34 @@ export const LoginPage = ({ className }: LoginPageProps) => {
     }));
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setError("");
 
     if (!form.username.trim() || !form.password.trim()) {
-      alert("Captura usuario y contraseña");
+      setError("Captura usuario y contraseña");
       return;
     }
 
-    localStorage.setItem("token", "mock-token");
-    navigate("/home");
+    try {
+      setIsLoading(true);
+
+      const data = await authService.login({
+        username: form.username,
+        password: form.password,
+      });
+
+      localStorage.setItem("authUser", JSON.stringify(data.user));
+      localStorage.setItem("token", "session-active");
+
+      navigate("/home");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Ocurrió un error al iniciar sesión";
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -112,11 +134,16 @@ export const LoginPage = ({ className }: LoginPageProps) => {
             <Label htmlFor="remember">Recordarme</Label>
           </div>
 
+          {error && (
+            <p className="w-full text-sm text-red-500 text-left">{error}</p>
+          )}
+
           <Button
             type="submit"
+            disabled={isLoading}
             className="h-11 w-44 rounded-lg bg-sky-600 hover:bg-sky-700"
           >
-            Ingresar
+            {isLoading ? "Ingresando..." : "Ingresar"}
           </Button>
         </form>
       </div>
