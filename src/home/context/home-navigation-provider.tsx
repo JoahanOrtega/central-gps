@@ -1,9 +1,4 @@
-import {
-  createContext,
-  useMemo,
-  useState,
-  type PropsWithChildren,
-} from "react";
+import { createContext, useMemo, useState, type PropsWithChildren } from "react";
 import type { HomeSection, NavbarItem } from "../types/home.types";
 
 interface HomeNavigationContextValue {
@@ -14,43 +9,29 @@ interface HomeNavigationContextValue {
   setActiveNavbarItem: (itemId: string) => void;
 }
 
-export const HomeNavigationContext = createContext<
-  HomeNavigationContextValue | undefined
->(undefined);
+export const HomeNavigationContext =
+  createContext<HomeNavigationContextValue | undefined>(undefined);
 
 const navbarConfig: Record<HomeSection, NavbarItem[]> = {
   dashboard: [{ id: "resumen", label: "Dashboard" }],
-  catalogos: [
-    { id: "clientes", label: "Clientes" },
-    { id: "vehiculos", label: "Vehículos" },
-    { id: "conductores", label: "Conductores" },
-  ],
-  operacion: [
-    { id: "monitor", label: "Monitor de flota" },
-    { id: "rutas", label: "Rutas" },
-    { id: "eventos", label: "Eventos" },
-  ],
-  combustible: [
-    { id: "cargas", label: "Cargas" },
-    { id: "consumo", label: "Consumo" },
-    { id: "rendimiento", label: "Rendimiento" },
-  ],
+  maps: [{ id: "monitor", label: "Maps" }],
+  reports: [{ id: "general", label: "Reports" }],
 };
 
 export const HomeNavigationProvider = ({ children }: PropsWithChildren) => {
-  const [activeSection, setActiveSection] = useState<HomeSection>("dashboard");
+  const [activeSection, setActiveSectionState] =
+    useState<HomeSection>("dashboard");
   const [activeNavbarItem, setActiveNavbarItem] = useState<string>("resumen");
 
-  const handleSetActiveSection = (section: HomeSection) => {
-    setActiveSection(section);
-    const firstItem = navbarConfig[section][0];
-    setActiveNavbarItem(firstItem.id);
+  const setActiveSection = (section: HomeSection) => {
+    setActiveSectionState(section);
+    setActiveNavbarItem(navbarConfig[section][0].id);
   };
 
   const value = useMemo(
     () => ({
       activeSection,
-      setActiveSection: handleSetActiveSection,
+      setActiveSection,
       navbarItems: navbarConfig[activeSection],
       activeNavbarItem,
       setActiveNavbarItem,

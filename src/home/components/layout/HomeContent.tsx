@@ -1,8 +1,7 @@
 import { useHomeNavigation } from "../../hooks/use-home-navigation";
 import { DashboardView } from "../dashboard/DashboardView";
-import { CatalogsView } from "../catalogs/CatalogsView";
-import { OperationView } from "../operation/OperationView";
-import { FuelView } from "../fuel/FuelView";
+import { MapsView } from "../maps/MapsView";
+import { ReportsView } from "../reports/ReportsView";
 
 export const HomeContent = () => {
   const { activeSection, activeNavbarItem } = useHomeNavigation();
@@ -11,16 +10,12 @@ export const HomeContent = () => {
     return <DashboardView />;
   }
 
-  if (activeSection === "catalogos") {
-    return <CatalogsView activeItem={activeNavbarItem} />;
+  if (activeSection === "maps") {
+    return <MapsView activeItem={activeNavbarItem} />;
   }
 
-  if (activeSection === "operacion") {
-    return <OperationView activeItem={activeNavbarItem} />;
-  }
-
-  if (activeSection === "combustible") {
-    return <FuelView activeItem={activeNavbarItem} />;
+  if (activeSection === "reports") {
+    return <ReportsView activeItem={activeNavbarItem} />;
   }
 
   return null;
