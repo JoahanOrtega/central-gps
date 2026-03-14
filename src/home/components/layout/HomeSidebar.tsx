@@ -1,4 +1,4 @@
-import { LayoutDashboard, MapPinned, FileBarChart2 } from "lucide-react";
+import { LayoutDashboard, MapPinned, BarChart3 } from "lucide-react";
 import { SidebarButton } from "../shared/SidebarButton";
 import { useHomeNavigation } from "../../hooks/use-home-navigation";
 import logo from "@/assets/images/logo_full.png";
@@ -38,7 +38,7 @@ export const HomeSidebar = () => {
           isActive={activeSection === "reports"}
           onClick={() => setActiveSection("reports")}
         >
-          <FileBarChart2 className="h-7 w-7" />
+          <BarChart3  className="h-7 w-7" />
         </SidebarButton>
       </div>
     </aside>
