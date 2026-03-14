@@ -66,8 +66,7 @@ export const LoginPage = ({ className }: LoginPageProps) => {
         password: form.password,
       })
 
-      saveAuthSession("session-active", response.user)
-
+      saveAuthSession("session-active", response.user, form.remember)
       navigate("/home", { replace: true })
     } catch (error) {
       const message =
