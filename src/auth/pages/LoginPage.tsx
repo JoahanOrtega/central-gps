@@ -1,73 +1,83 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { CustomLogo } from "@/components/shared/CustomLogo";
-import { authService } from "../services/authService";
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { CustomLogo } from "@/components/shared/CustomLogo"
 
-import bgImage from "@/assets/images/login-bg.jpg";
+import { authService } from "../services/authService"
+import { hasActiveSession, saveAuthSession } from "../utils/auth-storage"
 
-interface LoginPageProps extends React.ComponentProps<"div"> {}
+
+import bgImage from "@/assets/images/login-bg.jpg"
+
+interface LoginPageProps extends React.ComponentProps<"div"> { }
 
 interface LoginFormState {
-  username: string;
-  password: string;
-  remember: boolean;
+  username: string
+  password: string
+  remember: boolean
 }
 
 export const LoginPage = ({ className }: LoginPageProps) => {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
 
   const [form, setForm] = useState<LoginFormState>({
     username: "",
     password: "",
     remember: false,
-  });
+  })
 
-  const [error, setError] = useState<string>("");
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+
+  // si ya hay una sesión activa, redirigir al home
+  useEffect(() => {
+    if (hasActiveSession()) {
+      navigate("/home", { replace: true })
+    }
+  }, [navigate])
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = event.target;
+    const { name, value, type, checked } = event.target
 
     setForm((prevState) => ({
       ...prevState,
       [name]: type === "checkbox" ? checked : value,
-    }));
-  };
+    }))
+  }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError("");
+    event.preventDefault()
+    setError("")
 
     if (!form.username.trim() || !form.password.trim()) {
-      setError("Captura usuario y contraseña");
-      return;
+      setError("Captura usuario y contraseña")
+      return
     }
 
     try {
-      setIsLoading(true);
+      setIsLoading(true)
 
-      const data = await authService.login({
+      const response = await authService.login({
         username: form.username,
         password: form.password,
-      });
+      })
 
-      localStorage.setItem("authUser", JSON.stringify(data.user));
-      localStorage.setItem("token", "session-active");
+      saveAuthSession("session-active", response.user)
 
-      navigate("/home");
+      navigate("/home", { replace: true })
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Ocurrió un error al iniciar sesión";
-      setError(message);
+        error instanceof Error ? error.message : "Error al iniciar sesión"
+
+      setError(message)
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
     <div
@@ -81,7 +91,7 @@ export const LoginPage = ({ className }: LoginPageProps) => {
     >
       <div className="absolute inset-0 bg-white/35 backdrop-blur-[1px]" />
 
-      <div className="relative z-10 w-full max-w-md px-6 flex flex-col items-center">
+      <div className="relative z-10 flex w-full max-w-md flex-col items-center px-6">
         <div className="mb-8 flex flex-col items-center">
           <div className="w-64 md:w-80">
             <CustomLogo />
@@ -94,9 +104,9 @@ export const LoginPage = ({ className }: LoginPageProps) => {
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col gap-5 w-full items-center"
+          className="flex w-full flex-col items-center gap-5"
         >
-          <div className="flex flex-col gap-2 w-full">
+          <div className="flex w-full flex-col gap-2">
             <Label htmlFor="username">Usuario</Label>
             <Input
               id="username"
@@ -109,7 +119,7 @@ export const LoginPage = ({ className }: LoginPageProps) => {
             />
           </div>
 
-          <div className="flex flex-col gap-2 w-full">
+          <div className="flex w-full flex-col gap-2">
             <Label htmlFor="password">Contraseña</Label>
             <Input
               id="password"
@@ -122,7 +132,7 @@ export const LoginPage = ({ className }: LoginPageProps) => {
             />
           </div>
 
-          <div className="flex items-center gap-2 text-sm text-gray-600 self-start">
+          <div className="self-start flex items-center gap-2 text-sm text-gray-600">
             <input
               id="remember"
               name="remember"
@@ -135,7 +145,7 @@ export const LoginPage = ({ className }: LoginPageProps) => {
           </div>
 
           {error && (
-            <p className="w-full text-sm text-red-500 text-left">{error}</p>
+            <p className="w-full text-left text-sm text-red-500">{error}</p>
           )}
 
           <Button
@@ -148,5 +158,5 @@ export const LoginPage = ({ className }: LoginPageProps) => {
         </form>
       </div>
     </div>
-  );
-};
+  )
+}

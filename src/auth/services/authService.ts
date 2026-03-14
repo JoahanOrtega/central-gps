@@ -1,32 +1,23 @@
-export interface LoginPayload {
-  username: string;
-  password: string;
-}
+import type { LoginPayload, LoginResponse } from "../types/auth.types"
 
-export interface LoginResponse {
-  message: string;
-  user: {
-    id: number;
-    username: string;
-  };
-}
+const API_URL = "http://127.0.0.1:5000"
 
 export const authService = {
-  login: async (payload: LoginPayload): Promise<LoginResponse> => {
-    const response = await fetch("http://127.0.0.1:5000/login", {
+  async login(payload: LoginPayload): Promise<LoginResponse> {
+    const response = await fetch(`${API_URL}/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
-    });
+    })
 
-    const data = await response.json();
+    const data = await response.json()
 
     if (!response.ok) {
-      throw new Error(data.error || "Error al iniciar sesión");
+      throw new Error(data.error || "Error al iniciar sesión")
     }
 
-    return data;
+    return data
   },
-};
+}

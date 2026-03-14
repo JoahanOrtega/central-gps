@@ -1,7 +1,7 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
-import { LoginPage } from "../auth/pages/LoginPage";
-import { HomePage } from "../home/pages/HomePage";
-import { PrivateRoute } from "./PrivateRoute";
+import { createBrowserRouter, Navigate } from "react-router-dom"
+import { LoginPage } from "../auth/pages/LoginPage"
+import { HomePage } from "../home/pages/HomePage"
+import { PrivateRoute } from "./PrivateRoute"
 
 export const appRouter = createBrowserRouter([
   {
@@ -20,4 +20,4 @@ export const appRouter = createBrowserRouter([
       </PrivateRoute>
     ),
   },
-]);
+])
