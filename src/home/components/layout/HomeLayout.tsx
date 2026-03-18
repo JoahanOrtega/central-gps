@@ -1,6 +1,6 @@
-import { HomeSidebar } from "./HomeSidebar"
-import { HomeNavbar } from "./HomeNavbar"
-import { HomeContent } from "./HomeContent"
+import { Outlet } from "react-router-dom";
+import { HomeNavbar } from "./HomeNavbar";
+import { HomeSidebar } from "./HomeSidebar";
 
 export const HomeLayout = () => {
   return (
@@ -14,8 +14,8 @@ export const HomeLayout = () => {
       </div>
 
       <div className="col-start-2 row-start-2 overflow-hidden">
-        <HomeContent />
+        <Outlet />
       </div>
     </section>
-  )
-}
+  );
+};

@@ -1,4 +1,13 @@
-import { Bell, ChevronDown, FolderOpen, Fuel, Map, Package } from "lucide-react";
+import {
+  Bell,
+  ChevronDown,
+  FolderOpen,
+  Fuel,
+  Map,
+  Package,
+} from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -6,41 +15,60 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { useHomeNavigation } from "../../hooks/use-home-navigation";
 import { UserMenu } from "../shared/UserMenu";
-import type { NavbarSection } from "../../types/home.types";
 
-const groupIcons: Record<NavbarSection, React.ReactNode> = {
-  catalogs: <FolderOpen className="h-4 w-4" />,
-  operation: <Map className="h-4 w-4" />,
-  fuel: <Fuel className="h-4 w-4" />,
-};
-
-const itemIcons: Record<string, React.ReactNode> = {
-  units: <Package className="h-4 w-4" />,
-  clients: <Package className="h-4 w-4" />,
-  terminals: <Package className="h-4 w-4" />,
-  operators: <Package className="h-4 w-4" />,
-  "interest-points": <Package className="h-4 w-4" />,
-  "gas-stations": <Package className="h-4 w-4" />,
-  users: <Package className="h-4 w-4" />,
-  monitor: <Map className="h-4 w-4" />,
-  general: <Fuel className="h-4 w-4" />,
-};
+const navbarGroups = [
+  {
+    id: "catalogs",
+    label: "Catálogos",
+    icon: <FolderOpen className="h-4 w-4" />,
+    items: [
+      { id: "units", label: "Unidades", path: "/home/catalogs/units" },
+      { id: "clients", label: "Clientes", path: "/home/catalogs/clients" },
+      { id: "terminals", label: "Terminales", path: "/home/catalogs/terminals" },
+      { id: "operators", label: "Operadores", path: "/home/catalogs/operators" },
+      {
+        id: "interest-points",
+        label: "Puntos de Interés",
+        path: "/home/catalogs/interest-points",
+      },
+      {
+        id: "gas-stations",
+        label: "Gasolineras",
+        path: "/home/catalogs/gas-stations",
+      },
+      { id: "users", label: "Usuarios", path: "/home/catalogs/users" },
+    ],
+  },
+  {
+    id: "operation",
+    label: "Operación",
+    icon: <Map className="h-4 w-4" />,
+    items: [
+      { id: "monitor", label: "Monitor de flota", path: "/home/operation/monitor" },
+    ],
+  },
+  {
+    id: "fuel",
+    label: "Combustible",
+    icon: <Fuel className="h-4 w-4" />,
+    items: [
+      { id: "general", label: "General", path: "/home/fuel/general" },
+    ],
+  },
+];
 
 export const HomeNavbar = () => {
-  const {
-    activeNavbarSection,
-    activeNavbarItem,
-    navbarGroups,
-    setActiveNavbarItem,
-  } = useHomeNavigation();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <header className="flex h-[88px] items-center justify-between border-b border-slate-200 bg-white px-6">
       <div className="flex items-center gap-3">
         {navbarGroups.map((group) => {
-          const isGroupActive = activeNavbarSection === group.id;
+          const isGroupActive = group.items.some((item) =>
+            location.pathname.startsWith(item.path),
+          );
 
           return (
             <DropdownMenu key={group.id}>
@@ -54,7 +82,7 @@ export const HomeNavbar = () => {
                       : "text-slate-600 hover:bg-slate-50 hover:text-slate-800",
                   )}
                 >
-                  {groupIcons[group.id]}
+                  {group.icon}
                   <span>{group.label}</span>
                   <ChevronDown className="h-4 w-4 text-slate-400" />
                 </button>
@@ -62,20 +90,19 @@ export const HomeNavbar = () => {
 
               <DropdownMenuContent align="start" className="w-60">
                 {group.items.map((item) => {
-                  const isItemActive =
-                    activeNavbarSection === group.id && activeNavbarItem === item.id;
+                  const isItemActive = location.pathname === item.path;
 
                   return (
                     <DropdownMenuItem
                       key={item.id}
-                      onClick={() => setActiveNavbarItem(group.id, item.id)}
+                      onClick={() => navigate(item.path)}
                       className={cn(
                         "cursor-pointer rounded-md px-3 py-2",
                         isItemActive && "bg-[#f7f4e8] text-sky-600",
                       )}
                     >
                       <div className="flex items-center gap-3">
-                        {itemIcons[item.id] ?? <Package className="h-4 w-4" />}
+                        <Package className="h-4 w-4" />
                         <span>{item.label}</span>
                       </div>
                     </DropdownMenuItem>

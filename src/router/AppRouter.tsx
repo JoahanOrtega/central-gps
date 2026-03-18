@@ -1,7 +1,14 @@
-import { createBrowserRouter, Navigate } from "react-router-dom"
-import { LoginPage } from "../auth/pages/LoginPage"
-import { HomePage } from "../home/pages/HomePage"
-import { PrivateRoute } from "./PrivateRoute"
+import { createBrowserRouter, Navigate } from "react-router-dom";
+import { LoginPage } from "../auth/pages/LoginPage";
+import { PrivateRoute } from "./PrivateRoute";
+
+import { HomeLayout } from "../home/components/layout/HomeLayout";
+import { DashboardPage } from "../home/pages/DashboardPage";
+import { MapsPage } from "../home/pages/MapsPage";
+import { ReportsPage } from "../home/pages/ReportsPage";
+import { UnitsPage } from "../home/pages/catalogs/UnitsPage";
+import { MonitorPage } from "../home/pages/operation/MonitorPage";
+import { FuelPage } from "../home/pages/fuel/FuelPage";
 
 export const appRouter = createBrowserRouter([
   {
@@ -16,8 +23,38 @@ export const appRouter = createBrowserRouter([
     path: "/home",
     element: (
       <PrivateRoute>
-        <HomePage />
+        <HomeLayout />
       </PrivateRoute>
     ),
+    children: [
+      {
+        index: true,
+        element: <Navigate to="/home/dashboard" replace />,
+      },
+      {
+        path: "dashboard",
+        element: <DashboardPage />,
+      },
+      {
+        path: "maps",
+        element: <MapsPage />,
+      },
+      {
+        path: "reports",
+        element: <ReportsPage />,
+      },
+      {
+        path: "catalogs/units",
+        element: <UnitsPage />,
+      },
+      {
+        path: "operation/monitor",
+        element: <MonitorPage />,
+      },
+      {
+        path: "fuel/general",
+        element: <FuelPage />,
+      },
+    ],
   },
-])
+]);
