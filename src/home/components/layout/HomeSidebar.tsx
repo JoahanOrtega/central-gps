@@ -4,7 +4,7 @@ import { useHomeNavigation } from "../../hooks/use-home-navigation";
 import logo from "@/assets/images/logo_full.png";
 
 export const HomeSidebar = () => {
-  const { activeSection, setActiveSection } = useHomeNavigation();
+  const { activeSidebarSection, setActiveSidebarSection } = useHomeNavigation();
 
   return (
     <aside className="flex h-full w-[88px] flex-col items-center border-r border-slate-200 bg-white py-4">
@@ -19,26 +19,26 @@ export const HomeSidebar = () => {
       <div className="flex flex-col gap-4">
         <SidebarButton
           title="Dashboard"
-          isActive={activeSection === "dashboard"}
-          onClick={() => setActiveSection("dashboard")}
+          isActive={activeSidebarSection === "dashboard"}
+          onClick={() => setActiveSidebarSection("dashboard")}
         >
           <LayoutDashboard className="h-7 w-7" />
         </SidebarButton>
 
         <SidebarButton
-          title="Mapas"
-          isActive={activeSection === "maps"}
-          onClick={() => setActiveSection("maps")}
+          title="Mapa"
+          isActive={activeSidebarSection === "maps"}
+          onClick={() => setActiveSidebarSection("maps")}
         >
           <MapPinned className="h-7 w-7" />
         </SidebarButton>
 
         <SidebarButton
           title="Reportes"
-          isActive={activeSection === "reports"}
-          onClick={() => setActiveSection("reports")}
+          isActive={activeSidebarSection === "reports"}
+          onClick={() => setActiveSidebarSection("reports")}
         >
-          <BarChart3  className="h-7 w-7" />
+          <BarChart3 className="h-7 w-7" />
         </SidebarButton>
       </div>
     </aside>

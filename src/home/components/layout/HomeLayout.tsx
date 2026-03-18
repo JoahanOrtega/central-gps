@@ -1,10 +1,10 @@
-import { HomeSidebar } from "./HomeSidebar";
-import { HomeNavbar } from "./HomeNavbar";
-import { HomeContent } from "./HomeContent";
+import { HomeSidebar } from "./HomeSidebar"
+import { HomeNavbar } from "./HomeNavbar"
+import { HomeContent } from "./HomeContent"
 
 export const HomeLayout = () => {
   return (
-    <section className="h-screen w-full bg-[#f5f6f8] grid grid-cols-[88px_1fr] grid-rows-[88px_1fr]">
+    <section className="grid h-screen w-full grid-cols-[88px_1fr] grid-rows-[88px_1fr] bg-[#f5f6f8]">
       <div className="row-span-2">
         <HomeSidebar />
       </div>
@@ -17,5 +17,5 @@ export const HomeLayout = () => {
         <HomeContent />
       </div>
     </section>
-  );
-};
+  )
+}

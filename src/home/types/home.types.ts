@@ -1,11 +1,14 @@
-// Definiciones de tipos para la sección de Home
-export type HomeSection =
-  | "dashboard"
-  | "maps"
-  | "reports";
+export type SidebarSection = "dashboard" | "maps" | "reports";
 
-// Definición de la interfaz para los elementos de navegación en el Home
+export type NavbarSection = "catalogs" | "operation" | "fuel";
+
 export interface NavbarItem {
   id: string;
   label: string;
+}
+
+export interface NavbarGroup {
+  id: NavbarSection;
+  label: string;
+  items: NavbarItem[];
 }

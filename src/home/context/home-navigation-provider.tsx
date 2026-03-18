@@ -1,42 +1,73 @@
 import { createContext, useMemo, useState, type PropsWithChildren } from "react";
-import type { HomeSection, NavbarItem } from "../types/home.types";
+import type {
+  SidebarSection,
+  NavbarGroup,
+  NavbarSection,
+} from "../types/home.types";
 
 interface HomeNavigationContextValue {
-  activeSection: HomeSection;
-  setActiveSection: (section: HomeSection) => void;
-  navbarItems: NavbarItem[];
-  activeNavbarItem: string;
-  setActiveNavbarItem: (itemId: string) => void;
+  activeSidebarSection: SidebarSection;
+  setActiveSidebarSection: (section: SidebarSection) => void;
+  activeNavbarSection: NavbarSection | null;
+  activeNavbarItem: string | null;
+  navbarGroups: NavbarGroup[];
+  setActiveNavbarItem: (section: NavbarSection, itemId: string) => void;
 }
 
 export const HomeNavigationContext =
   createContext<HomeNavigationContextValue | undefined>(undefined);
 
-const navbarConfig: Record<HomeSection, NavbarItem[]> = {
-  dashboard: [{ id: "resumen", label: "Dashboard" }],
-  maps: [{ id: "monitor", label: "Maps" }],
-  reports: [{ id: "general", label: "Reports" }],
-};
+const navbarGroups: NavbarGroup[] = [
+  {
+    id: "catalogs",
+    label: "Catálogos",
+    items: [
+      { id: "units", label: "Unidades" },
+      { id: "clients", label: "Clientes" },
+      { id: "terminals", label: "Terminales" },
+      { id: "operators", label: "Operadores" },
+      { id: "interest-points", label: "Puntos de Interés" },
+      { id: "gas-stations", label: "Gasolineras" },
+      { id: "users", label: "Usuarios" },
+    ],
+  },
+  {
+    id: "operation",
+    label: "Operación",
+    items: [{ id: "monitor", label: "Monitor de flota" }],
+  },
+  {
+    id: "fuel",
+    label: "Combustible",
+    items: [{ id: "general", label: "General" }],
+  },
+];
 
 export const HomeNavigationProvider = ({ children }: PropsWithChildren) => {
-  const [activeSection, setActiveSectionState] =
-    useState<HomeSection>("dashboard");
-  const [activeNavbarItem, setActiveNavbarItem] = useState<string>("resumen");
+  const [activeSidebarSection, setActiveSidebarSection] =
+    useState<SidebarSection>("dashboard");
 
-  const setActiveSection = (section: HomeSection) => {
-    setActiveSectionState(section);
-    setActiveNavbarItem(navbarConfig[section][0].id);
+  const [activeNavbarSection, setActiveNavbarSection] =
+    useState<NavbarSection | null>("catalogs");
+
+  const [activeNavbarItem, setActiveNavbarItemState] =
+    useState<string | null>("units");
+
+  const setActiveNavbarItem = (section: NavbarSection, itemId: string) => {
+    setActiveNavbarSection(section);
+    setActiveNavbarItemState(itemId);
   };
 
   const value = useMemo(
     () => ({
-      activeSection,
-      setActiveSection,
-      navbarItems: navbarConfig[activeSection],
+      activeSidebarSection,
+      setActiveSidebarSection,
+      activeNavbarSection,
       activeNavbarItem,
+      navbarGroups,
       setActiveNavbarItem,
     }),
-    [activeSection, activeNavbarItem],
+    [activeSidebarSection, activeNavbarSection, activeNavbarItem],
   );
 
   return (
