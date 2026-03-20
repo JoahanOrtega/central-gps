@@ -1,53 +1,45 @@
-import { useEffect, useMemo, useState } from "react"
-import { BusFront, Search, Download, X, TriangleAlert } from "lucide-react"
+import { useEffect, useState } from "react"
+import { BusFront, Plus, Search, Download, TriangleAlert, X } from "lucide-react"
 
 import { unitService } from "../../services/unitService"
 import type { UnitItem } from "../../types/unit.types"
 import { UnitCard } from "./UnitCard"
+import { NewUnitModal } from "./NewUnitModal"
 
 export const UnitsCatalogView = () => {
   const [units, setUnits] = useState<UnitItem[]>([])
   const [search, setSearch] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+
+  const loadUnits = async (searchValue = "") => {
+    try {
+      setIsLoading(true)
+      setError("")
+
+      const data = await unitService.getUnits(searchValue)
+      setUnits(data)
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Error al cargar unidades"
+      setError(message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const loadUnits = async () => {
-      try {
-        setIsLoading(true)
-        setError("")
+    const timeout = setTimeout(() => {
+      loadUnits(search)
+    }, 350)
 
-        const data = await unitService.getUnits()
-        setUnits(data)
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Error al cargar unidades"
-        setError(message)
-      } finally {
-        setIsLoading(false)
-      }
-    }
+    return () => clearTimeout(timeout)
+  }, [search])
 
+  useEffect(() => {
     loadUnits()
   }, [])
-
-  const filteredUnits = useMemo(() => {
-    const term = search.trim().toLowerCase()
-
-    if (!term) {
-      return units
-    }
-
-    return units.filter((unit) => {
-      return (
-        unit.numero.toLowerCase().includes(term) ||
-        unit.marca.toLowerCase().includes(term) ||
-        unit.modelo.toLowerCase().includes(term) ||
-        unit.matricula.toLowerCase().includes(term) ||
-        unit.imei.toLowerCase().includes(term)
-      )
-    })
-  }, [search, units])
 
   return (
     <main className="h-full overflow-y-auto bg-[#f5f6f8] p-6">
@@ -61,6 +53,15 @@ export const UnitsCatalogView = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex h-10 w-12 items-center justify-center rounded-lg border border-emerald-400 bg-white text-emerald-500 hover:bg-emerald-50"
+              title="Agregar unidad"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+
             <div className="flex items-center rounded-lg border border-slate-300 bg-white">
               <div className="flex h-10 w-10 items-center justify-center border-r border-slate-300 text-emerald-500">
                 <Search className="h-4 w-4" />
@@ -78,6 +79,7 @@ export const UnitsCatalogView = () => {
             <button
               type="button"
               className="rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+              title="Descargar"
             >
               <Download className="h-5 w-5" />
             </button>
@@ -85,6 +87,7 @@ export const UnitsCatalogView = () => {
             <button
               type="button"
               className="rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-amber-500"
+              title="Alertas"
             >
               <TriangleAlert className="h-5 w-5" />
             </button>
@@ -92,6 +95,7 @@ export const UnitsCatalogView = () => {
             <button
               type="button"
               className="rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+              title="Cerrar"
             >
               <X className="h-5 w-5" />
             </button>
@@ -127,21 +131,27 @@ export const UnitsCatalogView = () => {
             <div className="py-10 text-center text-red-500">{error}</div>
           )}
 
-          {!isLoading && !error && filteredUnits.length === 0 && (
+          {!isLoading && !error && units.length === 0 && (
             <div className="py-10 text-center text-slate-500">
               No hay unidades para mostrar
             </div>
           )}
 
-          {!isLoading && !error && filteredUnits.length > 0 && (
+          {!isLoading && !error && units.length > 0 && (
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-              {filteredUnits.map((unit) => (
+              {units.map((unit) => (
                 <UnitCard key={unit.id} unit={unit} />
               ))}
             </div>
           )}
         </div>
       </section>
+
+      <NewUnitModal
+        open={isCreateModalOpen}
+        onOpenChange={setIsCreateModalOpen}
+        onCreated={() => loadUnits(search)}
+      />
     </main>
   )
 }
