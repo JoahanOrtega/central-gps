@@ -1,14 +1,24 @@
-interface MapsViewProps {
-  activeItem: string;
-}
+import { MapPinned } from "lucide-react"
+import { MapToolbar } from "./MapToolbar"
+import { MapCanvas } from "./MapCanvas"
 
-export const MapsView = ({ activeItem }: MapsViewProps) => {
+export const MapsView = () => {
   return (
-    <main className="h-full overflow-y-auto bg-[#f5f6f8] p-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-8">
-        <h1 className="text-2xl font-semibold text-slate-800">Mapas</h1>
-        <p className="mt-2 text-slate-500">Vista activa: {activeItem}</p>
+    <main className="h-full overflow-hidden bg-[#f5f6f8] p-6">
+      <section className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <MapPinned className="h-5 w-5 text-slate-500" />
+            <h1 className="text-2xl font-semibold text-slate-800">Mapa</h1>
+          </div>
+
+          <MapToolbar />
+        </div>
+
+        <div className="flex-1 overflow-hidden">
+          <MapCanvas />
+        </div>
       </section>
     </main>
-  );
-};
+  )
+}
