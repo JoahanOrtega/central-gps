@@ -9,6 +9,8 @@ import { ReportsPage } from "../home/pages/ReportsPage";
 import { UnitsPage } from "../home/pages/catalogs/UnitsPage";
 import { MonitorPage } from "../home/pages/operation/MonitorPage";
 import { FuelPage } from "../home/pages/fuel/FuelPage";
+import { PointsOfInterestPage } from "@/home/pages/catalogs/PointsOfInterestPage";
+import { PoiGroupsPage } from "@/home/pages/catalogs/PoiGroupsPage";
 
 export const appRouter = createBrowserRouter([
   {
@@ -54,7 +56,16 @@ export const appRouter = createBrowserRouter([
       {
         path: "fuel/general",
         element: <FuelPage />,
+      }, 
+      {
+        path: "catalogs/points-of-interest",
+        element: <PointsOfInterestPage />,
       },
+      {
+        path: "catalogs/poi-groups",
+        element: <PoiGroupsPage />,
+      }
     ],
   },
+
 ]);
