@@ -1,18 +1,23 @@
-import { useEffect, useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useEffect, useRef, useState } from "react"
+import { MapPinned, RotateCcw, X } from "lucide-react"
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+
 import { poiService } from "../../services/poiService"
 import type { CreatePoiPayload, PoiGroupItem } from "../../types/poi.types"
-import { PoiGeometryEditor } from "./PoiGeometryEditor"
-
+import {
+  PoiGeometryEditor,
+  type PoiGeometryEditorHandle,
+} from "./PoiGeometryEditor"
 interface NewPoiModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreated: () => void
-}
-
-interface ClientOption {
-  id_cliente: number
-  nombre: string
 }
 
 const defaultForm: CreatePoiPayload = {
@@ -20,6 +25,7 @@ const defaultForm: CreatePoiPayload = {
   id_elemento: 0,
   nombre: "",
   direccion: "",
+  direccionEsAproximada: false,
   tipo_poi: 1,
   tipo_marker: 0,
   url_marker: "pin.svg",
@@ -45,11 +51,13 @@ export const NewPoiModal = ({
   onCreated,
 }: NewPoiModalProps) => {
   const [form, setForm] = useState<CreatePoiPayload>(defaultForm)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [clients, setClients] = useState<ClientOption[]>([])
   const [groups, setGroups] = useState<PoiGroupItem[]>([])
   const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [activeTab, setActiveTab] = useState<"general" | "address">("general")
+
+  const geometryEditorRef = useRef<PoiGeometryEditorHandle | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -57,16 +65,9 @@ export const NewPoiModal = ({
     const loadCatalogs = async () => {
       try {
         setIsLoadingCatalogs(true)
-
-        const [clientsData, groupsData] = await Promise.all([
-          poiService.getClients(),
-          poiService.getPoiGroups(),
-        ])
-
-        setClients(clientsData)
+        const groupsData = await poiService.getPoiGroups()
         setGroups(groupsData)
       } catch {
-        setClients([])
         setGroups([])
       } finally {
         setIsLoadingCatalogs(false)
@@ -76,8 +77,8 @@ export const NewPoiModal = ({
     loadCatalogs()
   }, [open])
 
-  const handleChange = (
-    event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+  const handleInputChange = (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
     const { name, value } = event.target
 
@@ -85,22 +86,6 @@ export const NewPoiModal = ({
       setForm((prev) => ({
         ...prev,
         [name]: Number(value),
-      }))
-      return
-    }
-
-    if (name === "id_elemento") {
-      setForm((prev) => ({
-        ...prev,
-        id_elemento: Number(value),
-      }))
-      return
-    }
-
-    if (name === "lat" || name === "lng") {
-      setForm((prev) => ({
-        ...prev,
-        [name]: value === "" ? null : Number(value),
       }))
       return
     }
@@ -124,14 +109,41 @@ export const NewPoiModal = ({
     })
   }
 
+  const handleReset = () => {
+    setForm(defaultForm)
+    setError("")
+    setActiveTab("general")
+  }
+
   const handleSubmit = async () => {
     try {
       setIsLoading(true)
       setError("")
 
+      if (!form.nombre.trim()) {
+        setError("El nombre es requerido")
+        setActiveTab("general")
+        return
+      }
+
+      if (!form.direccion.trim()) {
+        setError("Debes definir el domicilio del punto de interés")
+        setActiveTab("address")
+        return
+      }
+
+      if (form.tipo_poi === 2) {
+        const parsedPath = safeParsePolygon(form.polygon_path)
+        if (parsedPath.length < 3) {
+          setError("Para una geocerca poligonal debes marcar al menos 3 puntos")
+          setActiveTab("address")
+          return
+        }
+      }
+
       await poiService.createPoi(form)
       onCreated()
-      setForm(defaultForm)
+      handleReset()
       onOpenChange(false)
     } catch (error) {
       const message =
@@ -146,189 +158,285 @@ export const NewPoiModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="w-[95vw] max-w-[950px] max-h-[90vh] overflow-hidden p-0"
+        className="w-[95vw] max-w-[1280px] max-h-[92vh] overflow-hidden p-0"
       >
         <DialogHeader className="border-b border-slate-200 px-6 py-4">
-          <DialogTitle className="text-2xl font-semibold text-slate-700">
-            Nuevo Punto de Interés
-          </DialogTitle>
+          <div className="flex items-start justify-between gap-4">
+            <DialogTitle className="flex items-center gap-3 text-2xl font-semibold text-slate-700">
+              <MapPinned className="h-5 w-5 text-slate-400" />
+              Nuevo Punto de Interés
+            </DialogTitle>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleReset}
+                className="rounded-md p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+                title="Restablecer formulario"
+              >
+                <RotateCcw className="h-5 w-5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="rounded-md p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+                title="Cerrar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="max-h-[calc(90vh-140px)] overflow-y-auto px-6 py-6">
-          <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1fr_1fr]">
-            <div className="space-y-4">
-              <Field label="Nombre *">
-                <input
-                  name="nombre"
-                  value={form.nombre}
-                  onChange={handleChange}
-                  className={inputClass}
-                />
-              </Field>
+        <div className="border-b border-slate-200 px-6 pt-4">
+          <div className="flex items-center gap-2">
+            <TabButton
+              active={activeTab === "general"}
+              onClick={() => setActiveTab("general")}
+            >
+              Datos del Punto
+            </TabButton>
 
-              <Field label="Dirección">
-                <input
-                  name="direccion"
-                  value={form.direccion}
-                  onChange={handleChange}
-                  className={inputClass}
-                />
-              </Field>
+            <TabButton
+              active={activeTab === "address"}
+              onClick={() => setActiveTab("address")}
+            >
+              Domicilio
+            </TabButton>
+          </div>
+        </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Tipo de POI">
-                  <select
-                    name="tipo_poi"
-                    value={String(form.tipo_poi)}
-                    onChange={handleChange}
-                    className={inputClass}
-                  >
-                    <option value="1">Circular</option>
-                    <option value="2">Poligonal</option>
-                  </select>
-                </Field>
-
-                <Field label="Tipo de elemento">
-                  <select
-                    name="tipo_elemento"
-                    value={form.tipo_elemento}
-                    onChange={handleChange}
-                    className={inputClass}
-                  >
-                    <option value="poi">POI</option>
-                    <option value="clt">Cliente</option>
-                    <option value="op">Operador</option>
-                    <option value="gas">Gasolinera</option>
-                  </select>
-                </Field>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Latitud">
+        <div className="max-h-[calc(92vh-180px)] overflow-y-auto px-6 py-6">
+          {activeTab === "general" && (
+            <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1fr_380px]">
+              <section className="space-y-5">
+                <Field label="Nombre *">
                   <input
-                    name="lat"
-                    value={form.lat ?? ""}
-                    onChange={handleChange}
+                    name="nombre"
+                    value={form.nombre}
+                    onChange={handleInputChange}
                     className={inputClass}
                   />
                 </Field>
 
-                <Field label="Longitud">
-                  <input
-                    name="lng"
-                    value={form.lng ?? ""}
-                    onChange={handleChange}
-                    className={inputClass}
-                  />
-                </Field>
-              </div>
+                <Field label="Asignar Grupos de POI">
+                  <div className="rounded border border-slate-300 bg-white p-3">
+                    <div className="max-h-72 space-y-2 overflow-y-auto">
+                      {isLoadingCatalogs && (
+                        <p className="text-sm text-slate-500">Cargando grupos...</p>
+                      )}
 
-              <Field label="Radio">
-                <input
-                  name="radio"
-                  value={form.radio}
-                  onChange={handleChange}
-                  className={inputClass}
-                />
-              </Field>
+                      {!isLoadingCatalogs && groups.length === 0 && (
+                        <p className="text-sm text-slate-500">
+                          No hay grupos de POIs disponibles
+                        </p>
+                      )}
 
-              <Field label="Cliente">
-                <select
-                  name="id_elemento"
-                  value={form.id_elemento}
-                  onChange={handleChange}
-                  className={inputClass}
-                  disabled={isLoadingCatalogs}
-                >
-                  <option value={0}>-seleccione-</option>
-                  {clients.map((client) => (
-                    <option key={client.id_cliente} value={client.id_cliente}>
-                      {client.nombre}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+                      {!isLoadingCatalogs &&
+                        groups.map((group) => {
+                          const checked = form.id_grupo_pois.includes(group.id_grupo_pois)
 
-              <Field label="Observaciones">
-                <textarea
-                  name="observaciones"
-                  value={form.observaciones}
-                  onChange={handleChange}
-                  className="min-h-28 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400"
-                />
-              </Field>
-            </div>
-
-            <div className="space-y-4">
-              <Field label="Grupos de POIs">
-                <div className="rounded border border-slate-300 bg-white p-3">
-                  <div className="max-h-52 space-y-2 overflow-y-auto">
-                    {isLoadingCatalogs && (
-                      <p className="text-sm text-slate-500">Cargando grupos...</p>
-                    )}
-
-                    {!isLoadingCatalogs && groups.length === 0 && (
-                      <p className="text-sm text-slate-500">
-                        No hay grupos de POIs disponibles
-                      </p>
-                    )}
-
-                    {!isLoadingCatalogs &&
-                      groups.map((group) => {
-                        const checked = form.id_grupo_pois.includes(group.id_grupo_pois)
-
-                        return (
-                          <label
-                            key={group.id_grupo_pois}
-                            className="flex items-center gap-3 rounded px-2 py-2 hover:bg-slate-50"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => handleGroupChange(group.id_grupo_pois)}
-                              className="h-4 w-4"
-                            />
-                            <span className="text-sm text-slate-700">
-                              {group.nombre}
-                            </span>
-                          </label>
-                        )
-                      })}
+                          return (
+                            <label
+                              key={group.id_grupo_pois}
+                              className="flex items-center gap-3 rounded px-2 py-2 hover:bg-slate-50"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => handleGroupChange(group.id_grupo_pois)}
+                                className="h-4 w-4"
+                              />
+                              <span className="text-sm text-slate-700">
+                                {group.nombre}
+                              </span>
+                            </label>
+                          )
+                        })}
+                    </div>
                   </div>
+                </Field>
+
+                <Field label="Observaciones">
+                  <textarea
+                    name="observaciones"
+                    value={form.observaciones}
+                    onChange={handleInputChange}
+                    className="min-h-32 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400"
+                  />
+                </Field>
+              </section>
+
+              <aside className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+                <h3 className="text-sm font-semibold text-slate-700">
+                  Resumen del punto
+                </h3>
+
+                <div className="mt-4 space-y-3 text-sm text-slate-600">
+                  <p>
+                    <span className="font-medium text-slate-700">Nombre:</span>{" "}
+                    {form.nombre || "---"}
+                  </p>
+
+                  <p>
+                    <span className="font-medium text-slate-700">Grupos:</span>{" "}
+                    {form.id_grupo_pois.length}
+                  </p>
+
+                  <p>
+                    <span className="font-medium text-slate-700">Observaciones:</span>{" "}
+                    {form.observaciones || "---"}
+                  </p>
                 </div>
-              </Field>
+              </aside>
+            </div>
+          )}
 
-              <Field label="Color del marcador">
-                <input
-                  name="marker_color"
-                  value={form.marker_color}
-                  onChange={handleChange}
-                  className={inputClass}
-                />
-              </Field>
+          {activeTab === "address" && (
+            <div className="grid grid-cols-1 gap-8 xl:grid-cols-[420px_1fr]">
+              <section className="space-y-5">
+                <Field label="Tipo de Geocerca *">
+                  <div className="flex items-center gap-6 pt-2">
+                    <RadioOption
+                      checked={form.tipo_poi === 1}
+                      label="Circular"
+                      onClick={() =>
+                        setForm((prev) => ({
+                          ...prev,
+                          tipo_poi: 1,
+                          polygon_path: "",
+                          area: "",
+                        }))
+                      }
+                    />
 
-              <Field label="Color del polígono">
-                <input
-                  name="polygon_color"
-                  value={form.polygon_color}
-                  onChange={handleChange}
-                  className={inputClass}
-                />
-              </Field>
+                    <RadioOption
+                      checked={form.tipo_poi === 2}
+                      label="Poligonal"
+                      onClick={() =>
+                        setForm((prev) => ({
+                          ...prev,
+                          tipo_poi: 2,
+                          lat: prev.lat,
+                          lng: prev.lng,
+                        }))
+                      }
+                    />
+                  </div>
+                </Field>
 
-              <Field label="Color del radio">
-                <input
-                  name="radio_color"
-                  value={form.radio_color}
-                  onChange={handleChange}
-                  className={inputClass}
-                />
-              </Field>
+                <Field label="Dirección *">
+                  <input
+                    name="direccion"
+                    value={form.direccion}
+                    onChange={handleInputChange}
+                    className={inputClass}
+                    placeholder="Buscar lugar o dirección en el mapa"
+                  />
+                </Field>
 
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                {form.direccionEsAproximada && (
+                  <p className="-mt-2 text-xs text-amber-600">
+                    Ubicación encontrada. Se muestra dirección aproximada.
+                  </p>
+                )}
+
+                {form.tipo_poi === 1 && (
+                  <>
+                    <Field label="Marcador *">
+                      <div className="flex items-center gap-6 pt-2">
+                        <RadioOption checked label="Predefinido" onClick={() => { }} />
+                        <RadioOption checked={false} label="Crear Nuevo" onClick={() => { }} />
+                      </div>
+                    </Field>
+
+                    <div className="grid grid-cols-[1fr_120px] gap-4">
+                      <Field label="Radio de la Circunferencia *">
+                        <div className="relative">
+                          <input
+                            name="radio"
+                            type="number"
+                            min={1}
+                            value={form.radio}
+                            onChange={handleInputChange}
+                            className={`${inputClass} pr-20`}
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
+                            metros
+                          </span>
+                        </div>
+                      </Field>
+
+                      <Field label="Color">
+                        <input
+                          name="radio_color"
+                          value={form.radio_color}
+                          onChange={handleInputChange}
+                          className={inputClass}
+                        />
+                      </Field>
+                    </div>
+
+                    <Field label="Marcador">
+                      <input
+                        name="url_marker"
+                        value={form.url_marker}
+                        onChange={handleInputChange}
+                        className={inputClass}
+                      />
+                    </Field>
+                  </>
+                )}
+
+                {form.tipo_poi === 2 && (
+                  <>
+                    <div className="grid grid-cols-[1fr_1fr] gap-4">
+                      <Field label="Color">
+                        <input
+                          name="polygon_color"
+                          value={form.polygon_color}
+                          onChange={handleInputChange}
+                          className={inputClass}
+                        />
+                      </Field>
+
+                      <Field label="Herramientas">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => geometryEditorRef.current?.clearAll()}
+                            className="rounded border border-red-300 bg-red-500 px-3 py-2 text-sm font-medium text-white hover:bg-red-600"
+                          >
+                            Borrar Todo
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => geometryEditorRef.current?.undoLastPoint()}
+                            className="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                          >
+                            Paso Atrás
+                          </button>
+                        </div>
+                      </Field>
+                    </div>
+
+                    <label className="flex items-center gap-3 text-sm text-slate-600">
+                      <input type="checkbox" className="h-4 w-4" />
+                      Ocultar líneas y marcador guía
+                    </label>
+                  </>
+                )}
+              </section>
+
+              <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <PoiGeometryEditor
+                  ref={geometryEditorRef}
                   value={{
                     tipo_poi: form.tipo_poi,
+                    direccion: form.direccion,
+                    direccionEsAproximada: form.direccionEsAproximada,
                     lat: form.lat,
                     lng: form.lng,
                     radio: form.radio,
@@ -345,34 +453,65 @@ export const NewPoiModal = ({
                     }))
                   }
                 />
-              </div>
+              </section>
             </div>
-          </div>
+          )}
 
           {error && <p className="mt-6 text-sm text-rose-500">{error}</p>}
         </div>
 
-        <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4">
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="rounded border border-slate-300 px-5 py-2 text-slate-700 hover:bg-slate-50"
-          >
-            Cancelar
-          </button>
+        <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4">
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              disabled={activeTab === "general"}
+              onClick={() => setActiveTab("general")}
+              className="text-slate-400 disabled:opacity-50"
+            >
+              &lt; Anterior
+            </button>
 
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isLoading}
-            className="rounded bg-cyan-500 px-5 py-2 font-medium text-white hover:bg-cyan-600 disabled:opacity-50"
-          >
-            {isLoading ? "Guardando..." : "Guardar"}
-          </button>
+            <button
+              type="button"
+              disabled={activeTab === "address"}
+              onClick={() => setActiveTab("address")}
+              className="text-slate-600 disabled:opacity-40"
+            >
+              Siguiente &gt;
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="rounded border border-slate-300 px-5 py-2 text-slate-700 hover:bg-slate-50"
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isLoading}
+              className="rounded bg-cyan-500 px-5 py-2 font-medium text-white hover:bg-cyan-600 disabled:opacity-50"
+            >
+              {isLoading ? "Guardando..." : "Guardar"}
+            </button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
   )
+}
+
+const safeParsePolygon = (polygonPath: string) => {
+  try {
+    const parsed = JSON.parse(polygonPath)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
 }
 
 const inputClass =
@@ -390,5 +529,54 @@ const Field = ({
       <span className="mb-2 block text-sm text-slate-600">{label}</span>
       {children}
     </label>
+  )
+}
+
+const TabButton = ({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-t-lg px-4 py-3 text-sm font-medium ${active
+        ? "border border-b-white border-slate-200 bg-white text-slate-700"
+        : "text-slate-500 hover:text-slate-700"
+        }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+const RadioOption = ({
+  checked,
+  label,
+  onClick,
+}: {
+  checked: boolean
+  label: string
+  onClick: () => void
+}) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-2 text-sm text-slate-700"
+    >
+      <span
+        className={`flex h-4 w-4 items-center justify-center rounded-full border ${checked ? "border-slate-500" : "border-slate-300"
+          }`}
+      >
+        {checked && <span className="h-2 w-2 rounded-full bg-slate-500" />}
+      </span>
+      {label}
+    </button>
   )
 }
