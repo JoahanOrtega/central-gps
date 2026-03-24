@@ -46,6 +46,7 @@ export interface CreatePoiPayload {
   id_elemento: number
   nombre: string
   direccion: string
+  direccionEsAproximada: boolean
   tipo_poi: number
   tipo_marker: number
   url_marker: string
@@ -58,13 +59,12 @@ export interface CreatePoiPayload {
   radio: number
   bounds: string
   area: string
-  radio_color: string
   polygon_path: string
   polygon_color: string
+  radio_color: string
   observaciones: string
   id_grupo_pois: number[]
 }
-
 export interface CreatePoiGroupPayload {
   id_cliente: number | null
   nombre: string
