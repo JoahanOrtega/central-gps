@@ -28,9 +28,9 @@ const navbarGroups = [
       { id: "terminals", label: "Terminales", path: "/home/catalogs/terminals" },
       { id: "operators", label: "Operadores", path: "/home/catalogs/operators" },
       {
-        id: "interest-points",
+        id: "points-of-interest",
         label: "Puntos de Interés",
-        path: "/home/catalogs/interest-points",
+        path: "/home/catalogs/points-of-interest",
       },
       {
         id: "gas-stations",
