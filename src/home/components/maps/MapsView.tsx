@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { MapPinned } from 'lucide-react'
 import { MapToolbar } from './MapToolbar'
 import { MapCanvas, type MapCanvasHandle } from './MapCanvas'
@@ -8,6 +8,18 @@ import type { MapPoiItem } from './map.types'
 export const MapsView = () => {
   const mapCanvasRef = useRef<MapCanvasHandle | null>(null)
   const [isPoisDrawerOpen, setIsPoisDrawerOpen] = useState(false)
+
+  const handlePoisLoaded = useCallback((pois: MapPoiItem[]) => {
+    mapCanvasRef.current?.showPois(pois)
+  }, [])
+
+  const handlePoisHidden = useCallback(() => {
+    mapCanvasRef.current?.hidePois()
+  }, [])
+
+  const handleSelectPoi = useCallback((poi: MapPoiItem) => {
+    mapCanvasRef.current?.focusPoi(poi)
+  }, [])
 
   return (
     <main className="h-full overflow-hidden bg-[#f5f6f8] p-6">
@@ -34,12 +46,13 @@ export const MapsView = () => {
 
         <div className="relative flex-1 overflow-hidden">
           <MapCanvas ref={mapCanvasRef} />
+
           <PoisDrawer
             isOpen={isPoisDrawerOpen}
             onClose={() => setIsPoisDrawerOpen(false)}
-            onSelectPoi={(poi: MapPoiItem) => {
-              mapCanvasRef.current?.focusPoi(poi)
-            }}
+            onSelectPoi={handleSelectPoi}
+            onPoisLoaded={handlePoisLoaded}
+            onPoisHidden={handlePoisHidden}
           />
         </div>
       </section>
