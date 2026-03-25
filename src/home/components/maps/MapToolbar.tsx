@@ -23,6 +23,7 @@ interface MapToolbarProps {
   onClearMap: () => void
   onFocusMap: () => void
   onFullscreen: () => void
+  onTogglePoisDrawer: () => void
 }
 
 export const MapToolbar = ({
@@ -31,6 +32,7 @@ export const MapToolbar = ({
   onClearMap,
   onFocusMap,
   onFullscreen,
+  onTogglePoisDrawer,
 }: MapToolbarProps) => {
   const [search, setSearch] = useState("")
 
@@ -62,7 +64,12 @@ export const MapToolbar = ({
         <BusFront className="h-4 w-4" />
       </button>
 
-      <button type="button" className={toolbarButtonClass} title="Puntos de interés">
+      <button
+        type="button"
+        className={toolbarButtonClass}
+        title="Puntos de interés"
+        onClick={onTogglePoisDrawer}
+      >
         <MapPinned className="h-4 w-4" />
       </button>
 

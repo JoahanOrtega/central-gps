@@ -13,7 +13,7 @@ export const loadGoogleMaps = (): Promise<void> => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
 
     if (!apiKey) {
-      reject(new Error("No se encontró VITE_GOOGLE_MAPS_API_KEY en el archivo .env"))
+      reject(new Error("No se encontró VITE_GOOGLE_MAPS_API_KEY"))
       return
     }
 
