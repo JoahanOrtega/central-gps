@@ -92,16 +92,20 @@ export const PoisDrawer = ({
         onPoisSelectionChange(selectedPois)
     }, [selectedPois, isOpen, onPoisSelectionChange])
 
-    const handleTogglePoi = (poiId: number) => {
-        setSelectedPoiIds((previousState) => {
-            const isSelected = previousState.includes(poiId)
+    const handleTogglePoi = (poi: MapPoiItem) => {
+        const isSelected = selectedPoiIds.includes(poi.id_poi)
 
+        setSelectedPoiIds((previousState) => {
             if (isSelected) {
-                return previousState.filter((id) => id !== poiId)
+                return previousState.filter((id) => id !== poi.id_poi)
             }
 
-            return [...previousState, poiId]
+            return [...previousState, poi.id_poi]
         })
+
+        if (!isSelected) {
+            onSelectPoi(poi)
+        }
     }
 
     const handleRowClick = (poi: MapPoiItem) => {
@@ -166,7 +170,7 @@ export const PoisDrawer = ({
                                         <input
                                             type="checkbox"
                                             checked={isChecked}
-                                            onChange={() => handleTogglePoi(poi.id_poi)}
+                                            onChange={() => handleTogglePoi(poi)}
                                             className="h-4 w-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500"
                                         />
                                     </div>
