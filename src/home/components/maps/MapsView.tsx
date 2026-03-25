@@ -1,8 +1,11 @@
+import { useRef } from "react"
 import { MapPinned } from "lucide-react"
 import { MapToolbar } from "./MapToolbar"
-import { MapCanvas } from "./MapCanvas"
+import { MapCanvas, type MapCanvasHandle } from "./MapCanvas"
 
 export const MapsView = () => {
+  const mapCanvasRef = useRef<MapCanvasHandle | null>(null)
+
   return (
     <main className="h-full overflow-hidden bg-[#f5f6f8] p-6">
       <section className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -12,11 +15,19 @@ export const MapsView = () => {
             <h1 className="text-2xl font-semibold text-slate-800">Mapa</h1>
           </div>
 
-          <MapToolbar />
+          <MapToolbar
+            onSearchAddress={(address) =>
+              void mapCanvasRef.current?.searchAddress(address)
+            }
+            onToggleTraffic={() => mapCanvasRef.current?.toggleTraffic()}
+            onClearMap={() => mapCanvasRef.current?.clearMap()}
+            onFocusMap={() => mapCanvasRef.current?.focusMexico()}
+            onFullscreen={() => mapCanvasRef.current?.toggleFullscreen()}
+          />
         </div>
 
         <div className="flex-1 overflow-hidden">
-          <MapCanvas />
+          <MapCanvas ref={mapCanvasRef} />
         </div>
       </section>
     </main>

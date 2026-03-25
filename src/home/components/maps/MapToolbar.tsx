@@ -12,26 +12,49 @@ import {
   Maximize,
   Save,
 } from "lucide-react"
+import { useState } from "react"
 
 const toolbarButtonClass =
   "flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700"
 
-export const MapToolbar = () => {
+interface MapToolbarProps {
+  onSearchAddress: (address: string) => void
+  onToggleTraffic: () => void
+  onClearMap: () => void
+  onFocusMap: () => void
+  onFullscreen: () => void
+}
+
+export const MapToolbar = ({
+  onSearchAddress,
+  onToggleTraffic,
+  onClearMap,
+  onFocusMap,
+  onFullscreen,
+}: MapToolbarProps) => {
+  const [search, setSearch] = useState("")
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    onSearchAddress(search)
+  }
+
   return (
     <div className="flex items-center gap-2">
-      <div className="flex items-center rounded-md border border-slate-300 bg-white">
+      <form
+        onSubmit={handleSubmit}
+        className="flex items-center rounded-md border border-slate-300 bg-white"
+      >
         <input
           type="text"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
           placeholder="buscador de direcciones"
           className="h-10 w-72 px-3 text-sm outline-none"
         />
-      </div>
+      </form>
 
-      <button
-        type="button"
-        className={toolbarButtonClass}
-        title="Consulta de recorrido"
-      >
+      <button type="button" className={toolbarButtonClass} title="Consulta de recorrido">
         <Route className="h-4 w-4" />
       </button>
 
@@ -39,11 +62,7 @@ export const MapToolbar = () => {
         <BusFront className="h-4 w-4" />
       </button>
 
-      <button
-        type="button"
-        className={toolbarButtonClass}
-        title="Puntos de interés"
-      >
+      <button type="button" className={toolbarButtonClass} title="Puntos de interés">
         <MapPinned className="h-4 w-4" />
       </button>
 
@@ -63,7 +82,12 @@ export const MapToolbar = () => {
         <Fuel className="h-4 w-4" />
       </button>
 
-      <button type="button" className={toolbarButtonClass} title="Ver tráfico">
+      <button
+        type="button"
+        className={toolbarButtonClass}
+        title="Ver tráfico"
+        onClick={onToggleTraffic}
+      >
         <TrafficCone className="h-4 w-4" />
       </button>
 
@@ -71,11 +95,17 @@ export const MapToolbar = () => {
         type="button"
         className={toolbarButtonClass}
         title="Limpiar el mapa"
+        onClick={onClearMap}
       >
         <Eraser className="h-4 w-4" />
       </button>
 
-      <button type="button" className={toolbarButtonClass} title="Enfocar">
+      <button
+        type="button"
+        className={toolbarButtonClass}
+        title="Enfocar"
+        onClick={onFocusMap}
+      >
         <Focus className="h-4 w-4" />
       </button>
 
@@ -83,6 +113,7 @@ export const MapToolbar = () => {
         type="button"
         className={toolbarButtonClass}
         title="Pantalla completa"
+        onClick={onFullscreen}
       >
         <Maximize className="h-4 w-4" />
       </button>
