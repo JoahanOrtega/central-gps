@@ -23,8 +23,8 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
   const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null)
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null)
   const poiMarkersRef = useRef<Map<number, google.maps.Marker>>(new Map())
-  const poiCircleRef = useRef<google.maps.Circle | null>(null)
-  const poiPolygonRef = useRef<google.maps.Polygon | null>(null)
+  const poiCirclesRef = useRef<Map<number, google.maps.Circle>>(new Map())
+  const poiPolygonsRef = useRef<Map<number, google.maps.Polygon>>(new Map())
 
   const [isTrafficVisible, setIsTrafficVisible] = useState(false)
 
@@ -93,17 +93,16 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
   }
 
   const clearPoiGeometry = () => {
-    if (poiCircleRef.current) {
-      poiCircleRef.current.setMap(null)
-      poiCircleRef.current = null
-    }
+    poiCirclesRef.current.forEach((circle) => {
+      circle.setMap(null)
+    })
+    poiCirclesRef.current.clear()
 
-    if (poiPolygonRef.current) {
-      poiPolygonRef.current.setMap(null)
-      poiPolygonRef.current = null
-    }
+    poiPolygonsRef.current.forEach((polygon) => {
+      polygon.setMap(null)
+    })
+    poiPolygonsRef.current.clear()
   }
-
   const clearMap = () => {
     clearSearchMarker()
     clearPoisMarkers()
@@ -171,43 +170,63 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     }
   }
 
-  const drawPoiGeometry = (poi: MapPoiItem) => {
+  const drawSinglePoiGeometry = (poi: MapPoiItem) => {
     const map = mapRef.current
     if (!map) return
-
-    clearPoiGeometry()
-
     if (poi.lat === null || poi.lng === null) return
 
     if (poi.tipo_poi === 1) {
-      poiCircleRef.current = new window.google.maps.Circle({
+      const existingCircle = poiCirclesRef.current.get(poi.id_poi)
+      if (existingCircle) {
+        existingCircle.setMap(null)
+        poiCirclesRef.current.delete(poi.id_poi)
+      }
+
+      const circle = new window.google.maps.Circle({
         map,
         center: { lat: poi.lat, lng: poi.lng },
         radius: poi.radio || 50,
         fillColor: poi.radio_color || '#5e6383',
-        fillOpacity: 0.20,
+        fillOpacity: 0.2,
         strokeColor: poi.radio_color || '#5e6383',
         strokeOpacity: 0.9,
         strokeWeight: 2,
       })
+
+      poiCirclesRef.current.set(poi.id_poi, circle)
       return
     }
 
     if (poi.tipo_poi === 2) {
       const points = parsePolygonPath(poi.polygon_path)
-
       if (points.length < 3) return
 
-      poiPolygonRef.current = new window.google.maps.Polygon({
+      const existingPolygon = poiPolygonsRef.current.get(poi.id_poi)
+      if (existingPolygon) {
+        existingPolygon.setMap(null)
+        poiPolygonsRef.current.delete(poi.id_poi)
+      }
+
+      const polygon = new window.google.maps.Polygon({
         map,
         paths: points,
         fillColor: poi.polygon_color || '#5e6383',
-        fillOpacity: 0.20,
+        fillOpacity: 0.2,
         strokeColor: poi.polygon_color || '#5e6383',
         strokeOpacity: 0.9,
         strokeWeight: 2,
       })
+
+      poiPolygonsRef.current.set(poi.id_poi, polygon)
     }
+  }
+
+  const drawPoisGeometries = (pois: MapPoiItem[]) => {
+    clearPoiGeometry()
+
+    pois.forEach((poi) => {
+      drawSinglePoiGeometry(poi)
+    })
   }
 
   const focusPoi = (poi: MapPoiItem) => {
@@ -225,8 +244,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     const existingMarker = poiMarkersRef.current.get(poi.id_poi)
 
     if (existingMarker) {
-      drawPoiGeometry(poi)
-
       infoWindow.setContent(buildInfoWindowContent(poi))
       infoWindow.open({
         map,
@@ -242,8 +259,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     })
 
     marker.addListener('click', () => {
-      drawPoiGeometry(poi)
-
       infoWindow.setContent(buildInfoWindowContent(poi))
       infoWindow.open({
         map,
@@ -252,8 +267,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     })
 
     poiMarkersRef.current.set(poi.id_poi, marker)
-
-    drawPoiGeometry(poi)
 
     infoWindow.setContent(buildInfoWindowContent(poi))
     infoWindow.open({
@@ -269,6 +282,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     if (!map || !infoWindow) return
 
     clearPoisMarkers()
+    clearPoiGeometry()
 
     const bounds = new window.google.maps.LatLngBounds()
     let hasValidPoints = false
@@ -285,8 +299,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
       })
 
       marker.addListener('click', () => {
-        drawPoiGeometry(poi)
-
         infoWindow.setContent(buildInfoWindowContent(poi))
         infoWindow.open({
           map,
@@ -298,6 +310,8 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
       bounds.extend(position)
       hasValidPoints = true
     })
+
+    drawPoisGeometries(pois)
 
     if (hasValidPoints) {
       map.fitBounds(bounds)
