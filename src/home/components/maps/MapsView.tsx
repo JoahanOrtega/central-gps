@@ -1,10 +1,13 @@
-import { useRef } from "react"
-import { MapPinned } from "lucide-react"
-import { MapToolbar } from "./MapToolbar"
-import { MapCanvas, type MapCanvasHandle } from "./MapCanvas"
+import { useRef, useState } from 'react'
+import { MapPinned } from 'lucide-react'
+import { MapToolbar } from './MapToolbar'
+import { MapCanvas, type MapCanvasHandle } from './MapCanvas'
+import { PoisDrawer } from './PoisDrawer'
+import type { MapPoiItem } from './map.types'
 
 export const MapsView = () => {
   const mapCanvasRef = useRef<MapCanvasHandle | null>(null)
+  const [isPoisDrawerOpen, setIsPoisDrawerOpen] = useState(false)
 
   return (
     <main className="h-full overflow-hidden bg-[#f5f6f8] p-6">
@@ -23,11 +26,21 @@ export const MapsView = () => {
             onClearMap={() => mapCanvasRef.current?.clearMap()}
             onFocusMap={() => mapCanvasRef.current?.focusMexico()}
             onFullscreen={() => mapCanvasRef.current?.toggleFullscreen()}
+            onTogglePoisDrawer={() =>
+              setIsPoisDrawerOpen((previousState) => !previousState)
+            }
           />
         </div>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="relative flex-1 overflow-hidden">
           <MapCanvas ref={mapCanvasRef} />
+          <PoisDrawer
+            isOpen={isPoisDrawerOpen}
+            onClose={() => setIsPoisDrawerOpen(false)}
+            onSelectPoi={(poi: MapPoiItem) => {
+              mapCanvasRef.current?.focusPoi(poi)
+            }}
+          />
         </div>
       </section>
     </main>

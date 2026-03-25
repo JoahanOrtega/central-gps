@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react"
 import { loadGoogleMaps } from "@/lib/loadGoogleMaps"
+import type { MapPoiItem } from './map.types'
 
 export interface MapCanvasHandle {
   focusMexico: () => void
@@ -7,6 +8,7 @@ export interface MapCanvasHandle {
   clearMap: () => void
   searchAddress: (address: string) => Promise<void>
   toggleFullscreen: () => void
+  focusPoi: (poi: MapPoiItem) => void
 }
 
 const DEFAULT_CENTER = { lat: 23.6345, lng: -102.5528 }
@@ -17,6 +19,8 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
   const geocoderRef = useRef<google.maps.Geocoder | null>(null)
   const markerRef = useRef<google.maps.Marker | null>(null)
   const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null)
+  const infoWindowRef = useRef<google.maps.InfoWindow | null>(null)
+
 
   const [isTrafficVisible, setIsTrafficVisible] = useState(false)
 
@@ -40,10 +44,13 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
       mapRef.current = map
       geocoderRef.current = new window.google.maps.Geocoder()
       trafficLayerRef.current = new window.google.maps.TrafficLayer()
+      infoWindowRef.current = new window.google.maps.InfoWindow()
     }
 
     initializeMap()
   }, [])
+
+
 
   const focusMexico = () => {
     const map = mapRef.current
@@ -73,6 +80,9 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     if (markerRef.current) {
       markerRef.current.setMap(null)
       markerRef.current = null
+    }
+    if (infoWindowRef.current) {
+      infoWindowRef.current.close()
     }
   }
 
@@ -111,6 +121,45 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     markerRef.current.setPosition(location)
   }
 
+  const focusPoi = (poi: MapPoiItem) => {
+    const map = mapRef.current
+    const infoWindow = infoWindowRef.current
+
+    if (!map || !infoWindow) return
+    if (poi.lat === null || poi.lng === null) return
+
+    const position = { lat: poi.lat, lng: poi.lng }
+
+    map.panTo(position)
+    map.setZoom(17)
+
+    if (!markerRef.current) {
+      markerRef.current = new window.google.maps.Marker({
+        map,
+        position,
+      })
+    } else {
+      markerRef.current.setPosition(position)
+    }
+
+    const content = `
+    <div style="min-width:220px; padding:4px 2px;">
+      <div style="font-weight:600; font-size:14px; color:#334155;">
+        ${escapeHtml(poi.nombre || 'Sin nombre')}
+      </div>
+      <div style="margin-top:6px; font-size:12px; color:#64748b; line-height:1.4;">
+        ${escapeHtml(poi.direccion || 'Sin dirección')}
+      </div>
+    </div>
+  `
+
+    infoWindow.setContent(content)
+    infoWindow.open({
+      map,
+      anchor: markerRef.current,
+    })
+  }
+
   const toggleFullscreen = () => {
     const element = containerRef.current
     if (!element) return
@@ -129,6 +178,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     clearMap,
     searchAddress,
     toggleFullscreen,
+    focusPoi,
   }))
 
   return (
@@ -164,3 +214,11 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
 })
 
 MapCanvas.displayName = "MapCanvas"
+const escapeHtml = (value: string) => {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
+}
