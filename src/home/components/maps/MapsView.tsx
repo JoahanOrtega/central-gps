@@ -9,7 +9,12 @@ export const MapsView = () => {
   const mapCanvasRef = useRef<MapCanvasHandle | null>(null)
   const [isPoisDrawerOpen, setIsPoisDrawerOpen] = useState(false)
 
-  const handlePoisLoaded = useCallback((pois: MapPoiItem[]) => {
+  const handlePoisSelectionChange = useCallback((pois: MapPoiItem[]) => {
+    if (pois.length === 0) {
+      mapCanvasRef.current?.hidePois()
+      return
+    }
+
     mapCanvasRef.current?.showPois(pois)
   }, [])
 
@@ -51,7 +56,7 @@ export const MapsView = () => {
             isOpen={isPoisDrawerOpen}
             onClose={() => setIsPoisDrawerOpen(false)}
             onSelectPoi={handleSelectPoi}
-            onPoisLoaded={handlePoisLoaded}
+            onPoisSelectionChange={handlePoisSelectionChange}
             onPoisHidden={handlePoisHidden}
           />
         </div>
