@@ -8,7 +8,7 @@ interface PoisDrawerProps {
     isOpen: boolean
     onClose: () => void
     onSelectPoi: (poi: MapPoiItem) => void
-    onPoisLoaded: (pois: MapPoiItem[]) => void
+    onPoisSelectionChange: (pois: MapPoiItem[]) => void
     onPoisHidden: () => void
 }
 
@@ -31,16 +31,18 @@ export const PoisDrawer = ({
     isOpen,
     onClose,
     onSelectPoi,
-    onPoisLoaded,
+    onPoisSelectionChange,
     onPoisHidden,
 }: PoisDrawerProps) => {
     const [pois, setPois] = useState<MapPoiItem[]>([])
+    const [selectedPoiIds, setSelectedPoiIds] = useState<number[]>([])
     const [search, setSearch] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
 
     useEffect(() => {
         if (!isOpen) {
+            setSelectedPoiIds([])
             onPoisHidden()
             return
         }
@@ -54,7 +56,8 @@ export const PoisDrawer = ({
                 const normalizedPois = data.map(mapPoiItem)
 
                 setPois(normalizedPois)
-                onPoisLoaded(normalizedPois)
+                setSelectedPoiIds([])
+                onPoisSelectionChange([])
             } catch (error) {
                 const message =
                     error instanceof Error ? error.message : 'No fue posible cargar los puntos de interés'
@@ -65,7 +68,7 @@ export const PoisDrawer = ({
         }
 
         void loadPois()
-    }, [isOpen, onPoisHidden, onPoisLoaded])
+    }, [isOpen, onPoisHidden, onPoisSelectionChange])
 
     const filteredPois = useMemo(() => {
         const normalizedSearch = search.trim().toLowerCase()
@@ -73,17 +76,38 @@ export const PoisDrawer = ({
         if (!normalizedSearch) return pois
 
         return pois.filter((poi) => {
-            const name = poi.nombre?.toLowerCase() ?? ''
-            const address = poi.direccion?.toLowerCase() ?? ''
+            const name = poi.nombre.toLowerCase()
+            const address = poi.direccion.toLowerCase()
 
             return name.includes(normalizedSearch) || address.includes(normalizedSearch)
         })
     }, [pois, search])
 
+    const selectedPois = useMemo(() => {
+        return pois.filter((poi) => selectedPoiIds.includes(poi.id_poi))
+    }, [pois, selectedPoiIds])
+
     useEffect(() => {
         if (!isOpen) return
-        onPoisLoaded(filteredPois)
-    }, [filteredPois, isOpen, onPoisLoaded])
+        onPoisSelectionChange(selectedPois)
+    }, [selectedPois, isOpen, onPoisSelectionChange])
+
+    const handleTogglePoi = (poiId: number) => {
+        setSelectedPoiIds((previousState) => {
+            const isSelected = previousState.includes(poiId)
+
+            if (isSelected) {
+                return previousState.filter((id) => id !== poiId)
+            }
+
+            return [...previousState, poiId]
+        })
+    }
+
+    const handleRowClick = (poi: MapPoiItem) => {
+        if (!selectedPoiIds.includes(poi.id_poi)) return
+        onSelectPoi(poi)
+    }
 
     return (
         <aside
@@ -130,31 +154,48 @@ export const PoisDrawer = ({
 
                     {!isLoading &&
                         !error &&
-                        filteredPois.map((poi) => (
-                            <button
-                                key={poi.id_poi}
-                                type="button"
-                                onClick={() => onSelectPoi(poi)}
-                                className="flex w-full items-start gap-3 border-b border-slate-100 px-4 py-4 text-left hover:bg-slate-50"
-                            >
-                                <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded bg-slate-100 text-slate-500">
-                                    <MapPin className="h-4 w-4" />
-                                </div>
+                        filteredPois.map((poi) => {
+                            const isChecked = selectedPoiIds.includes(poi.id_poi)
 
-                                <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-medium text-slate-700">
-                                        {poi.nombre || 'Sin nombre'}
-                                    </p>
-                                    <p className="mt-1 line-clamp-2 text-xs text-slate-500">
-                                        {poi.direccion || 'Sin dirección'}
-                                    </p>
-                                </div>
+                            return (
+                                <div
+                                    key={poi.id_poi}
+                                    className="flex items-start gap-3 border-b border-slate-100 px-4 py-4 hover:bg-slate-50"
+                                >
+                                    <div className="pt-1">
+                                        <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={() => handleTogglePoi(poi.id_poi)}
+                                            className="h-4 w-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500"
+                                        />
+                                    </div>
 
-                                <div className="pt-1 text-slate-400">
-                                    <ChevronRight className="h-4 w-4" />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRowClick(poi)}
+                                        className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                                    >
+                                        <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded bg-slate-100 text-slate-500">
+                                            <MapPin className="h-4 w-4" />
+                                        </div>
+
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate text-sm font-medium text-slate-700">
+                                                {poi.nombre || 'Sin nombre'}
+                                            </p>
+                                            <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+                                                {poi.direccion || 'Sin dirección'}
+                                            </p>
+                                        </div>
+
+                                        <div className="pt-1 text-slate-400">
+                                            <ChevronRight className="h-4 w-4" />
+                                        </div>
+                                    </button>
                                 </div>
-                            </button>
-                        ))}
+                            )
+                        })}
                 </div>
             </div>
         </aside>
