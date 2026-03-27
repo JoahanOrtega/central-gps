@@ -1,87 +1,49 @@
+import { apiFetch } from "@/lib/api";
 import type {
   PoiItem,
   PoiGroupItem,
   CreatePoiPayload,
   CreatePoiGroupPayload,
-} from "../types/poi.types"
-
-const API_URL = "http://127.0.0.1:5000"
+} from "../types/poi.types";
 
 export const poiService = {
-  async getPois(search = ""): Promise<PoiItem[]> {
-    const url = new URL(`${API_URL}/pois`)
+  getPois(search = ""): Promise<PoiItem[]> {
+    const query = search.trim()
+      ? `/pois?search=${encodeURIComponent(search.trim())}`
+      : "/pois";
 
-    if (search.trim()) {
-      url.searchParams.set("search", search.trim())
-    }
-
-    const response = await fetch(url.toString())
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.error || "Error al obtener los puntos de interés")
-    }
-
-    return data
+    return apiFetch<PoiItem[]>(query, {
+      method: "GET",
+    });
   },
 
-  async createPoi(payload: CreatePoiPayload) {
-    const response = await fetch(`${API_URL}/pois`, {
+  createPoi(payload: CreatePoiPayload) {
+    return apiFetch("/pois", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.error || "Error al guardar el punto de interés")
-    }
-
-    return data
+      body: payload,
+    });
   },
 
-  async getPoiGroups(search = ""): Promise<PoiGroupItem[]> {
-    const url = new URL(`${API_URL}/poi-groups`)
+  getPoiGroups(search = ""): Promise<PoiGroupItem[]> {
+    const query = search.trim()
+      ? `/poi-groups?search=${encodeURIComponent(search.trim())}`
+      : "/poi-groups";
 
-    if (search.trim()) {
-      url.searchParams.set("search", search.trim())
-    }
-
-    const response = await fetch(url.toString())
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.error || "Error al obtener grupos de POIs")
-    }
-
-    return data
+    return apiFetch<PoiGroupItem[]>(query, {
+      method: "GET",
+    });
   },
 
-  async createPoiGroup(payload: CreatePoiGroupPayload) {
-    const response = await fetch(`${API_URL}/poi-groups`, {
+  createPoiGroup(payload: CreatePoiGroupPayload) {
+    return apiFetch("/poi-groups", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.error || "Error al guardar grupo de POIs")
-    }
-
-    return data
+      body: payload,
+    });
   },
 
-  async getClients() {
-    const response = await fetch(`${API_URL}/clients`)
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.error || "Error al obtener clientes")
-    }
-
-    return data
+  getClients() {
+    return apiFetch("/clients", {
+      method: "GET",
+    });
   },
-}
+};
