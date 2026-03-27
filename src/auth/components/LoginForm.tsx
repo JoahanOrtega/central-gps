@@ -1,20 +1,33 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 
-interface LoginFormState {
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+interface LoginFormValues {
   username: string;
   password: string;
   remember: boolean;
 }
 
-export const LoginForm = () => {
-  const navigate = useNavigate();
+interface LoginFormProps {
+  onSubmit: (values: LoginFormValues) => Promise<void> | void;
+  isLoading?: boolean;
+  error?: string;
+}
 
-  const [form, setForm] = useState<LoginFormState>({
+export const LoginForm = ({
+  onSubmit,
+  isLoading = false,
+  error = "",
+}: LoginFormProps) => {
+  const [form, setForm] = useState<LoginFormValues>({
     username: "",
     password: "",
     remember: false,
   });
+
+  const [localError, setLocalError] = useState("");
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = event.target;
@@ -23,60 +36,85 @@ export const LoginForm = () => {
       ...prevState,
       [name]: type === "checkbox" ? checked : value,
     }));
+
+    if (localError) {
+      setLocalError("");
+    }
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setLocalError("");
 
     if (!form.username.trim() || !form.password.trim()) {
-      alert("Captura usuario y contraseña");
+      setLocalError("Captura usuario y contraseña");
       return;
     }
 
-    localStorage.setItem("token", "mock-token");
-    navigate("/home");
+    await onSubmit(form);
   };
+
+  const displayedError = localError || error;
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="w-full max-w-md flex flex-col gap-4"
+      className="flex w-full flex-col items-center gap-5"
     >
-      <input
-        type="text"
-        name="username"
-        placeholder="Usuario"
-        value={form.username}
-        onChange={handleChange}
-        className="w-full rounded-full px-5 py-3 bg-white/80 border border-gray-200 outline-none focus:ring-2 focus:ring-sky-500"
-      />
+      <div className="flex w-full flex-col gap-2">
+        <Label htmlFor="username">Usuario</Label>
+        <Input
+          id="username"
+          name="username"
+          type="text"
+          value={form.username}
+          onChange={handleChange}
+          className="h-12 rounded-full bg-white/80"
+          placeholder="Ingresa tu usuario"
+          disabled={isLoading}
+        />
+      </div>
 
-      <input
-        type="password"
-        name="password"
-        placeholder="Contraseña"
-        value={form.password}
-        onChange={handleChange}
-        className="w-full rounded-full px-5 py-3 bg-white/80 border border-gray-200 outline-none focus:ring-2 focus:ring-sky-500"
-      />
+      <div className="flex w-full flex-col gap-2">
+        <Label htmlFor="password">Contraseña</Label>
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          value={form.password}
+          onChange={handleChange}
+          className="h-12 rounded-full bg-white/80"
+          placeholder="Ingresa tu contraseña"
+          disabled={isLoading}
+        />
+      </div>
 
-      <label className="flex items-center gap-3 text-gray-700 text-sm">
+      <div className="self-start flex items-center gap-2 text-sm text-gray-600">
         <input
-          type="checkbox"
+          id="remember"
           name="remember"
+          type="checkbox"
           checked={form.remember}
           onChange={handleChange}
-          className="w-4 h-4"
+          className="h-4 w-4"
+          disabled={isLoading}
         />
-        Recordarme
-      </label>
+        <Label htmlFor="remember">Recordarme</Label>
+      </div>
 
-      <button
+      {displayedError && (
+        <p className="w-full text-left text-sm text-red-500">
+          {displayedError}
+        </p>
+      )}
+
+      <Button
         type="submit"
-        className="mx-auto mt-2 px-8 py-3 rounded-lg bg-sky-700 text-white font-medium hover:bg-sky-800 transition"
+        disabled={isLoading}
+        className="h-11 w-44 rounded-lg bg-sky-600 hover:bg-sky-700"
       >
-        Ingresar
-      </button>
+        {isLoading ? "Ingresando..." : "Ingresar"}
+      </Button>
     </form>
   );
 };

@@ -1,14 +1,15 @@
 export interface LoginPayload {
-  username: string
-  password: string
+  username: string;
+  password: string;
 }
 
 export interface AuthUser {
-  id: number
-  username: string
+  id: number;
+  username: string;
 }
 
 export interface LoginResponse {
-  message: string
-  user: AuthUser
+  message: string;
+  token: string;
+  user: AuthUser;
 }
