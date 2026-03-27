@@ -2,8 +2,8 @@ import { Bus, CalendarDays, Download, Expand } from "lucide-react";
 
 export const DashboardView = () => {
   return (
-    <main className="h-full overflow-y-auto p-6 bg-[#f5f6f8]">
-      <section className="rounded-2xl border border-slate-200 bg-white">
+    <main className="h-full overflow-auto bg-[#f5f6f8] p-3 md:p-6">
+      <section className="flex min-h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <div className="flex items-center gap-3">
             <Bus className="h-5 w-5 text-slate-500" />

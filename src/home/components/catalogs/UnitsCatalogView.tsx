@@ -1,49 +1,56 @@
-import { useEffect, useState } from "react"
-import { BusFront, Plus, Search, Download, TriangleAlert, X } from "lucide-react"
+import { useEffect, useState } from "react";
+import {
+  BusFront,
+  Plus,
+  Search,
+  Download,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 
-import { unitService } from "../../services/unitService"
-import type { UnitItem } from "../../types/unit.types"
-import { UnitCard } from "./UnitCard"
-import { NewUnitModal } from "./NewUnitModal"
+import { unitService } from "../../services/unitService";
+import type { UnitItem } from "../../types/unit.types";
+import { UnitCard } from "./UnitCard";
+import { NewUnitModal } from "./NewUnitModal";
 
 export const UnitsCatalogView = () => {
-  const [units, setUnits] = useState<UnitItem[]>([])
-  const [search, setSearch] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [units, setUnits] = useState<UnitItem[]>([]);
+  const [search, setSearch] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const loadUnits = async (searchValue = "") => {
     try {
-      setIsLoading(true)
-      setError("")
+      setIsLoading(true);
+      setError("");
 
-      const data = await unitService.getUnits(searchValue)
-      setUnits(data)
+      const data = await unitService.getUnits(searchValue);
+      setUnits(data);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Error al cargar unidades"
-      setError(message)
+        error instanceof Error ? error.message : "Error al cargar unidades";
+      setError(message);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      loadUnits(search)
-    }, 350)
+      loadUnits(search);
+    }, 350);
 
-    return () => clearTimeout(timeout)
-  }, [search])
+    return () => clearTimeout(timeout);
+  }, [search]);
 
   useEffect(() => {
-    loadUnits()
-  }, [])
+    loadUnits();
+  }, []);
 
   return (
-    <main className="h-full overflow-y-auto bg-[#f5f6f8] p-6">
-      <section className="rounded-2xl border border-slate-200 bg-white">
+    <main className="h-full overflow-auto bg-[#f5f6f8] p-3 md:p-6">
+      <section className="flex min-h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <div className="flex items-center gap-3">
             <BusFront className="h-5 w-5 text-slate-500" />
@@ -115,7 +122,8 @@ export const UnitsCatalogView = () => {
               type="button"
               className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-700"
             >
-              Sin Grupo <span className="ml-1 text-slate-400">{units.length}</span>
+              Sin Grupo{" "}
+              <span className="ml-1 text-slate-400">{units.length}</span>
             </button>
           </div>
         </div>
@@ -153,5 +161,5 @@ export const UnitsCatalogView = () => {
         onCreated={() => loadUnits(search)}
       />
     </main>
-  )
-}
+  );
+};
