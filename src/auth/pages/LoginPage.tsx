@@ -1,82 +1,84 @@
-import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { CustomLogo } from "@/components/shared/CustomLogo"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { CustomLogo } from "@/components/shared/CustomLogo";
 
-import { authService } from "../services/authService"
-import { hasActiveSession, saveAuthSession } from "../utils/auth-storage"
+import { authService } from "../services/authService";
+import { hasActiveSession, saveAuthSession } from "../utils/auth-storage";
 
+import bgImage from "@/assets/images/login-bg.jpg";
 
-import bgImage from "@/assets/images/login-bg.jpg"
-
-interface LoginPageProps extends React.ComponentProps<"div"> { }
+interface LoginPageProps extends React.ComponentProps<"div"> {}
 
 interface LoginFormState {
-  username: string
-  password: string
-  remember: boolean
+  username: string;
+  password: string;
+  remember: boolean;
 }
 
 export const LoginPage = ({ className }: LoginPageProps) => {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   const [form, setForm] = useState<LoginFormState>({
     username: "",
     password: "",
     remember: false,
-  })
+  });
 
-  const [error, setError] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   // si ya hay una sesión activa, redirigir al home
   useEffect(() => {
     if (hasActiveSession()) {
-      navigate("/home", { replace: true })
+      navigate("/home", { replace: true });
     }
-  }, [navigate])
+  }, [navigate]);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = event.target
+    const { name, value, type, checked } = event.target;
 
     setForm((prevState) => ({
       ...prevState,
       [name]: type === "checkbox" ? checked : value,
-    }))
-  }
+    }));
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setError("")
+    event.preventDefault();
+    setError("");
 
     if (!form.username.trim() || !form.password.trim()) {
-      setError("Captura usuario y contraseña")
-      return
+      setError("Captura usuario y contraseña");
+      return;
     }
 
     try {
-      setIsLoading(true)
+      setIsLoading(true);
 
       const response = await authService.login({
         username: form.username,
         password: form.password,
-      })
+      });
 
-      saveAuthSession("session-active", response.user, form.remember)
-      navigate("/home", { replace: true })
+      saveAuthSession(response.token, response.user, form.remember);
+      navigate("/home", { replace: true });
+
+      saveAuthSession(response.token, response.user, form.remember);
+      navigate("/home", { replace: true });
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Error al iniciar sesión"
+        error instanceof Error ? error.message : "Error al iniciar sesión";
 
-      setError(message)
+      setError(message);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div
@@ -157,5 +159,5 @@ export const LoginPage = ({ className }: LoginPageProps) => {
         </form>
       </div>
     </div>
-  )
-}
+  );
+};

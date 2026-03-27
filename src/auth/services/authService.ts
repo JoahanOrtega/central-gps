@@ -1,6 +1,6 @@
-import type { LoginPayload, LoginResponse } from "../types/auth.types"
+import type { LoginPayload, LoginResponse } from "../types/auth.types";
 
-const API_URL = "http://127.0.0.1:5000"
+const API_URL = import.meta.env.API_URL;
 
 export const authService = {
   async login(payload: LoginPayload): Promise<LoginResponse> {
@@ -10,14 +10,14 @@ export const authService = {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
-    })
+    });
 
-    const data = await response.json()
+    const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || "Error al iniciar sesión")
+      throw new Error(data.error || "Error al iniciar sesión");
     }
 
-    return data
+    return data;
   },
-}
+};

@@ -1,15 +1,18 @@
-import type { ReactNode } from "react"
-import { Navigate } from "react-router-dom"
-import { hasActiveSession } from "@/auth/utils/auth-storage"
+import type { ReactNode } from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { getStoredToken } from "@/auth/utils/auth-storage";
 
 interface PrivateRouteProps {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export const PrivateRoute = ({ children }: PrivateRouteProps) => {
-  if (!hasActiveSession()) {
-    return <Navigate to="/login" replace />
+  const location = useLocation();
+  const token = getStoredToken();
+
+  if (!token) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  return children
-}
+  return <>{children}</>;
+};
