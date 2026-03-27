@@ -3,6 +3,10 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface LoginFormValues extends LoginPayload {
+  remember: boolean;
+}
+
 export interface AuthUser {
   id: number;
   username: string;
