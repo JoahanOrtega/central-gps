@@ -1,43 +1,71 @@
-import type { LoginPayload, LoginResponse } from "src/auth/types/auth.types";
+import { getStoredToken, clearAuthSession } from "@/auth/utils/auth-storage";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 if (!API_URL) {
-  throw new Error("VITE_API_URL no está definida");
+  throw new Error("API_URL no está definida");
 }
 
-export const authService = {
-  async login(payload: LoginPayload): Promise<LoginResponse> {
-    const response = await fetch(`${API_URL}/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
+interface ApiRequestOptions extends Omit<RequestInit, "body"> {
+  body?: unknown;
+  requiresAuth?: boolean;
+}
+
+export const apiFetch = async <T>(
+  endpoint: string,
+  options: ApiRequestOptions = {},
+): Promise<T> => {
+  const { body, requiresAuth = true, headers, ...rest } = options;
+
+  const token = getStoredToken();
+
+  const requestHeaders = new Headers(headers);
+  requestHeaders.set("Content-Type", "application/json");
+
+  if (requiresAuth && token) {
+    requestHeaders.set("Authorization", `Bearer ${token}`);
+  }
+
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_URL}${endpoint}`, {
+      ...rest,
+      headers: requestHeaders,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
     });
+  } catch {
+    throw new Error("No fue posible conectar con el servidor");
+  }
 
-    const rawText = await response.text();
+  const rawText = await response.text();
 
-    let data: any = null;
+  let data: any = null;
 
-    try {
-      data = rawText ? JSON.parse(rawText) : null;
-    } catch {
-      throw new Error("Respuesta inválida del servidor");
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    throw new Error("La respuesta del servidor no es JSON válido");
+  }
+
+  if (!response.ok) {
+    if (response.status === 401 && requiresAuth) {
+      clearAuthSession();
+      throw new Error(data?.error || "Sesión no válida");
     }
 
-    if (!response.ok) {
-      if (response.status >= 500) {
-        throw new Error("Ocurrió un error interno. Intenta nuevamente.");
-      }
-
-      throw new Error(data?.error || "Error al iniciar sesión");
+    if (response.status >= 500) {
+      throw new Error(
+        data?.error || "Ocurrió un error interno. Intenta nuevamente.",
+      );
     }
 
-    if (!data) {
-      throw new Error("El servidor no devolvió información");
-    }
+    throw new Error(data?.error || "Ocurrió un error en la petición");
+  }
 
-    return data as LoginResponse;
-  },
+  if (!data) {
+    throw new Error("El servidor no devolvió información");
+  }
+
+  return data as T;
 };
