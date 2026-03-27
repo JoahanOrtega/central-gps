@@ -1,48 +1,50 @@
-import { useEffect, useState } from "react"
-import { FolderTree, Plus, Search } from "lucide-react"
+import { useEffect, useState } from "react";
+import { FolderTree, Plus, Search } from "lucide-react";
 
-import { poiService } from "../../services/poiService"
-import type { PoiGroupItem } from "../../types/poi.types"
-import { NewPoiGroupModal } from "./NewPoiGroupModal"
+import { poiService } from "../../services/poiService";
+import type { PoiGroupItem } from "../../types/poi.types";
+import { NewPoiGroupModal } from "./NewPoiGroupModal";
 
 export const PoiGroupsView = () => {
-  const [groups, setGroups] = useState<PoiGroupItem[]>([])
-  const [search, setSearch] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [groups, setGroups] = useState<PoiGroupItem[]>([]);
+  const [search, setSearch] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const loadPoiGroups = async (searchValue = "") => {
     try {
-      setIsLoading(true)
-      setError("")
+      setIsLoading(true);
+      setError("");
 
-      const data = await poiService.getPoiGroups(searchValue)
-      setGroups(data)
+      const data = await poiService.getPoiGroups(searchValue);
+      setGroups(data);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Error al cargar grupos de POIs"
-      setError(message)
+        error instanceof Error
+          ? error.message
+          : "Error al cargar grupos de POIs";
+      setError(message);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      loadPoiGroups(search)
-    }, 350)
+      loadPoiGroups(search);
+    }, 350);
 
-    return () => clearTimeout(timeout)
-  }, [search])
+    return () => clearTimeout(timeout);
+  }, [search]);
 
   useEffect(() => {
-    loadPoiGroups()
-  }, [])
+    loadPoiGroups();
+  }, []);
 
   return (
-    <main className="h-full overflow-y-auto bg-[#f5f6f8] p-6">
-      <section className="rounded-2xl border border-slate-200 bg-white">
+    <main className="h-full overflow-auto bg-[#f5f6f8] p-3 md:p-6">
+      <section className="flex min-h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <div className="flex items-center gap-3">
             <FolderTree className="h-5 w-5 text-slate-500" />
@@ -156,5 +158,5 @@ export const PoiGroupsView = () => {
         onCreated={() => loadPoiGroups(search)}
       />
     </main>
-  )
-}
+  );
+};

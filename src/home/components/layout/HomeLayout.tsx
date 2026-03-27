@@ -1,21 +1,32 @@
+import { useState } from "react";
 import { Outlet } from "react-router-dom";
-import { HomeNavbar } from "./HomeNavbar";
-import { HomeSidebar } from "./HomeSidebar";
+import { HomeSidebar } from "../layout/HomeSidebar";
+import { HomeNavbar } from "../layout/HomeNavbar";
+import { MobileSidebarDrawer } from "../layout/MobileSidebarDrawer";
 
 export const HomeLayout = () => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   return (
-    <section className="grid h-screen w-full grid-cols-[88px_1fr] grid-rows-[88px_1fr] bg-[#f5f6f8]">
-      <div className="row-span-2">
-        <HomeSidebar />
-      </div>
+    <div className="h-screen overflow-hidden bg-[#f5f6f8]">
+      <div className="flex h-full">
+        <div className="hidden md:block">
+          <HomeSidebar />
+        </div>
 
-      <div className="col-start-2 row-start-1">
-        <HomeNavbar />
-      </div>
+        <MobileSidebarDrawer
+          isOpen={isMobileMenuOpen}
+          onClose={() => setIsMobileMenuOpen(false)}
+        />
 
-      <div className="col-start-2 row-start-2 overflow-hidden">
-        <Outlet />
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <HomeNavbar onOpenMobileMenu={() => setIsMobileMenuOpen(true)} />
+
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <Outlet />
+          </div>
+        </div>
       </div>
-    </section>
+    </div>
   );
 };

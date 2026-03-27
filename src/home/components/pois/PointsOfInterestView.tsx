@@ -1,48 +1,48 @@
-import { useEffect, useState } from "react"
-import { MapPinned, Plus, Search } from "lucide-react"
+import { useEffect, useState } from "react";
+import { MapPinned, Plus, Search } from "lucide-react";
 
-import { poiService } from "../../services/poiService"
-import type { PoiItem } from "../../types/poi.types"
-import { PoiCard } from "./PoiCard"
-import { NewPoiModal } from "./NewPoiModal"
+import { poiService } from "../../services/poiService";
+import type { PoiItem } from "../../types/poi.types";
+import { PoiCard } from "./PoiCard";
+import { NewPoiModal } from "./NewPoiModal";
 
 export const PointsOfInterestView = () => {
-  const [pois, setPois] = useState<PoiItem[]>([])
-  const [search, setSearch] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [pois, setPois] = useState<PoiItem[]>([]);
+  const [search, setSearch] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const loadPois = async (searchValue = "") => {
     try {
-      setIsLoading(true)
-      setError("")
-      const data = await poiService.getPois(searchValue)
-      setPois(data)
+      setIsLoading(true);
+      setError("");
+      const data = await poiService.getPois(searchValue);
+      setPois(data);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Error al cargar los POIs"
-      setError(message)
+        error instanceof Error ? error.message : "Error al cargar los POIs";
+      setError(message);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      loadPois(search)
-    }, 350)
+      loadPois(search);
+    }, 350);
 
-    return () => clearTimeout(timeout)
-  }, [search])
+    return () => clearTimeout(timeout);
+  }, [search]);
 
   useEffect(() => {
-    loadPois()
-  }, [])
+    loadPois();
+  }, []);
 
   return (
-    <main className="h-full overflow-y-auto bg-[#f5f6f8] p-6">
-      <section className="rounded-2xl border border-slate-200 bg-white">
+    <main className="h-full overflow-auto bg-[#f5f6f8] p-3 md:p-6">
+      <section className="flex min-h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <div className="flex items-center gap-3">
             <MapPinned className="h-5 w-5 text-slate-500" />
@@ -78,8 +78,14 @@ export const PointsOfInterestView = () => {
         </div>
 
         <div className="p-6">
-          {isLoading && <div className="py-10 text-center text-slate-500">Cargando POIs...</div>}
-          {error && <div className="py-10 text-center text-red-500">{error}</div>}
+          {isLoading && (
+            <div className="py-10 text-center text-slate-500">
+              Cargando POIs...
+            </div>
+          )}
+          {error && (
+            <div className="py-10 text-center text-red-500">{error}</div>
+          )}
 
           {!isLoading && !error && pois.length === 0 && (
             <div className="py-10 text-center text-slate-500">
@@ -103,5 +109,5 @@ export const PointsOfInterestView = () => {
         onCreated={() => loadPois(search)}
       />
     </main>
-  )
-}
+  );
+};
