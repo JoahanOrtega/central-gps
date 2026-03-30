@@ -3,11 +3,14 @@ import { MapPinned } from "lucide-react";
 import { MapToolbar } from "./MapToolbar";
 import { MapCanvas, type MapCanvasHandle } from "./MapCanvas";
 import { PoisDrawer } from "./PoisDrawer";
-import type { MapPoiItem } from "./map.types";
+import { UnitsDrawer } from "./UnitsDrawer";
+import type { MapPoiItem, MapUnitItem } from "./map.types";
 
 export const MapsView = () => {
   const mapCanvasRef = useRef<MapCanvasHandle | null>(null);
+
   const [isPoisDrawerOpen, setIsPoisDrawerOpen] = useState(false);
+  const [isUnitsDrawerOpen, setIsUnitsDrawerOpen] = useState(false);
 
   const handlePoisSelectionChange = useCallback((pois: MapPoiItem[]) => {
     if (pois.length === 0) {
@@ -26,6 +29,23 @@ export const MapsView = () => {
     mapCanvasRef.current?.focusPoi(poi);
   }, []);
 
+  const handleUnitsSelectionChange = useCallback((units: MapUnitItem[]) => {
+    if (units.length === 0) {
+      mapCanvasRef.current?.hideUnits();
+      return;
+    }
+
+    mapCanvasRef.current?.showUnits(units);
+  }, []);
+
+  const handleUnitsHidden = useCallback(() => {
+    mapCanvasRef.current?.hideUnits();
+  }, []);
+
+  const handleSelectUnit = useCallback((unit: MapUnitItem) => {
+    mapCanvasRef.current?.focusUnit(unit);
+  }, []);
+
   return (
     <main className="h-full overflow-hidden bg-[#f5f6f8] p-3 md:p-6">
       <section className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -36,6 +56,7 @@ export const MapsView = () => {
               Mapa
             </h1>
           </div>
+
           <MapToolbar
             onSearchAddress={(address) =>
               void mapCanvasRef.current?.searchAddress(address)
@@ -46,6 +67,9 @@ export const MapsView = () => {
             onFullscreen={() => mapCanvasRef.current?.toggleFullscreen()}
             onTogglePoisDrawer={() =>
               setIsPoisDrawerOpen((previousState) => !previousState)
+            }
+            onToggleUnitsDrawer={() =>
+              setIsUnitsDrawerOpen((previousState) => !previousState)
             }
           />
         </div>
@@ -59,6 +83,14 @@ export const MapsView = () => {
             onSelectPoi={handleSelectPoi}
             onPoisSelectionChange={handlePoisSelectionChange}
             onPoisHidden={handlePoisHidden}
+          />
+
+          <UnitsDrawer
+            isOpen={isUnitsDrawerOpen}
+            onClose={() => setIsUnitsDrawerOpen(false)}
+            onSelectUnit={handleSelectUnit}
+            onUnitsSelectionChange={handleUnitsSelectionChange}
+            onUnitsHidden={handleUnitsHidden}
           />
         </div>
       </section>

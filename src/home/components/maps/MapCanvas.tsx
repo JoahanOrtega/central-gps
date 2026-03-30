@@ -1,6 +1,61 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { loadGoogleMaps } from '@/lib/loadGoogleMaps'
-import type { MapPoiItem } from './map.types'
+import type { MapPoiItem, MapUnitItem } from './map.types'
+
+function normalizeUnitStatus(unit: MapUnitItem): string {
+  const telemetry = unit.telemetry
+
+  if (!telemetry) {
+    return "sin-telemetria"
+  }
+
+  const rawStatus = (telemetry.status || "").trim().toLowerCase()
+  const speed = telemetry.velocidad ?? 0
+
+  if (rawStatus.includes("apag")) {
+    return "apagado"
+  }
+
+  if (speed > 0) {
+    return "movimiento"
+  }
+
+  if (rawStatus.includes("deten") || speed === 0) {
+    return "detenido"
+  }
+
+  return "sin-telemetria"
+}
+
+function getUnitStatusColor(status: string): string {
+  switch (status) {
+    case "apagado":
+      return "#ef4444" // rojo
+    case "detenido":
+      return "#f59e0b" // ámbar
+    case "movimiento":
+      return "#22c55e" // verde
+    default:
+      return "#94a3b8" // gris
+  }
+}
+
+function buildUnitMarkerIcon(unit: MapUnitItem): google.maps.Icon {
+  const status = normalizeUnitStatus(unit)
+  const color = getUnitStatusColor(status)
+
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34">
+      <circle cx="17" cy="17" r="13" fill="${color}" stroke="#ffffff" stroke-width="4" />
+    </svg>
+  `
+
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: new window.google.maps.Size(34, 34),
+    anchor: new window.google.maps.Point(17, 17),
+  }
+}
 
 export interface MapCanvasHandle {
   focusMexico: () => void
@@ -11,6 +66,9 @@ export interface MapCanvasHandle {
   focusPoi: (poi: MapPoiItem) => void
   showPois: (pois: MapPoiItem[]) => void
   hidePois: () => void
+  focusUnit: (unit: MapUnitItem) => void
+  showUnits: (units: MapUnitItem[]) => void
+  hideUnits: () => void
 }
 
 const DEFAULT_CENTER = { lat: 23.6345, lng: -102.5528 }
@@ -25,6 +83,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
   const poiMarkersRef = useRef<Map<number, google.maps.Marker>>(new Map())
   const poiCirclesRef = useRef<Map<number, google.maps.Circle>>(new Map())
   const poiPolygonsRef = useRef<Map<number, google.maps.Polygon>>(new Map())
+  const unitMarkersRef = useRef<Map<number, google.maps.Marker>>(new Map())
 
   const [isTrafficVisible, setIsTrafficVisible] = useState(false)
 
@@ -107,6 +166,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     clearSearchMarker()
     clearPoisMarkers()
     clearPoiGeometry()
+    clearUnitMarkers()
 
     if (infoWindowRef.current) {
       infoWindowRef.current.close()
@@ -159,6 +219,44 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
         </div>
       </div>
     `
+  }
+
+  const clearUnitMarkers = () => {
+    unitMarkersRef.current.forEach((marker) => {
+      marker.setMap(null)
+    })
+    unitMarkersRef.current.clear()
+  }
+
+  const buildUnitInfoWindowContent = (unit: MapUnitItem) => {
+    const telemetry = unit.telemetry
+    const normalizedStatus = normalizeUnitStatus(unit)
+
+    const statusLabel =
+      normalizedStatus === "apagado"
+        ? "Apagado"
+        : normalizedStatus === "detenido"
+          ? "Detenido"
+          : normalizedStatus === "movimiento"
+            ? "En movimiento"
+            : "Sin telemetría"
+
+    return `
+    <div style="min-width:220px; padding:4px 2px;">
+      <div style="font-weight:600; font-size:14px; color:#334155;">
+        ${escapeHtml(unit.numero || 'Sin nombre')}
+      </div>
+      <div style="margin-top:6px; font-size:12px; color:#64748b; line-height:1.4;">
+        Estado: ${escapeHtml(statusLabel)}
+      </div>
+      <div style="font-size:12px; color:#64748b; line-height:1.4;">
+        Velocidad: ${telemetry?.velocidad ?? 0} km/h
+      </div>
+      <div style="font-size:12px; color:#64748b; line-height:1.4;">
+        Fecha: ${escapeHtml(telemetry?.fecha_hora_gps || 'Sin fecha')}
+      </div>
+    </div>
+  `
   }
 
   const parsePolygonPath = (polygonPath: string) => {
@@ -332,6 +430,118 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     }
   }
 
+  const focusUnit = (unit: MapUnitItem) => {
+    const map = mapRef.current
+    const infoWindow = infoWindowRef.current
+
+    if (!map || !infoWindow) return
+    if (unit.telemetry?.latitud == null || unit.telemetry?.longitud == null) return
+
+    const position = {
+      lat: unit.telemetry.latitud,
+      lng: unit.telemetry.longitud,
+    }
+
+    map.panTo(position)
+    map.setZoom(17)
+
+    const existingMarker = unitMarkersRef.current.get(unit.id)
+
+    if (existingMarker) {
+      infoWindow.setContent(buildUnitInfoWindowContent(unit))
+      infoWindow.open({
+        map,
+        anchor: existingMarker,
+      })
+      return
+    }
+
+    const marker = new window.google.maps.Marker({
+      map,
+      position,
+      title: unit.numero,
+      icon: buildUnitMarkerIcon(unit),
+    })
+
+    marker.addListener('click', () => {
+      infoWindow.setContent(buildUnitInfoWindowContent(unit))
+      infoWindow.open({
+        map,
+        anchor: marker,
+      })
+    })
+
+    unitMarkersRef.current.set(unit.id, marker)
+
+    infoWindow.setContent(buildUnitInfoWindowContent(unit))
+    infoWindow.open({
+      map,
+      anchor: marker,
+    })
+  }
+
+  const showUnits = (units: MapUnitItem[]) => {
+    const map = mapRef.current
+    const infoWindow = infoWindowRef.current
+
+    if (!map || !infoWindow) return
+
+    clearUnitMarkers()
+
+    const bounds = new window.google.maps.LatLngBounds()
+    let hasValidPoints = false
+
+    units.forEach((unit) => {
+      if (
+        unit.telemetry?.latitud == null ||
+        unit.telemetry?.longitud == null
+      ) {
+        return
+      }
+
+      const position = {
+        lat: unit.telemetry.latitud,
+        lng: unit.telemetry.longitud,
+      }
+
+      const marker = new window.google.maps.Marker({
+        map,
+        position,
+        title: unit.numero,
+        icon: buildUnitMarkerIcon(unit),
+      })
+
+      marker.addListener('click', () => {
+        infoWindow.setContent(buildUnitInfoWindowContent(unit))
+        infoWindow.open({
+          map,
+          anchor: marker,
+        })
+      })
+
+      unitMarkersRef.current.set(unit.id, marker)
+      bounds.extend(position)
+      hasValidPoints = true
+    })
+
+    if (hasValidPoints) {
+      map.fitBounds(bounds)
+
+      const zoom = map.getZoom()
+      if (typeof zoom === 'number' && zoom > 17) {
+        map.setZoom(17)
+      }
+    }
+  }
+
+  const hideUnits = () => {
+    clearUnitMarkers()
+
+    if (infoWindowRef.current) {
+      infoWindowRef.current.close()
+    }
+  }
+
   const toggleFullscreen = () => {
     const element = containerRef.current
     if (!element) return
@@ -353,6 +563,9 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     focusPoi,
     showPois,
     hidePois,
+    focusUnit,
+    showUnits,
+    hideUnits,
   }))
 
   return (
