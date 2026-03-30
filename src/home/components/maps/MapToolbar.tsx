@@ -24,6 +24,7 @@ interface MapToolbarProps {
   onFocusMap: () => void;
   onFullscreen: () => void;
   onTogglePoisDrawer: () => void;
+  onToggleUnitsDrawer: () => void;
 }
 
 export const MapToolbar = ({
@@ -33,6 +34,7 @@ export const MapToolbar = ({
   onFocusMap,
   onFullscreen,
   onTogglePoisDrawer,
+  onToggleUnitsDrawer,
 }: MapToolbarProps) => {
   const [search, setSearch] = useState("");
 
@@ -57,6 +59,7 @@ export const MapToolbar = ({
           />
         </div>
       </form>
+
       <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:flex-nowrap">
         <button
           type="button"
@@ -66,7 +69,12 @@ export const MapToolbar = ({
           <Route className="h-4 w-4" />
         </button>
 
-        <button type="button" className={toolbarButtonClass} title="Unidades">
+        <button
+          type="button"
+          className={toolbarButtonClass}
+          title="Unidades"
+          onClick={onToggleUnitsDrawer}
+        >
           <BusFront className="h-4 w-4" />
         </button>
 
