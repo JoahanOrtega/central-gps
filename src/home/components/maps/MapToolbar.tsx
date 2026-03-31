@@ -17,6 +17,8 @@ import { useState } from "react";
 const toolbarButtonClass =
   "flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700";
 
+type ActiveDrawer = "pois" | "units" | "trips" | null;
+
 interface MapToolbarProps {
   onSearchAddress: (address: string) => void;
   onToggleTraffic: () => void;
@@ -26,7 +28,9 @@ interface MapToolbarProps {
   onTogglePoisDrawer: () => void;
   onToggleUnitsDrawer: () => void;
   onToggleTripDrawer: () => void;
+  activeDrawer: ActiveDrawer;
 }
+
 
 export const MapToolbar = ({
   onSearchAddress,
@@ -37,8 +41,12 @@ export const MapToolbar = ({
   onTogglePoisDrawer,
   onToggleUnitsDrawer,
   onToggleTripDrawer,
+  activeDrawer,
 }: MapToolbarProps) => {
   const [search, setSearch] = useState("");
+  
+  const activeToolbarButtonClass =
+    "flex h-10 w-10 items-center justify-center rounded-md border border-emerald-300 bg-emerald-50 text-emerald-600";
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -65,7 +73,7 @@ export const MapToolbar = ({
       <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:flex-nowrap">
         <button
           type="button"
-          className={toolbarButtonClass}
+          className={activeDrawer === "trips" ? activeToolbarButtonClass : toolbarButtonClass}
           title="Consulta de recorrido"
           onClick={onToggleTripDrawer}
         >
@@ -74,7 +82,7 @@ export const MapToolbar = ({
 
         <button
           type="button"
-          className={toolbarButtonClass}
+          className={activeDrawer === "units" ? activeToolbarButtonClass : toolbarButtonClass}
           title="Unidades"
           onClick={onToggleUnitsDrawer}
         >
@@ -83,7 +91,7 @@ export const MapToolbar = ({
 
         <button
           type="button"
-          className={toolbarButtonClass}
+          className={activeDrawer === "pois" ? activeToolbarButtonClass : toolbarButtonClass}
           title="Puntos de interés"
           onClick={onTogglePoisDrawer}
         >
