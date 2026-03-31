@@ -7,12 +7,22 @@ import { UnitsDrawer } from "./UnitsDrawer";
 import { TripDrawer } from "./TripDrawer";
 import type { MapPoiItem, MapUnitItem, RoutePoint } from "./map.types";
 
+type ActiveDrawer = "pois" | "units" | "trips" | null;
+
 export const MapsView = () => {
   const mapCanvasRef = useRef<MapCanvasHandle | null>(null);
 
-  const [isPoisDrawerOpen, setIsPoisDrawerOpen] = useState(false);
-  const [isUnitsDrawerOpen, setIsUnitsDrawerOpen] = useState(false);
-  const [isTripDrawerOpen, setIsTripDrawerOpen] = useState(false);
+  const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
+
+  const toggleDrawer = (drawer: Exclude<ActiveDrawer, null>) => {
+    setActiveDrawer((currentDrawer) =>
+      currentDrawer === drawer ? null : drawer,
+    );
+  };
+
+  const closeAllDrawers = () => {
+    setActiveDrawer(null);
+  };
 
   const handlePoisSelectionChange = useCallback((pois: MapPoiItem[]) => {
     if (pois.length === 0) {
@@ -80,15 +90,10 @@ export const MapsView = () => {
             onClearMap={() => mapCanvasRef.current?.clearMap()}
             onFocusMap={() => mapCanvasRef.current?.focusMexico()}
             onFullscreen={() => mapCanvasRef.current?.toggleFullscreen()}
-            onTogglePoisDrawer={() =>
-              setIsPoisDrawerOpen((previousState) => !previousState)
-            }
-            onToggleUnitsDrawer={() =>
-              setIsUnitsDrawerOpen((previousState) => !previousState)
-            }
-            onToggleTripDrawer={() =>
-              setIsTripDrawerOpen((previousState) => !previousState)
-            }
+            onTogglePoisDrawer={() => toggleDrawer("pois")}
+            onToggleUnitsDrawer={() => toggleDrawer("units")}
+            onToggleTripDrawer={() => toggleDrawer("trips")}
+            activeDrawer={activeDrawer}
           />
         </div>
 
@@ -96,24 +101,24 @@ export const MapsView = () => {
           <MapCanvas ref={mapCanvasRef} />
 
           <PoisDrawer
-            isOpen={isPoisDrawerOpen}
-            onClose={() => setIsPoisDrawerOpen(false)}
+            isOpen={activeDrawer === "pois"}
+            onClose={closeAllDrawers}
             onSelectPoi={handleSelectPoi}
             onPoisSelectionChange={handlePoisSelectionChange}
             onPoisHidden={handlePoisHidden}
           />
 
           <UnitsDrawer
-            isOpen={isUnitsDrawerOpen}
-            onClose={() => setIsUnitsDrawerOpen(false)}
+            isOpen={activeDrawer === "units"}
+            onClose={closeAllDrawers}
             onSelectUnit={handleSelectUnit}
             onUnitsSelectionChange={handleUnitsSelectionChange}
             onUnitsHidden={handleUnitsHidden}
           />
 
           <TripDrawer
-            isOpen={isTripDrawerOpen}
-            onClose={() => setIsTripDrawerOpen(false)}
+            isOpen={activeDrawer === "trips"}
+            onClose={closeAllDrawers}
             onRouteSelected={handleRouteSelected}
             onRouteHidden={handleRouteHidden}
           />
