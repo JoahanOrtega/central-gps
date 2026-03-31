@@ -57,6 +57,9 @@ export interface MapCanvasHandle {
 }
 
 const DEFAULT_CENTER = { lat: 23.6345, lng: -102.5528 };
+const DEFAULT_ZOOM = 5;
+const USER_LOCATION_ZOOM = 16;
+
 
 export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -89,19 +92,40 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
   const [isTrafficVisible, setIsTrafficVisible] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     const initializeMap = async () => {
       await loadGoogleMaps();
 
-      if (!containerRef.current || !window.google?.maps) return;
+      if (!containerRef.current || !window.google?.maps || !isMounted) return;
+
+      let initialCenter = DEFAULT_CENTER;
+      let initialZoom = DEFAULT_ZOOM;
+      let hasUserLocation = false;
+
+      try {
+        const userLocation = await getBrowserLocation();
+        initialCenter = userLocation;
+        initialZoom = USER_LOCATION_ZOOM;
+        hasUserLocation = true;
+      } catch {
+        initialCenter = DEFAULT_CENTER;
+        initialZoom = DEFAULT_ZOOM;
+      }
+
+      if (!isMounted) return;
 
       const map = new window.google.maps.Map(containerRef.current, {
-        center: DEFAULT_CENTER,
-        zoom: 5,
+        center: initialCenter,
+        zoom: initialZoom,
         gestureHandling: "greedy",
         zoomControl: true,
         fullscreenControl: false,
-        streetViewControl: true,
+        streetViewControl: false,
         mapTypeControl: true,
+        mapTypeControlOptions: {
+          style: window.google.maps.MapTypeControlStyle.DROPDOWN_MENU,
+        },
         mapTypeId: "roadmap",
         mapId: "DEMO_MAP_ID",
       });
@@ -110,9 +134,30 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
       geocoderRef.current = new window.google.maps.Geocoder();
       trafficLayerRef.current = new window.google.maps.TrafficLayer();
       infoWindowRef.current = new window.google.maps.InfoWindow();
+
+      if (hasUserLocation) {
+        const userMarkerContent = document.createElement("div");
+        userMarkerContent.style.width = "18px";
+        userMarkerContent.style.height = "18px";
+        userMarkerContent.style.borderRadius = "9999px";
+        userMarkerContent.style.background = "#2563eb";
+        userMarkerContent.style.border = "3px solid white";
+        userMarkerContent.style.boxShadow = "0 2px 8px rgba(0,0,0,0.25)";
+
+        new window.google.maps.marker.AdvancedMarkerElement({
+          map,
+          position: initialCenter,
+          title: "Mi ubicación",
+          content: userMarkerContent,
+        });
+      }
     };
 
     void initializeMap();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const focusMexico = () => {
@@ -138,6 +183,31 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     trafficLayer.setMap(map);
     setIsTrafficVisible(true);
   };
+
+  const getBrowserLocation = () =>
+    new Promise<{ lat: number; lng: number }>((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("La geolocalización no está disponible"));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => {
+          reject(error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 60000,
+        },
+      );
+    });
 
   const clearSearchMarker = () => {
     if (searchMarkerRef.current) {
@@ -709,13 +779,8 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
   }));
   return (
     <div className="relative h-full w-full overflow-hidden bg-slate-100">
-      <div className="absolute left-4 top-4 z-10">
-        <select className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none">
-          <option value="roadmap">Mapa</option>
-        </select>
-      </div>
 
-      <div className="absolute left-4 top-20 z-10 flex flex-col gap-3">
+      <div className="absolute right-4 top-2 z-[1] flex flex-col gap-3">
         <button
           type="button"
           className="flex h-10 w-10 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
@@ -723,14 +788,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
           onClick={toggleFullscreen}
         >
           ⛶
-        </button>
-
-        <button
-          type="button"
-          className="flex h-10 w-10 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
-          title="Street View"
-        >
-          🚶
         </button>
       </div>
 
