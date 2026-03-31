@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { loadGoogleMaps } from "@/lib/loadGoogleMaps";
-import type { MapPoiItem, MapUnitItem } from "./map.types";
+import type { MapPoiItem, MapUnitItem, RoutePoint } from "./map.types";
 
 function normalizeUnitStatus(unit: MapUnitItem): string {
   const telemetry = unit.telemetry;
@@ -52,6 +52,8 @@ export interface MapCanvasHandle {
   focusUnit: (unit: MapUnitItem) => void;
   showUnits: (units: MapUnitItem[]) => void;
   hideUnits: () => void;
+  showUnitRoute: (points: RoutePoint[]) => void;
+  hideUnitRoute: () => void;
 }
 
 const DEFAULT_CENTER = { lat: 23.6345, lng: -102.5528 };
@@ -77,6 +79,12 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
   const unitMarkersRef = useRef<
     Map<number, google.maps.marker.AdvancedMarkerElement>
   >(new Map());
+
+  const unitRouteRef = useRef<google.maps.Polyline | null>(null);
+  const routeStartMarkerRef =
+    useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+  const routeEndMarkerRef =
+    useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
 
   const [isTrafficVisible, setIsTrafficVisible] = useState(false);
 
@@ -169,9 +177,27 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     clearPoisMarkers();
     clearPoiGeometry();
     clearUnitMarkers();
+    clearUnitRoute();
 
     if (infoWindowRef.current) {
       infoWindowRef.current.close();
+    }
+  };
+
+  const clearUnitRoute = () => {
+    if (unitRouteRef.current) {
+      unitRouteRef.current.setMap(null);
+      unitRouteRef.current = null;
+    }
+
+    if (routeStartMarkerRef.current) {
+      routeStartMarkerRef.current.map = null;
+      routeStartMarkerRef.current = null;
+    }
+
+    if (routeEndMarkerRef.current) {
+      routeEndMarkerRef.current.map = null;
+      routeEndMarkerRef.current = null;
     }
   };
 
@@ -255,6 +281,17 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
         </div>
       </div>
     `;
+  };
+
+  const buildRoutePointContent = (color: string) => {
+    const element = document.createElement("div");
+    element.style.width = "18px";
+    element.style.height = "18px";
+    element.style.borderRadius = "9999px";
+    element.style.background = color;
+    element.style.border = "3px solid white";
+    element.style.boxShadow = "0 2px 8px rgba(0,0,0,0.25)";
+    return element;
   };
 
   const parsePolygonPath = (polygonPath: string) => {
@@ -578,6 +615,71 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     }
   };
 
+  const showUnitRoute = (points: RoutePoint[]) => {
+    const map = mapRef.current;
+    if (!map || points.length === 0) return;
+
+    clearUnitRoute();
+
+    const validPoints = points.filter(
+      (point) =>
+        point.latitud != null &&
+        point.longitud != null,
+    );
+
+    if (!validPoints.length) return;
+
+    const path = validPoints.map((point) => ({
+      lat: point.latitud,
+      lng: point.longitud,
+    }));
+
+    unitRouteRef.current = new window.google.maps.Polyline({
+      path,
+      geodesic: true,
+      strokeColor: "#2563eb",
+      strokeOpacity: 0.9,
+      strokeWeight: 4,
+      map,
+    });
+
+    const bounds = new window.google.maps.LatLngBounds();
+    path.forEach((point) => bounds.extend(point));
+    map.fitBounds(bounds);
+
+    const start = path[0];
+    const end = path[path.length - 1];
+
+    routeStartMarkerRef.current =
+      new window.google.maps.marker.AdvancedMarkerElement({
+        map,
+        position: start,
+        title: "Inicio",
+        content: buildRoutePointContent("#22c55e"),
+      });
+
+    routeEndMarkerRef.current =
+      new window.google.maps.marker.AdvancedMarkerElement({
+        map,
+        position: end,
+        title: "Fin",
+        content: buildRoutePointContent("#ef4444"),
+      });
+
+    const zoom = map.getZoom();
+    if (typeof zoom === "number" && zoom > 17) {
+      map.setZoom(17);
+    }
+  };
+
+  const hideUnitRoute = () => {
+    clearUnitRoute();
+
+    if (infoWindowRef.current) {
+      infoWindowRef.current.close();
+    }
+  };
+
   const toggleFullscreen = () => {
     const element = containerRef.current;
     if (!element) return;
@@ -602,8 +704,9 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     focusUnit,
     showUnits,
     hideUnits,
+    showUnitRoute,
+    hideUnitRoute,
   }));
-
   return (
     <div className="relative h-full w-full overflow-hidden bg-slate-100">
       <div className="absolute left-4 top-4 z-10">

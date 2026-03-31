@@ -31,3 +31,32 @@ export interface MapUnitItem {
     tipo_alerta?: number | null
   } | null
 }
+
+export interface TripUnitSummary {
+  id: number
+  numero: string
+  imei: string
+  marca: string
+  modelo: string
+  status: string
+  last_report: string | null
+  hasTelemetry: boolean
+}
+
+export interface RoutePoint {
+  fecha_hora_gps: string
+  latitud: number
+  longitud: number
+  velocidad: number | null
+  grados: number | null
+  status: string | null
+}
+
+export interface RecentTripItem {
+  id: string
+  label: string
+  start_time: string
+  end_time: string
+  duration_seconds: number
+  distance_km: number
+}

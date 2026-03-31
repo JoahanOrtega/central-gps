@@ -4,13 +4,15 @@ import { MapToolbar } from "./MapToolbar";
 import { MapCanvas, type MapCanvasHandle } from "./MapCanvas";
 import { PoisDrawer } from "./PoisDrawer";
 import { UnitsDrawer } from "./UnitsDrawer";
-import type { MapPoiItem, MapUnitItem } from "./map.types";
+import { TripDrawer } from "./TripDrawer";
+import type { MapPoiItem, MapUnitItem, RoutePoint } from "./map.types";
 
 export const MapsView = () => {
   const mapCanvasRef = useRef<MapCanvasHandle | null>(null);
 
   const [isPoisDrawerOpen, setIsPoisDrawerOpen] = useState(false);
   const [isUnitsDrawerOpen, setIsUnitsDrawerOpen] = useState(false);
+  const [isTripDrawerOpen, setIsTripDrawerOpen] = useState(false);
 
   const handlePoisSelectionChange = useCallback((pois: MapPoiItem[]) => {
     if (pois.length === 0) {
@@ -46,6 +48,19 @@ export const MapsView = () => {
     mapCanvasRef.current?.focusUnit(unit);
   }, []);
 
+  const handleRouteSelected = useCallback((points: RoutePoint[]) => {
+    if (points.length === 0) {
+      mapCanvasRef.current?.hideUnitRoute();
+      return;
+    }
+
+    mapCanvasRef.current?.showUnitRoute(points);
+  }, []);
+
+  const handleRouteHidden = useCallback(() => {
+    mapCanvasRef.current?.hideUnitRoute();
+  }, []);
+
   return (
     <main className="h-full overflow-hidden bg-[#f5f6f8] p-3 md:p-6">
       <section className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -71,6 +86,9 @@ export const MapsView = () => {
             onToggleUnitsDrawer={() =>
               setIsUnitsDrawerOpen((previousState) => !previousState)
             }
+            onToggleTripDrawer={() =>
+              setIsTripDrawerOpen((previousState) => !previousState)
+            }
           />
         </div>
 
@@ -91,6 +109,13 @@ export const MapsView = () => {
             onSelectUnit={handleSelectUnit}
             onUnitsSelectionChange={handleUnitsSelectionChange}
             onUnitsHidden={handleUnitsHidden}
+          />
+
+          <TripDrawer
+            isOpen={isTripDrawerOpen}
+            onClose={() => setIsTripDrawerOpen(false)}
+            onRouteSelected={handleRouteSelected}
+            onRouteHidden={handleRouteHidden}
           />
         </div>
       </section>
