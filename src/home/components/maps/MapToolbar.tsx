@@ -25,6 +25,7 @@ interface MapToolbarProps {
   onFullscreen: () => void;
   onTogglePoisDrawer: () => void;
   onToggleUnitsDrawer: () => void;
+  onToggleTripDrawer: () => void;
 }
 
 export const MapToolbar = ({
@@ -35,6 +36,7 @@ export const MapToolbar = ({
   onFullscreen,
   onTogglePoisDrawer,
   onToggleUnitsDrawer,
+  onToggleTripDrawer,
 }: MapToolbarProps) => {
   const [search, setSearch] = useState("");
 
@@ -65,6 +67,7 @@ export const MapToolbar = ({
           type="button"
           className={toolbarButtonClass}
           title="Consulta de recorrido"
+          onClick={onToggleTripDrawer}
         >
           <Route className="h-4 w-4" />
         </button>
