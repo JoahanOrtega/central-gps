@@ -8,7 +8,7 @@ export const NewUnitAdditionalStep = ({
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-xl font-semibold text-slate-700">
+        <h3 className="text-xl font-semibold text-slate-700 md:text-2xl">
           Información Sobre el Combustible
         </h3>
 
@@ -47,7 +47,7 @@ export const NewUnitAdditionalStep = ({
       </div>
 
       <div>
-        <h3 className="text-xl font-semibold text-slate-700">
+        <h3 className="text-xl font-semibold text-slate-700 md:text-2xl">
           Información Sobre Aseguradora
         </h3>
 
