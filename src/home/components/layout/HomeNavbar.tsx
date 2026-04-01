@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { UserMenu } from "../shared/UserMenu";
+import { UserMenu } from "../../../components/shared/UserMenu";
 
 const navbarGroups = [
   {

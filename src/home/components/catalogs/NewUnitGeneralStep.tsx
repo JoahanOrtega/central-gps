@@ -10,7 +10,7 @@ export const NewUnitGeneralStep = ({
   onChange,
 }: NewUnitStepProps) => {
   return (
-    <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1.3fr_0.9fr]">
+    <div className="grid grid-cols-1 gap-8 2xl:grid-cols-[minmax(0,1.3fr)_320px]">
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Field label="Numero *">
@@ -114,7 +114,7 @@ export const NewUnitGeneralStep = ({
         </div>
 
         <div>
-          <h3 className="mb-4 text-2xl font-semibold text-slate-700">
+          <h3 className="mb-4 text-xl font-semibold text-slate-700 md:text-2xl">
             Equipo Instalado
           </h3>
 
@@ -160,7 +160,9 @@ export const NewUnitGeneralStep = ({
           </div>
 
           <div className="mt-5">
-            <p className="mb-3 text-lg text-slate-600">Periféricos Instalados</p>
+            <p className="mb-3 text-base text-slate-600 md:text-lg">
+              Periféricos Instalados
+            </p>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
               <SelectField label="Input 1" name="input1" value={form.input1} onChange={onChange} />
@@ -178,11 +180,11 @@ export const NewUnitGeneralStep = ({
       </div>
 
       <div className="flex flex-col items-center justify-start">
-        <p className="mb-4 text-center text-lg font-medium text-slate-600">
+        <p className="mb-4 text-center text-base font-medium text-slate-600 md:text-lg">
           Agregar Fotografía
         </p>
 
-        <div className="flex h-72 w-64 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-300">
+        <div className="flex h-56 w-full max-w-[260px] items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-300 md:h-72">
           Sin imagen
         </div>
 

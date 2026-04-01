@@ -75,39 +75,41 @@ export const UnitsDrawer = ({
   if (!isOpen) return null
 
   return (
-    <aside className="absolute right-4 top-4 z-20 flex h-[520px] w-[420px] flex-col rounded-xl border border-slate-200 bg-white shadow-xl">
-      <div className="flex items-center gap-2 border-b border-slate-200 p-4">
-        <input
-          type="text"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              void loadUnits(search)
-            }
-          }}
-          placeholder="Unidades..."
-          className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none"
-        />
+    <aside className="absolute inset-x-2 top-2 bottom-2 z-20 flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl md:inset-x-auto md:right-4 md:top-4 md:bottom-4 md:w-[420px]">
+      <div className="border-b border-slate-200 p-3 md:p-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center">
+          <input
+            type="text"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                void loadUnits(search);
+              }
+            }}
+            placeholder="Unidades..."
+            className="w-full flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none"
+          />
 
-        <button
-          type="button"
-          onClick={() => void loadUnits(search)}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
-        >
-          Buscar
-        </button>
+          <button
+            type="button"
+            onClick={() => void loadUnits(search)}
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 md:w-auto"
+          >
+            Buscar
+          </button>
 
-        <button
-          type="button"
-          onClick={handleClose}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
-        >
-          Cerrar
-        </button>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 md:w-auto"
+          >
+            Cerrar
+          </button>
+        </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 md:p-4">
         {isLoading && <p className="text-sm text-slate-500">Cargando unidades...</p>}
         {error && <p className="text-sm text-red-500">{error}</p>}
 
@@ -129,7 +131,7 @@ export const UnitsDrawer = ({
                   type="checkbox"
                   checked={isChecked}
                   onChange={() => handleToggleUnit(unit)}
-                  className="mt-1 h-4 w-4"
+                  className="mt-1 h-4 w-4 shrink-0"
                 />
 
                 <button
@@ -137,12 +139,14 @@ export const UnitsDrawer = ({
                   onClick={() => onSelectUnit(unit)}
                   className="min-w-0 flex-1 text-left"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="truncate text-lg font-semibold text-slate-800">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                    <p className="truncate text-base font-semibold text-slate-800 md:text-lg">
                       {unit.numero}
                     </p>
 
-                    <span className="text-xs text-slate-400">{unit.imei}</span>
+                    <span className="break-all text-xs text-slate-400 sm:text-right">
+                      {unit.imei}
+                    </span>
                   </div>
 
                   <p className="text-sm text-slate-500">
@@ -150,11 +154,11 @@ export const UnitsDrawer = ({
                   </p>
 
                   <p className="mt-1 text-sm font-medium text-slate-700">
-                    {telemetry?.status ?? 'Sin telemetría'}
+                    {telemetry?.status ?? "Sin telemetría"}
                   </p>
 
                   <p className="text-xs text-slate-500">
-                    {telemetry?.fecha_hora_gps ?? 'Sin fecha de reporte'}
+                    {telemetry?.fecha_hora_gps ?? "Sin fecha de reporte"}
                   </p>
                 </button>
               </div>
