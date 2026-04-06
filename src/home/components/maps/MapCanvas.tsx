@@ -2,27 +2,40 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import { loadGoogleMaps } from "@/lib/loadGoogleMaps";
 import type { MapPoiItem, MapUnitItem, RoutePoint } from "./map.types";
 
+const STATUS_OFF = "000000000";
+const STATUS_ON = "100000000";
+
+const DEFAULT_CENTER = { lat: 23.6345, lng: -102.5528 };
+const DEFAULT_ZOOM = 5;
+const USER_LOCATION_ZOOM = 16;
+
+function getTelemetryStatusCode(status?: string | null): string {
+  return (status || "").trim();
+}
+
+function getTelemetryStatusLabel(status?: string | null, speed?: number | null): string {
+  const code = getTelemetryStatusCode(status);
+  const safeSpeed = speed ?? 0;
+
+  if (!code) return "Sin telemetría";
+  if (code === STATUS_OFF) return "Apagada";
+  if (code === STATUS_ON) return safeSpeed >= 1 ? "En movimiento" : "Encendida";
+  if (safeSpeed >= 1) return "En movimiento";
+
+  return `Estado ${code}`;
+}
+
 function normalizeUnitStatus(unit: MapUnitItem): string {
   const telemetry = unit.telemetry;
 
-  if (!telemetry) {
-    return "sin-telemetria";
-  }
+  if (!telemetry) return "sin-telemetria";
 
-  const rawStatus = (telemetry.status || "").trim().toLowerCase();
+  const code = getTelemetryStatusCode(telemetry.status);
   const speed = telemetry.velocidad ?? 0;
 
-  if (rawStatus.includes("apag")) {
-    return "apagado";
-  }
-
-  if (speed > 0) {
-    return "movimiento";
-  }
-
-  if (rawStatus.includes("deten") || speed === 0) {
-    return "detenido";
-  }
+  if (code === STATUS_OFF) return "apagado";
+  if (code === STATUS_ON) return speed >= 1 ? "movimiento" : "detenido";
+  if (speed >= 1) return "movimiento";
 
   return "sin-telemetria";
 }
@@ -40,56 +53,86 @@ function getUnitStatusColor(status: string): string {
   }
 }
 
+const escapeHtml = (value: string) => {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+};
+
 export interface MapCanvasHandle {
   focusMexico: () => void;
   toggleTraffic: () => void;
   clearMap: () => void;
   searchAddress: (address: string) => Promise<void>;
   toggleFullscreen: () => void;
+
   focusPoi: (poi: MapPoiItem) => void;
   showPois: (pois: MapPoiItem[]) => void;
   hidePois: () => void;
+
   focusUnit: (unit: MapUnitItem) => void;
   showUnits: (units: MapUnitItem[]) => void;
   hideUnits: () => void;
+
   showUnitRoute: (points: RoutePoint[]) => void;
   hideUnitRoute: () => void;
+  setRouteVisible: (visible: boolean) => void;
+  setRouteStartEndVisible: (visible: boolean) => void;
+  setRouteDirectionVisible: (visible: boolean) => void;
 }
-
-const DEFAULT_CENTER = { lat: 23.6345, lng: -102.5528 };
-const DEFAULT_ZOOM = 5;
-const USER_LOCATION_ZOOM = 16;
-
 
 export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
-
-  const searchMarkerRef =
-    useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
-
   const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null);
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
 
-  const poiMarkersRef = useRef<
-    Map<number, google.maps.marker.AdvancedMarkerElement>
-  >(new Map());
+  const searchMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
 
+  const poiMarkersRef = useRef<Map<number, google.maps.marker.AdvancedMarkerElement>>(new Map());
   const poiCirclesRef = useRef<Map<number, google.maps.Circle>>(new Map());
   const poiPolygonsRef = useRef<Map<number, google.maps.Polygon>>(new Map());
 
-  const unitMarkersRef = useRef<
-    Map<number, google.maps.marker.AdvancedMarkerElement>
-  >(new Map());
+  const unitMarkersRef = useRef<Map<number, google.maps.marker.AdvancedMarkerElement>>(new Map());
 
-  const unitRouteRef = useRef<google.maps.Polyline | null>(null);
-  const routeStartMarkerRef =
-    useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
-  const routeEndMarkerRef =
-    useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+  const unitRoutePolylineRef = useRef<google.maps.Polyline | null>(null);
+  const routeStartMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+  const routeEndMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+  const routeDirectionMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+
+  const currentRoutePointsRef = useRef<RoutePoint[]>([]);
+  const routeVisibleRef = useRef(true);
+  const routeStartEndVisibleRef = useRef(true);
+  const routeDirectionVisibleRef = useRef(false);
 
   const [isTrafficVisible, setIsTrafficVisible] = useState(false);
+
+  const getBrowserLocation = () =>
+    new Promise<{ lat: number; lng: number }>((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("La geolocalización no está disponible"));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => reject(error),
+        {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 60000,
+        },
+      );
+    });
 
   useEffect(() => {
     let isMounted = true;
@@ -160,117 +203,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     };
   }, []);
 
-  const focusMexico = () => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    map.panTo(DEFAULT_CENTER);
-    map.setZoom(5);
-  };
-
-  const toggleTraffic = () => {
-    const map = mapRef.current;
-    const trafficLayer = trafficLayerRef.current;
-
-    if (!map || !trafficLayer) return;
-
-    if (isTrafficVisible) {
-      trafficLayer.setMap(null);
-      setIsTrafficVisible(false);
-      return;
-    }
-
-    trafficLayer.setMap(map);
-    setIsTrafficVisible(true);
-  };
-
-  const getBrowserLocation = () =>
-    new Promise<{ lat: number; lng: number }>((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error("La geolocalización no está disponible"));
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          });
-        },
-        (error) => {
-          reject(error);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 8000,
-          maximumAge: 60000,
-        },
-      );
-    });
-
-  const clearSearchMarker = () => {
-    if (searchMarkerRef.current) {
-      searchMarkerRef.current.map = null;
-      searchMarkerRef.current = null;
-    }
-  };
-
-  const clearPoisMarkers = () => {
-    poiMarkersRef.current.forEach((marker) => {
-      marker.map = null;
-    });
-    poiMarkersRef.current.clear();
-  };
-
-  const clearUnitMarkers = () => {
-    unitMarkersRef.current.forEach((marker) => {
-      marker.map = null;
-    });
-    unitMarkersRef.current.clear();
-  };
-
-  const clearPoiGeometry = () => {
-    poiCirclesRef.current.forEach((circle) => {
-      circle.setMap(null);
-    });
-    poiCirclesRef.current.clear();
-
-    poiPolygonsRef.current.forEach((polygon) => {
-      polygon.setMap(null);
-    });
-    poiPolygonsRef.current.clear();
-  };
-
-  const clearMap = () => {
-    clearSearchMarker();
-    clearPoisMarkers();
-    clearPoiGeometry();
-    clearUnitMarkers();
-    clearUnitRoute();
-
-    if (infoWindowRef.current) {
-      infoWindowRef.current.close();
-    }
-  };
-
-  const clearUnitRoute = () => {
-    if (unitRouteRef.current) {
-      unitRouteRef.current.setMap(null);
-      unitRouteRef.current = null;
-    }
-
-    if (routeStartMarkerRef.current) {
-      routeStartMarkerRef.current.map = null;
-      routeStartMarkerRef.current = null;
-    }
-
-    if (routeEndMarkerRef.current) {
-      routeEndMarkerRef.current.map = null;
-      routeEndMarkerRef.current = null;
-    }
-  };
-
   const buildSearchMarkerContent = () => {
     const element = document.createElement("div");
     element.style.width = "18px";
@@ -309,6 +241,45 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     return element;
   };
 
+  const buildRoutePointContent = (color: string) => {
+    const element = document.createElement("div");
+    element.style.width = "18px";
+    element.style.height = "18px";
+    element.style.borderRadius = "9999px";
+    element.style.background = color;
+    element.style.border = "3px solid white";
+    element.style.boxShadow = "0 2px 8px rgba(0,0,0,0.25)";
+    return element;
+  };
+
+  const createRouteFlagMarker = (
+    map: google.maps.Map,
+    position: google.maps.LatLngLiteral,
+    label: string,
+    color: string,
+  ) => {
+    const element = document.createElement("div");
+    element.style.display = "flex";
+    element.style.alignItems = "center";
+    element.style.justifyContent = "center";
+    element.style.width = "28px";
+    element.style.height = "28px";
+    element.style.borderRadius = "9999px";
+    element.style.background = color;
+    element.style.color = "white";
+    element.style.fontSize = "12px";
+    element.style.fontWeight = "700";
+    element.style.border = "2px solid white";
+    element.style.boxShadow = "0 2px 8px rgba(0,0,0,0.25)";
+    element.innerText = label;
+
+    return new window.google.maps.marker.AdvancedMarkerElement({
+      map,
+      position,
+      content: element,
+    });
+  };
+
   const buildInfoWindowContent = (poi: MapPoiItem) => {
     return `
       <div style="min-width:220px; padding:4px 2px;">
@@ -324,16 +295,10 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
 
   const buildUnitInfoWindowContent = (unit: MapUnitItem) => {
     const telemetry = unit.telemetry;
-    const normalizedStatus = normalizeUnitStatus(unit);
-
-    const statusLabel =
-      normalizedStatus === "apagado"
-        ? "Apagado"
-        : normalizedStatus === "detenido"
-          ? "Detenido"
-          : normalizedStatus === "movimiento"
-            ? "En movimiento"
-            : "Sin telemetría";
+    const statusLabel = getTelemetryStatusLabel(
+      telemetry?.status,
+      telemetry?.velocidad,
+    );
 
     return `
       <div style="min-width:220px; padding:4px 2px;">
@@ -342,6 +307,9 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
         </div>
         <div style="margin-top:6px; font-size:12px; color:#64748b; line-height:1.4;">
           Estado: ${escapeHtml(statusLabel)}
+        </div>
+        <div style="font-size:12px; color:#64748b; line-height:1.4;">
+          Código: ${escapeHtml(telemetry?.status || "Sin código")}
         </div>
         <div style="font-size:12px; color:#64748b; line-height:1.4;">
           Velocidad: ${telemetry?.velocidad ?? 0} km/h
@@ -353,23 +321,83 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     `;
   };
 
-  const buildRoutePointContent = (color: string) => {
-    const element = document.createElement("div");
-    element.style.width = "18px";
-    element.style.height = "18px";
-    element.style.borderRadius = "9999px";
-    element.style.background = color;
-    element.style.border = "3px solid white";
-    element.style.boxShadow = "0 2px 8px rgba(0,0,0,0.25)";
-    return element;
-  };
-
   const parsePolygonPath = (polygonPath: string) => {
     try {
       const parsed = JSON.parse(polygonPath);
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
+    }
+  };
+
+  const clearSearchMarker = () => {
+    if (searchMarkerRef.current) {
+      searchMarkerRef.current.map = null;
+      searchMarkerRef.current = null;
+    }
+  };
+
+  const clearPoisMarkers = () => {
+    poiMarkersRef.current.forEach((marker) => {
+      marker.map = null;
+    });
+    poiMarkersRef.current.clear();
+  };
+
+  const clearPoiGeometry = () => {
+    poiCirclesRef.current.forEach((circle) => circle.setMap(null));
+    poiCirclesRef.current.clear();
+
+    poiPolygonsRef.current.forEach((polygon) => polygon.setMap(null));
+    poiPolygonsRef.current.clear();
+  };
+
+  const clearUnitMarkers = () => {
+    unitMarkersRef.current.forEach((marker) => {
+      marker.map = null;
+    });
+    unitMarkersRef.current.clear();
+  };
+
+  const clearRouteStartEndMarkers = () => {
+    if (routeStartMarkerRef.current) {
+      routeStartMarkerRef.current.map = null;
+      routeStartMarkerRef.current = null;
+    }
+
+    if (routeEndMarkerRef.current) {
+      routeEndMarkerRef.current.map = null;
+      routeEndMarkerRef.current = null;
+    }
+  };
+
+  const clearRouteDirectionMarkers = () => {
+    routeDirectionMarkersRef.current.forEach((marker) => {
+      marker.map = null;
+    });
+    routeDirectionMarkersRef.current = [];
+  };
+
+  const hideUnitRoute = () => {
+    if (unitRoutePolylineRef.current) {
+      unitRoutePolylineRef.current.setMap(null);
+      unitRoutePolylineRef.current = null;
+    }
+
+    currentRoutePointsRef.current = [];
+    clearRouteStartEndMarkers();
+    clearRouteDirectionMarkers();
+  };
+
+  const clearMap = () => {
+    clearSearchMarker();
+    clearPoisMarkers();
+    clearPoiGeometry();
+    clearUnitMarkers();
+    hideUnitRoute();
+
+    if (infoWindowRef.current) {
+      infoWindowRef.current.close();
     }
   };
 
@@ -426,10 +454,115 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
 
   const drawPoisGeometries = (pois: MapPoiItem[]) => {
     clearPoiGeometry();
+    pois.forEach(drawSinglePoiGeometry);
+  };
 
-    pois.forEach((poi) => {
-      drawSinglePoiGeometry(poi);
-    });
+  const drawRouteStartEndMarkers = (points: RoutePoint[]) => {
+    const map = mapRef.current;
+    if (!map || points.length === 0) return;
+
+    clearRouteStartEndMarkers();
+
+    const first = points[0];
+    const last = points[points.length - 1];
+
+    routeStartMarkerRef.current = createRouteFlagMarker(
+      map,
+      { lat: first.latitud, lng: first.longitud },
+      "I",
+      "#16a34a",
+    );
+
+    routeEndMarkerRef.current = createRouteFlagMarker(
+      map,
+      { lat: last.latitud, lng: last.longitud },
+      "F",
+      "#6b7280",
+    );
+  };
+
+  const drawRouteDirectionMarkers = (points: RoutePoint[]) => {
+    const map = mapRef.current;
+    if (!map || points.length < 2) return;
+
+    clearRouteDirectionMarkers();
+
+    const step = Math.max(1, Math.floor(points.length / 12));
+
+    for (let index = 1; index < points.length; index += step) {
+      const point = points[index];
+      const heading = point.grados ?? 0;
+
+      const element = document.createElement("div");
+      element.style.width = "18px";
+      element.style.height = "18px";
+      element.style.display = "flex";
+      element.style.alignItems = "center";
+      element.style.justifyContent = "center";
+      element.style.transform = `rotate(${heading}deg)`;
+      element.style.color = "#374151";
+      element.style.fontSize = "16px";
+      element.innerHTML = "➜";
+
+      const marker = new window.google.maps.marker.AdvancedMarkerElement({
+        map,
+        position: {
+          lat: point.latitud,
+          lng: point.longitud,
+        },
+        content: element,
+      });
+
+      routeDirectionMarkersRef.current.push(marker);
+    }
+  };
+
+  const syncRouteOverlays = () => {
+    const map = mapRef.current;
+    const points = currentRoutePointsRef.current;
+
+    if (unitRoutePolylineRef.current) {
+      unitRoutePolylineRef.current.setMap(routeVisibleRef.current ? map : null);
+    }
+
+    clearRouteStartEndMarkers();
+    clearRouteDirectionMarkers();
+
+    if (!routeVisibleRef.current || !map || points.length === 0) {
+      return;
+    }
+
+    if (routeStartEndVisibleRef.current) {
+      drawRouteStartEndMarkers(points);
+    }
+
+    if (routeDirectionVisibleRef.current) {
+      drawRouteDirectionMarkers(points);
+    }
+  };
+
+  const focusMexico = () => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    map.panTo(DEFAULT_CENTER);
+    map.setZoom(DEFAULT_ZOOM);
+  };
+
+  const toggleTraffic = () => {
+    const map = mapRef.current;
+    const trafficLayer = trafficLayerRef.current;
+
+    if (!map || !trafficLayer) return;
+
+    if (isTrafficVisible) {
+      trafficLayer.setMap(null);
+      setIsTrafficVisible(false);
+      return;
+    }
+
+    trafficLayer.setMap(map);
+    setIsTrafficVisible(true);
   };
 
   const searchAddress = async (address: string) => {
@@ -449,7 +582,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
       });
     });
 
-    if (!result || !result.geometry.location) return;
+    if (!result?.geometry.location) return;
 
     const location = result.geometry.location;
 
@@ -457,13 +590,12 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     map.setZoom(16);
 
     if (!searchMarkerRef.current) {
-      searchMarkerRef.current =
-        new window.google.maps.marker.AdvancedMarkerElement({
-          map,
-          position: location,
-          title: result.formatted_address,
-          content: buildSearchMarkerContent(),
-        });
+      searchMarkerRef.current = new window.google.maps.marker.AdvancedMarkerElement({
+        map,
+        position: location,
+        title: result.formatted_address,
+        content: buildSearchMarkerContent(),
+      });
       return;
     }
 
@@ -487,10 +619,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
 
     if (existingMarker) {
       infoWindow.setContent(buildInfoWindowContent(poi));
-      infoWindow.open({
-        map,
-        anchor: existingMarker,
-      });
+      infoWindow.open({ map, anchor: existingMarker });
       return;
     }
 
@@ -503,19 +632,13 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
 
     marker.addListener("click", () => {
       infoWindow.setContent(buildInfoWindowContent(poi));
-      infoWindow.open({
-        map,
-        anchor: marker,
-      });
+      infoWindow.open({ map, anchor: marker });
     });
 
     poiMarkersRef.current.set(poi.id_poi, marker);
 
     infoWindow.setContent(buildInfoWindowContent(poi));
-    infoWindow.open({
-      map,
-      anchor: marker,
-    });
+    infoWindow.open({ map, anchor: marker });
   };
 
   const showPois = (pois: MapPoiItem[]) => {
@@ -544,10 +667,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
 
       marker.addListener("click", () => {
         infoWindow.setContent(buildInfoWindowContent(poi));
-        infoWindow.open({
-          map,
-          anchor: marker,
-        });
+        infoWindow.open({ map, anchor: marker });
       });
 
       poiMarkersRef.current.set(poi.id_poi, marker);
@@ -559,7 +679,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
 
     if (hasValidPoints) {
       map.fitBounds(bounds);
-
       const zoom = map.getZoom();
       if (typeof zoom === "number" && zoom > 17) {
         map.setZoom(17);
@@ -570,10 +689,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
   const hidePois = () => {
     clearPoisMarkers();
     clearPoiGeometry();
-
-    if (infoWindowRef.current) {
-      infoWindowRef.current.close();
-    }
+    infoWindowRef.current?.close();
   };
 
   const focusUnit = (unit: MapUnitItem) => {
@@ -595,10 +711,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
 
     if (existingMarker) {
       infoWindow.setContent(buildUnitInfoWindowContent(unit));
-      infoWindow.open({
-        map,
-        anchor: existingMarker,
-      });
+      infoWindow.open({ map, anchor: existingMarker });
       return;
     }
 
@@ -611,19 +724,13 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
 
     marker.addListener("click", () => {
       infoWindow.setContent(buildUnitInfoWindowContent(unit));
-      infoWindow.open({
-        map,
-        anchor: marker,
-      });
+      infoWindow.open({ map, anchor: marker });
     });
 
     unitMarkersRef.current.set(unit.id, marker);
 
     infoWindow.setContent(buildUnitInfoWindowContent(unit));
-    infoWindow.open({
-      map,
-      anchor: marker,
-    });
+    infoWindow.open({ map, anchor: marker });
   };
 
   const showUnits = (units: MapUnitItem[]) => {
@@ -638,9 +745,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     let hasValidPoints = false;
 
     units.forEach((unit) => {
-      if (unit.telemetry?.latitud == null || unit.telemetry?.longitud == null) {
-        return;
-      }
+      if (unit.telemetry?.latitud == null || unit.telemetry?.longitud == null) return;
 
       const position = {
         lat: unit.telemetry.latitud,
@@ -656,10 +761,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
 
       marker.addListener("click", () => {
         infoWindow.setContent(buildUnitInfoWindowContent(unit));
-        infoWindow.open({
-          map,
-          anchor: marker,
-        });
+        infoWindow.open({ map, anchor: marker });
       });
 
       unitMarkersRef.current.set(unit.id, marker);
@@ -669,7 +771,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
 
     if (hasValidPoints) {
       map.fitBounds(bounds);
-
       const zoom = map.getZoom();
       if (typeof zoom === "number" && zoom > 17) {
         map.setZoom(17);
@@ -679,75 +780,36 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
 
   const hideUnits = () => {
     clearUnitMarkers();
-
-    if (infoWindowRef.current) {
-      infoWindowRef.current.close();
-    }
+    infoWindowRef.current?.close();
   };
 
   const showUnitRoute = (points: RoutePoint[]) => {
     const map = mapRef.current;
     if (!map || points.length === 0) return;
 
-    clearUnitRoute();
+    hideUnitRoute();
 
-    const validPoints = points.filter(
-      (point) =>
-        point.latitud != null &&
-        point.longitud != null,
-    );
+    currentRoutePointsRef.current = points;
 
-    if (!validPoints.length) return;
-
-    const path = validPoints.map((point) => ({
+    const path = points.map((point) => ({
       lat: point.latitud,
       lng: point.longitud,
     }));
 
-    unitRouteRef.current = new window.google.maps.Polyline({
+    unitRoutePolylineRef.current = new window.google.maps.Polyline({
       path,
-      geodesic: true,
-      strokeColor: "#2563eb",
-      strokeOpacity: 0.9,
+      strokeColor: "#22c55e",
+      strokeOpacity: 1,
       strokeWeight: 4,
-      map,
+      map: routeVisibleRef.current ? map : null,
+      icons: [],
     });
 
     const bounds = new window.google.maps.LatLngBounds();
     path.forEach((point) => bounds.extend(point));
     map.fitBounds(bounds);
 
-    const start = path[0];
-    const end = path[path.length - 1];
-
-    routeStartMarkerRef.current =
-      new window.google.maps.marker.AdvancedMarkerElement({
-        map,
-        position: start,
-        title: "Inicio",
-        content: buildRoutePointContent("#22c55e"),
-      });
-
-    routeEndMarkerRef.current =
-      new window.google.maps.marker.AdvancedMarkerElement({
-        map,
-        position: end,
-        title: "Fin",
-        content: buildRoutePointContent("#ef4444"),
-      });
-
-    const zoom = map.getZoom();
-    if (typeof zoom === "number" && zoom > 17) {
-      map.setZoom(17);
-    }
-  };
-
-  const hideUnitRoute = () => {
-    clearUnitRoute();
-
-    if (infoWindowRef.current) {
-      infoWindowRef.current.close();
-    }
+    syncRouteOverlays();
   };
 
   const toggleFullscreen = () => {
@@ -768,18 +830,36 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     clearMap,
     searchAddress,
     toggleFullscreen,
+
     focusPoi,
     showPois,
     hidePois,
+
     focusUnit,
     showUnits,
     hideUnits,
+
     showUnitRoute,
     hideUnitRoute,
+
+    setRouteVisible: (visible: boolean) => {
+      routeVisibleRef.current = visible;
+      syncRouteOverlays();
+    },
+
+    setRouteStartEndVisible: (visible: boolean) => {
+      routeStartEndVisibleRef.current = visible;
+      syncRouteOverlays();
+    },
+
+    setRouteDirectionVisible: (visible: boolean) => {
+      routeDirectionVisibleRef.current = visible;
+      syncRouteOverlays();
+    },
   }));
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-slate-100">
-
       <div className="absolute right-4 top-2 z-[1] flex flex-col gap-3">
         <button
           type="button"
@@ -797,12 +877,3 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
 });
 
 MapCanvas.displayName = "MapCanvas";
-
-const escapeHtml = (value: string) => {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-};

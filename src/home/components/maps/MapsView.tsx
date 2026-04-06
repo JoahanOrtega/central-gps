@@ -24,6 +24,18 @@ export const MapsView = () => {
     setActiveDrawer(null);
   };
 
+  const handleRouteVisibilityChange = useCallback((visible: boolean) => {
+    mapCanvasRef.current?.setRouteVisible(visible)
+  }, [])
+
+  const handleStartEndVisibilityChange = useCallback((visible: boolean) => {
+    mapCanvasRef.current?.setRouteStartEndVisible(visible)
+  }, [])
+
+  const handleDirectionVisibilityChange = useCallback((visible: boolean) => {
+    mapCanvasRef.current?.setRouteDirectionVisible(visible)
+  }, [])
+
   const handlePoisSelectionChange = useCallback((pois: MapPoiItem[]) => {
     if (pois.length === 0) {
       mapCanvasRef.current?.hidePois();
@@ -121,6 +133,9 @@ export const MapsView = () => {
             onClose={closeAllDrawers}
             onRouteSelected={handleRouteSelected}
             onRouteHidden={handleRouteHidden}
+            onRouteVisibilityChange={handleRouteVisibilityChange}
+            onStartEndVisibilityChange={handleStartEndVisibilityChange}
+            onDirectionVisibilityChange={handleDirectionVisibilityChange}
           />
         </div>
       </section>
