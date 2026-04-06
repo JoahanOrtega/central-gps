@@ -1,40 +1,29 @@
 import { useCallback, useRef, useState } from "react";
 import { MapPinned } from "lucide-react";
+
 import { MapToolbar } from "./MapToolbar";
 import { MapCanvas, type MapCanvasHandle } from "./MapCanvas";
 import { PoisDrawer } from "./PoisDrawer";
 import { UnitsDrawer } from "./UnitsDrawer";
 import { TripDrawer } from "./TripDrawer";
+
 import type { MapPoiItem, MapUnitItem, RoutePoint } from "./map.types";
 
 type ActiveDrawer = "pois" | "units" | "trips" | null;
 
 export const MapsView = () => {
   const mapCanvasRef = useRef<MapCanvasHandle | null>(null);
-
   const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
 
-  const toggleDrawer = (drawer: Exclude<ActiveDrawer, null>) => {
+  const closeAllDrawers = useCallback(() => {
+    setActiveDrawer(null);
+  }, []);
+
+  const toggleDrawer = useCallback((drawer: Exclude<ActiveDrawer, null>) => {
     setActiveDrawer((currentDrawer) =>
       currentDrawer === drawer ? null : drawer,
     );
-  };
-
-  const closeAllDrawers = () => {
-    setActiveDrawer(null);
-  };
-
-  const handleRouteVisibilityChange = useCallback((visible: boolean) => {
-    mapCanvasRef.current?.setRouteVisible(visible)
-  }, [])
-
-  const handleStartEndVisibilityChange = useCallback((visible: boolean) => {
-    mapCanvasRef.current?.setRouteStartEndVisible(visible)
-  }, [])
-
-  const handleDirectionVisibilityChange = useCallback((visible: boolean) => {
-    mapCanvasRef.current?.setRouteDirectionVisible(visible)
-  }, [])
+  }, []);
 
   const handlePoisSelectionChange = useCallback((pois: MapPoiItem[]) => {
     if (pois.length === 0) {
@@ -83,9 +72,21 @@ export const MapsView = () => {
     mapCanvasRef.current?.hideUnitRoute();
   }, []);
 
+  const handleRouteVisibilityChange = useCallback((visible: boolean) => {
+    mapCanvasRef.current?.setRouteVisible(visible);
+  }, []);
+
+  const handleStartEndVisibilityChange = useCallback((visible: boolean) => {
+    mapCanvasRef.current?.setRouteStartEndVisible(visible);
+  }, []);
+
+  const handleDirectionVisibilityChange = useCallback((visible: boolean) => {
+    mapCanvasRef.current?.setRouteDirectionVisible(visible);
+  }, []);
+
   return (
     <main className="h-full overflow-hidden bg-[#f5f6f8] p-3 md:p-6">
-      <section className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="flex flex-col gap-3 border-b border-slate-200 px-3 py-3 md:flex-row md:items-center md:justify-between md:px-6 md:py-4">
           <div className="flex items-center gap-3">
             <MapPinned className="h-5 w-5 text-slate-500" />
@@ -104,8 +105,7 @@ export const MapsView = () => {
             onFullscreen={() => mapCanvasRef.current?.toggleFullscreen()}
             onTogglePoisDrawer={() => toggleDrawer("pois")}
             onToggleUnitsDrawer={() => toggleDrawer("units")}
-            onToggleTripDrawer={() => toggleDrawer("trips")}
-            activeDrawer={activeDrawer}
+            onToggleTripsDrawer={() => toggleDrawer("trips")}
           />
         </div>
 

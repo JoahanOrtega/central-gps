@@ -17,8 +17,6 @@ import { useState } from "react";
 const toolbarButtonClass =
   "flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700";
 
-type ActiveDrawer = "pois" | "units" | "trips" | null;
-
 interface MapToolbarProps {
   onSearchAddress: (address: string) => void;
   onToggleTraffic: () => void;
@@ -27,10 +25,8 @@ interface MapToolbarProps {
   onFullscreen: () => void;
   onTogglePoisDrawer: () => void;
   onToggleUnitsDrawer: () => void;
-  onToggleTripDrawer: () => void;
-  activeDrawer: ActiveDrawer;
+  onToggleTripsDrawer: () => void;
 }
-
 
 export const MapToolbar = ({
   onSearchAddress,
@@ -40,13 +36,9 @@ export const MapToolbar = ({
   onFullscreen,
   onTogglePoisDrawer,
   onToggleUnitsDrawer,
-  onToggleTripDrawer,
-  activeDrawer,
+  onToggleTripsDrawer,
 }: MapToolbarProps) => {
   const [search, setSearch] = useState("");
-  
-  const activeToolbarButtonClass =
-    "flex h-10 w-10 items-center justify-center rounded-md border border-emerald-300 bg-emerald-50 text-emerald-600";
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -73,16 +65,16 @@ export const MapToolbar = ({
       <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:flex-nowrap">
         <button
           type="button"
-          className={activeDrawer === "trips" ? activeToolbarButtonClass : toolbarButtonClass}
+          className={toolbarButtonClass}
           title="Consulta de recorrido"
-          onClick={onToggleTripDrawer}
+          onClick={onToggleTripsDrawer}
         >
           <Route className="h-4 w-4" />
         </button>
 
         <button
           type="button"
-          className={activeDrawer === "units" ? activeToolbarButtonClass : toolbarButtonClass}
+          className={toolbarButtonClass}
           title="Unidades"
           onClick={onToggleUnitsDrawer}
         >
@@ -91,7 +83,7 @@ export const MapToolbar = ({
 
         <button
           type="button"
-          className={activeDrawer === "pois" ? activeToolbarButtonClass : toolbarButtonClass}
+          className={toolbarButtonClass}
           title="Puntos de interés"
           onClick={onTogglePoisDrawer}
         >

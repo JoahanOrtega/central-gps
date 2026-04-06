@@ -102,7 +102,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
   const unitRoutePolylineRef = useRef<google.maps.Polyline | null>(null);
   const routeStartMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const routeEndMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
-  const routeDirectionMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
 
   const currentRoutePointsRef = useRef<RoutePoint[]>([]);
   const routeVisibleRef = useRef(true);
@@ -371,13 +370,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     }
   };
 
-  const clearRouteDirectionMarkers = () => {
-    routeDirectionMarkersRef.current.forEach((marker) => {
-      marker.map = null;
-    });
-    routeDirectionMarkersRef.current = [];
-  };
-
   const hideUnitRoute = () => {
     if (unitRoutePolylineRef.current) {
       unitRoutePolylineRef.current.setMap(null);
@@ -386,7 +378,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
 
     currentRoutePointsRef.current = [];
     clearRouteStartEndMarkers();
-    clearRouteDirectionMarkers();
   };
 
   const clearMap = () => {
@@ -481,41 +472,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     );
   };
 
-  const drawRouteDirectionMarkers = (points: RoutePoint[]) => {
-    const map = mapRef.current;
-    if (!map || points.length < 2) return;
-
-    clearRouteDirectionMarkers();
-
-    const step = Math.max(1, Math.floor(points.length / 12));
-
-    for (let index = 1; index < points.length; index += step) {
-      const point = points[index];
-      const heading = point.grados ?? 0;
-
-      const element = document.createElement("div");
-      element.style.width = "18px";
-      element.style.height = "18px";
-      element.style.display = "flex";
-      element.style.alignItems = "center";
-      element.style.justifyContent = "center";
-      element.style.transform = `rotate(${heading}deg)`;
-      element.style.color = "#374151";
-      element.style.fontSize = "16px";
-      element.innerHTML = "➜";
-
-      const marker = new window.google.maps.marker.AdvancedMarkerElement({
-        map,
-        position: {
-          lat: point.latitud,
-          lng: point.longitud,
-        },
-        content: element,
-      });
-
-      routeDirectionMarkersRef.current.push(marker);
-    }
-  };
 
   const syncRouteOverlays = () => {
     const map = mapRef.current;
@@ -523,10 +479,29 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
 
     if (unitRoutePolylineRef.current) {
       unitRoutePolylineRef.current.setMap(routeVisibleRef.current ? map : null);
+
+      unitRoutePolylineRef.current.setOptions({
+        icons:
+          routeVisibleRef.current && routeDirectionVisibleRef.current
+            ? [
+              {
+                icon: {
+                  path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                  scale: 3,
+                  strokeColor: "#374151",
+                  strokeOpacity: 1,
+                  fillColor: "#374151",
+                  fillOpacity: 1,
+                },
+                offset: "5%",
+                repeat: "70px",
+              },
+            ]
+            : [],
+      });
     }
 
     clearRouteStartEndMarkers();
-    clearRouteDirectionMarkers();
 
     if (!routeVisibleRef.current || !map || points.length === 0) {
       return;
@@ -535,11 +510,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     if (routeStartEndVisibleRef.current) {
       drawRouteStartEndMarkers(points);
     }
-
-    if (routeDirectionVisibleRef.current) {
-      drawRouteDirectionMarkers(points);
-    }
-  };
+  }
 
   const focusMexico = () => {
     const map = mapRef.current;
@@ -801,9 +772,25 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
       strokeColor: "#22c55e",
       strokeOpacity: 1,
       strokeWeight: 4,
+      geodesic: false,
       map: routeVisibleRef.current ? map : null,
-      icons: [],
-    });
+      icons: routeDirectionVisibleRef.current
+        ? [
+          {
+            icon: {
+              path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+              scale: 3,
+              strokeColor: "#374151",
+              strokeOpacity: 1,
+              fillColor: "#374151",
+              fillOpacity: 1,
+            },
+            offset: "5%",
+            repeat: "70px",
+          },
+        ]
+        : [],
+    })
 
     const bounds = new window.google.maps.LatLngBounds();
     path.forEach((point) => bounds.extend(point));
