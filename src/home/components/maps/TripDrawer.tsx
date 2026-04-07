@@ -10,6 +10,7 @@ import type {
   TripUnitSummary,
 } from "./map.types";
 import { formatAppDateTime } from "@/lib/date-time";
+import { getTelemetryStatusLabel } from "@/lib/telemetry-status";
 
 type RouteMode = "latest" | "today" | "yesterday" | "day_before_yesterday";
 
@@ -72,9 +73,9 @@ const getRouteSummary = (points: RoutePoint[]) => {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(toRad(lat1)) *
-        Math.cos(toRad(lat2)) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return earthRadiusKm * c;
@@ -450,9 +451,10 @@ export const TripDrawer = ({
                 <div className="sm:col-span-2 md:col-span-3">
                   <p className="text-xs text-slate-400">Estado</p>
                   <p className="font-medium text-slate-700">
-                    {unitSummary?.status ??
-                      selectedUnit.telemetry?.status ??
-                      "Sin información"}
+                    {getTelemetryStatusLabel(
+                      selectedUnit.telemetry?.status,
+                      selectedUnit.telemetry?.velocidad,
+                    )}
                   </p>
                 </div>
 
@@ -461,8 +463,8 @@ export const TripDrawer = ({
                   <p className="font-medium text-slate-700">
                     {formatAppDateTime(
                       unitSummary?.last_report ??
-                        selectedUnit.telemetry?.fecha_hora_gps ??
-                        null,
+                      selectedUnit.telemetry?.fecha_hora_gps ??
+                      null,
                     )}
                   </p>
                 </div>
@@ -480,9 +482,8 @@ export const TripDrawer = ({
                 <div className="grid grid-cols-2 overflow-hidden rounded-md border border-slate-300 md:flex md:flex-wrap">
                   <button
                     type="button"
-                    className={`${routeButtonClass} ${
-                      activeMode === "latest" ? "bg-slate-100" : ""
-                    }`}
+                    className={`${routeButtonClass} ${activeMode === "latest" ? "bg-slate-100" : ""
+                      }`}
                     onClick={() => void handleLoadRouteByMode("latest")}
                   >
                     Último
@@ -490,9 +491,8 @@ export const TripDrawer = ({
 
                   <button
                     type="button"
-                    className={`${routeButtonClass} ${
-                      activeMode === "today" ? "bg-slate-100" : ""
-                    }`}
+                    className={`${routeButtonClass} ${activeMode === "today" ? "bg-slate-100" : ""
+                      }`}
                     onClick={() => void handleLoadRouteByMode("today")}
                   >
                     Hoy
@@ -500,9 +500,8 @@ export const TripDrawer = ({
 
                   <button
                     type="button"
-                    className={`${routeButtonClass} ${
-                      activeMode === "yesterday" ? "bg-slate-100" : ""
-                    }`}
+                    className={`${routeButtonClass} ${activeMode === "yesterday" ? "bg-slate-100" : ""
+                      }`}
                     onClick={() => void handleLoadRouteByMode("yesterday")}
                   >
                     Ayer
@@ -510,9 +509,8 @@ export const TripDrawer = ({
 
                   <button
                     type="button"
-                    className={`${routeButtonClass} ${
-                      activeMode === "day_before_yesterday" ? "bg-slate-100" : ""
-                    }`}
+                    className={`${routeButtonClass} ${activeMode === "day_before_yesterday" ? "bg-slate-100" : ""
+                      }`}
                     onClick={() => void handleLoadRouteByMode("day_before_yesterday")}
                   >
                     Antier

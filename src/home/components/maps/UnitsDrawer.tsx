@@ -5,6 +5,7 @@ import {
   formatElapsedTimeFromApiDate,
   formatAppDateTime,
 } from "@/lib/date-time";
+import { getTelemetryStatusLabel } from "@/lib/telemetry-status";
 
 interface UnitsDrawerProps {
   isOpen: boolean
@@ -43,19 +44,6 @@ export const UnitsDrawer = ({
       setIsLoading(false)
     }
   }
-
-  const normalizeUnitStatus = (unit: MapUnitItem) => {
-    const telemetry = unit.telemetry;
-
-    if (!telemetry) return "Sin telemetría";
-
-    const status = (telemetry.status || "").toLowerCase();
-    const speed = telemetry.velocidad ?? 0;
-
-    if (status.includes("apag")) return "Apagada";
-    if (speed > 0) return `${speed} km/h`;
-    return "Detenida";
-  };
 
   const getStatusDotClass = (unit: MapUnitItem) => {
     const telemetry = unit.telemetry;
@@ -107,7 +95,7 @@ export const UnitsDrawer = ({
     onClose()
   }
 
-  
+
 
   if (!isOpen) return null
 
@@ -192,8 +180,11 @@ export const UnitsDrawer = ({
                         </div>
 
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-700">
-                            {normalizeUnitStatus(unit)}
+                          <p className="mt-1 text-sm font-medium text-slate-700">
+                            {getTelemetryStatusLabel(
+                              unit.telemetry?.status,
+                              unit.telemetry?.velocidad,
+                            )}
                           </p>
 
                           <p className="text-sm text-slate-500">

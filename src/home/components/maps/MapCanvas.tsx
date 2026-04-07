@@ -1,57 +1,72 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { loadGoogleMaps } from "@/lib/loadGoogleMaps";
 import type { MapPoiItem, MapUnitItem, RoutePoint } from "./map.types";
-
-const STATUS_OFF = "000000000";
-const STATUS_ON = "100000000";
+import {
+  getTelemetryMapState,
+  getTelemetryStatusColor,
+  getTelemetryStatusLabel,
+} from "@/lib/telemetry-status";
+type RouteArrowMarkerData = {
+  point: RoutePoint;
+  index: number;
+  heading: number;
+  distanceFromStartKm: number;
+};
 
 const DEFAULT_CENTER = { lat: 23.6345, lng: -102.5528 };
 const DEFAULT_ZOOM = 5;
 const USER_LOCATION_ZOOM = 16;
 
-function getTelemetryStatusCode(status?: string | null): string {
-  return (status || "").trim();
-}
+const toRadians = (value: number) => (value * Math.PI) / 180;
+const toDegrees = (value: number) => (value * 180) / Math.PI;
 
-function getTelemetryStatusLabel(status?: string | null, speed?: number | null): string {
-  const code = getTelemetryStatusCode(status);
-  const safeSpeed = speed ?? 0;
+const getHeadingBetweenPoints = (
+  start: google.maps.LatLngLiteral,
+  end: google.maps.LatLngLiteral,
+) => {
+  const lat1 = toRadians(start.lat);
+  const lng1 = toRadians(start.lng);
+  const lat2 = toRadians(end.lat);
+  const lng2 = toRadians(end.lng);
 
-  if (!code) return "Sin telemetría";
-  if (code === STATUS_OFF) return "Apagada";
-  if (code === STATUS_ON) return safeSpeed >= 1 ? "En movimiento" : "Encendida";
-  if (safeSpeed >= 1) return "En movimiento";
+  const dLng = lng2 - lng1;
 
-  return `Estado ${code}`;
-}
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
 
-function normalizeUnitStatus(unit: MapUnitItem): string {
-  const telemetry = unit.telemetry;
+  const heading = toDegrees(Math.atan2(y, x));
+  return (heading + 360) % 360;
+};
 
-  if (!telemetry) return "sin-telemetria";
+const haversineKm = (
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+) => {
+  const earthRadiusKm = 6371;
+  const dLat = toRadians(lat2 - lat1);
+  const dLng = toRadians(lng2 - lng1);
 
-  const code = getTelemetryStatusCode(telemetry.status);
-  const speed = telemetry.velocidad ?? 0;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) *
+    Math.cos(toRadians(lat2)) *
+    Math.sin(dLng / 2) *
+    Math.sin(dLng / 2);
 
-  if (code === STATUS_OFF) return "apagado";
-  if (code === STATUS_ON) return speed >= 1 ? "movimiento" : "detenido";
-  if (speed >= 1) return "movimiento";
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusKm * c;
+};
 
-  return "sin-telemetria";
-}
-
-function getUnitStatusColor(status: string): string {
-  switch (status) {
-    case "apagado":
-      return "#ef4444";
-    case "detenido":
-      return "#f59e0b";
-    case "movimiento":
-      return "#22c55e";
-    default:
-      return "#94a3b8";
-  }
-}
+const normalizeUnitStatus = (unit: MapUnitItem) => {
+  return getTelemetryStatusLabel(
+    unit.telemetry?.status,
+    unit.telemetry?.velocidad,
+  );
+};
 
 const escapeHtml = (value: string) => {
   return value
@@ -77,7 +92,7 @@ export interface MapCanvasHandle {
   showUnits: (units: MapUnitItem[]) => void;
   hideUnits: () => void;
 
-  showUnitRoute: (points: RoutePoint[]) => void;
+  showUnitRoute: (points: RoutePoint[], unitLabel?: string) => void;
   hideUnitRoute: () => void;
   setRouteVisible: (visible: boolean) => void;
   setRouteStartEndVisible: (visible: boolean) => void;
@@ -104,8 +119,11 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
   const routeEndMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
 
   const currentRoutePointsRef = useRef<RoutePoint[]>([]);
+  const currentRouteUnitLabelRef = useRef<string | null>(null);
+
   const routeVisibleRef = useRef(true);
   const routeStartEndVisibleRef = useRef(true);
+  const routeDirectionMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const routeDirectionVisibleRef = useRef(false);
 
   const [isTrafficVisible, setIsTrafficVisible] = useState(false);
@@ -202,6 +220,51 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     };
   }, []);
 
+  const buildRouteArrowInfoWindowContent = (
+    unitNumber: string | null,
+    data: RouteArrowMarkerData,
+  ) => {
+    const speed = data.point.velocidad ?? 0;
+    const status = data.point.status || "Sin estado";
+    const movementState = data.point.movement_state || "Sin clasificación";
+
+    return `
+    <div style="min-width:220px; padding:4px 2px;">
+      <div style="font-weight:600; font-size:14px; color:#334155;">
+        ${escapeHtml(unitNumber || "Unidad")}
+      </div>
+
+      <div style="margin-top:6px; font-size:12px; color:#16a34a; font-weight:600;">
+        Registro del recorrido
+      </div>
+
+      <div style="margin-top:4px; font-size:12px; color:#475569; line-height:1.45;">
+        Punto #${data.index + 1}
+      </div>
+
+      <div style="font-size:12px; color:#475569; line-height:1.45;">
+        Velocidad: ${speed} km/h
+      </div>
+
+      <div style="font-size:12px; color:#475569; line-height:1.45;">
+        Estado: ${escapeHtml(status)}
+      </div>
+
+      <div style="font-size:12px; color:#475569; line-height:1.45;">
+        Tipo: ${escapeHtml(movementState)}
+      </div>
+
+      <div style="font-size:12px; color:#475569; line-height:1.45;">
+        Distancia desde el inicio: ${data.distanceFromStartKm.toFixed(2)} km
+      </div>
+
+      <div style="font-size:12px; color:#475569; line-height:1.45;">
+        ${escapeHtml(data.point.fecha_hora_gps)}
+      </div>
+    </div>
+  `;
+  };
+
   const buildSearchMarkerContent = () => {
     const element = document.createElement("div");
     element.style.width = "18px";
@@ -225,8 +288,10 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
   };
 
   const buildUnitMarkerContent = (unit: MapUnitItem) => {
-    const status = normalizeUnitStatus(unit);
-    const color = getUnitStatusColor(status);
+    const color = getTelemetryStatusColor(
+      unit.telemetry?.status,
+      unit.telemetry?.velocidad,
+    );
 
     const element = document.createElement("div");
     element.style.width = "22px";
@@ -237,17 +302,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     element.style.boxShadow = "0 2px 8px rgba(0,0,0,0.25)";
     element.style.cursor = "pointer";
 
-    return element;
-  };
-
-  const buildRoutePointContent = (color: string) => {
-    const element = document.createElement("div");
-    element.style.width = "18px";
-    element.style.height = "18px";
-    element.style.borderRadius = "9999px";
-    element.style.background = color;
-    element.style.border = "3px solid white";
-    element.style.boxShadow = "0 2px 8px rgba(0,0,0,0.25)";
     return element;
   };
 
@@ -300,24 +354,21 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     );
 
     return `
-      <div style="min-width:220px; padding:4px 2px;">
-        <div style="font-weight:600; font-size:14px; color:#334155;">
-          ${escapeHtml(unit.numero || "Sin nombre")}
-        </div>
-        <div style="margin-top:6px; font-size:12px; color:#64748b; line-height:1.4;">
-          Estado: ${escapeHtml(statusLabel)}
-        </div>
-        <div style="font-size:12px; color:#64748b; line-height:1.4;">
-          Código: ${escapeHtml(telemetry?.status || "Sin código")}
-        </div>
-        <div style="font-size:12px; color:#64748b; line-height:1.4;">
-          Velocidad: ${telemetry?.velocidad ?? 0} km/h
-        </div>
-        <div style="font-size:12px; color:#64748b; line-height:1.4;">
-          Fecha: ${escapeHtml(telemetry?.fecha_hora_gps || "Sin fecha")}
-        </div>
+    <div style="min-width:220px; padding:4px 2px;">
+      <div style="font-weight:600; font-size:14px; color:#334155;">
+        ${escapeHtml(unit.numero || "Sin nombre")}
       </div>
-    `;
+      <div style="margin-top:6px; font-size:12px; color:#64748b; line-height:1.4;">
+        Estado: ${escapeHtml(statusLabel)}
+      </div>
+      <div style="font-size:12px; color:#64748b; line-height:1.4;">
+        Velocidad: ${telemetry?.velocidad ?? 0} km/h
+      </div>
+      <div style="font-size:12px; color:#64748b; line-height:1.4;">
+        Fecha: ${escapeHtml(telemetry?.fecha_hora_gps || "Sin fecha")}
+      </div>
+    </div>
+  `;
   };
 
   const parsePolygonPath = (polygonPath: string) => {
@@ -370,6 +421,13 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     }
   };
 
+  const clearRouteDirectionMarkers = () => {
+    routeDirectionMarkersRef.current.forEach((marker) => {
+      marker.map = null;
+    });
+    routeDirectionMarkersRef.current = [];
+  };
+
   const hideUnitRoute = () => {
     if (unitRoutePolylineRef.current) {
       unitRoutePolylineRef.current.setMap(null);
@@ -377,7 +435,105 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     }
 
     currentRoutePointsRef.current = [];
+    currentRouteUnitLabelRef.current = null;
     clearRouteStartEndMarkers();
+    clearRouteDirectionMarkers();
+
+    if (infoWindowRef.current) {
+      infoWindowRef.current.close();
+    }
+  };
+
+  const drawRouteDirectionMarkers = (points: RoutePoint[]) => {
+    const map = mapRef.current;
+    const infoWindow = infoWindowRef.current;
+
+    if (!map || !infoWindow || points.length < 2) return;
+
+    clearRouteDirectionMarkers();
+
+    const step = Math.max(1, Math.floor(points.length / 12));
+    let accumulatedDistanceKm = 0;
+
+    for (let index = 1; index < points.length; index += 1) {
+      const previousPoint = points[index - 1];
+      const currentPoint = points[index];
+
+      accumulatedDistanceKm += haversineKm(
+        previousPoint.latitud,
+        previousPoint.longitud,
+        currentPoint.latitud,
+        currentPoint.longitud,
+      );
+
+      if (index % step !== 0 && index !== points.length - 1) {
+        continue;
+      }
+
+      const heading = getHeadingBetweenPoints(
+        { lat: previousPoint.latitud, lng: previousPoint.longitud },
+        { lat: currentPoint.latitud, lng: currentPoint.longitud },
+      );
+
+      const element = document.createElement("div");
+      element.style.width = "22px";
+      element.style.height = "22px";
+      element.style.display = "flex";
+      element.style.alignItems = "center";
+      element.style.justifyContent = "center";
+      element.style.transform = `rotate(${heading}deg)`;
+      element.style.fontSize = "16px";
+      element.style.fontWeight = "700";
+      element.style.lineHeight = "1";
+      element.style.cursor = "pointer";
+
+      const movementState = currentPoint.movement_state || "desconocido";
+
+      if (movementState === "movimiento") {
+        element.style.color = "#16a34a";
+      } else if (movementState === "stop") {
+        element.style.color = "#6b7280";
+      } else if (movementState === "apagado") {
+        element.style.color = "#dc2626";
+      } else {
+        element.style.color = "#374151";
+      }
+
+      element.innerHTML = "➜";
+
+      const marker = new window.google.maps.marker.AdvancedMarkerElement({
+        map,
+        position: {
+          lat: currentPoint.latitud,
+          lng: currentPoint.longitud,
+        },
+        content: element,
+        title: `Registro ${index + 1}`,
+      });
+
+      const markerData: RouteArrowMarkerData = {
+        point: currentPoint,
+        index,
+        heading,
+        distanceFromStartKm: accumulatedDistanceKm,
+      };
+
+      marker.addListener("click", () => {
+        infoWindow.setContent(
+          buildRouteArrowInfoWindowContent(
+            currentRouteUnitLabelRef.current,
+            markerData,
+          ),
+        );
+
+        infoWindow.open({
+          map,
+          anchor: marker,
+        });
+      });
+
+      routeDirectionMarkersRef.current.push(marker);
+    }
   };
 
   const clearMap = () => {
@@ -472,36 +628,16 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     );
   };
 
-
   const syncRouteOverlays = () => {
     const map = mapRef.current;
     const points = currentRoutePointsRef.current;
 
     if (unitRoutePolylineRef.current) {
       unitRoutePolylineRef.current.setMap(routeVisibleRef.current ? map : null);
-
-      unitRoutePolylineRef.current.setOptions({
-        icons:
-          routeVisibleRef.current && routeDirectionVisibleRef.current
-            ? [
-              {
-                icon: {
-                  path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-                  scale: 3,
-                  strokeColor: "#374151",
-                  strokeOpacity: 1,
-                  fillColor: "#374151",
-                  fillOpacity: 1,
-                },
-                offset: "5%",
-                repeat: "70px",
-              },
-            ]
-            : [],
-      });
     }
 
     clearRouteStartEndMarkers();
+    clearRouteDirectionMarkers();
 
     if (!routeVisibleRef.current || !map || points.length === 0) {
       return;
@@ -510,7 +646,11 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     if (routeStartEndVisibleRef.current) {
       drawRouteStartEndMarkers(points);
     }
-  }
+
+    if (routeDirectionVisibleRef.current) {
+      drawRouteDirectionMarkers(points);
+    }
+  };
 
   const focusMexico = () => {
     const map = mapRef.current;
@@ -754,13 +894,14 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     infoWindowRef.current?.close();
   };
 
-  const showUnitRoute = (points: RoutePoint[]) => {
+  const showUnitRoute = (points: RoutePoint[], unitLabel?: string) => {
     const map = mapRef.current;
     if (!map || points.length === 0) return;
 
     hideUnitRoute();
 
     currentRoutePointsRef.current = points;
+    currentRouteUnitLabelRef.current = unitLabel ?? null;
 
     const path = points.map((point) => ({
       lat: point.latitud,
@@ -774,23 +915,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
       strokeWeight: 4,
       geodesic: false,
       map: routeVisibleRef.current ? map : null,
-      icons: routeDirectionVisibleRef.current
-        ? [
-          {
-            icon: {
-              path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-              scale: 3,
-              strokeColor: "#374151",
-              strokeOpacity: 1,
-              fillColor: "#374151",
-              fillOpacity: 1,
-            },
-            offset: "5%",
-            repeat: "70px",
-          },
-        ]
-        : [],
-    })
+    });
 
     const bounds = new window.google.maps.LatLngBounds();
     path.forEach((point) => bounds.extend(point));

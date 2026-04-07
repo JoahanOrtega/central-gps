@@ -50,6 +50,7 @@ export interface RoutePoint {
   velocidad: number | null
   grados: number | null
   status: string | null
+  movement_state?: "apagado" | "stop" | "movimiento" | "desconocido"
 }
 
 export interface RecentTripItem {
