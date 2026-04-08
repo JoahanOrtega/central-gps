@@ -8,6 +8,7 @@ import type {
   RoutePoint,
   TripUnitSummary,
 } from "../types/map.types";
+import { notify } from '@/stores/notificationStore';
 
 /**
  * Estado central del drawer de recorridos.
@@ -31,8 +32,6 @@ export const useTripMonitor = () => {
   const [isLoadingUnits, setIsLoadingUnits] = useState(false);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [error, setError] = useState("");
-  const [toastMessage, setToastMessage] = useState("");
-
   const selectedUnit = useMemo(
     () => units.find((unit) => unit.imei === selectedUnitImei) ?? null,
     [units, selectedUnitImei],
@@ -99,7 +98,7 @@ export const useTripMonitor = () => {
         setUnitSummary(summary);
 
         if (!summary.hasTelemetry) {
-          setToastMessage("No hay información para mostrar");
+          notify.warning("No hay información para mostrar");
           return;
         }
 
@@ -137,7 +136,7 @@ export const useTripMonitor = () => {
 
         if (!points.length) {
           setCurrentRoutePoints([]);
-          setToastMessage("No hay información para mostrar");
+          notify.warning("No hay información para mostrar");
           return [];
         }
 
@@ -183,7 +182,7 @@ export const useTripMonitor = () => {
 
         if (!points.length) {
           setCurrentRoutePoints([]);
-          setToastMessage("No hay información para mostrar");
+          notify.warning("No hay información para mostrar");
           return [];
         }
 
@@ -206,20 +205,12 @@ export const useTripMonitor = () => {
   );
 
   /**
-   * Limpia el mensaje toast manualmente.
-   */
-  const clearToast = useCallback(() => {
-    setToastMessage("");
-  }, []);
-
-  /**
    * Limpia completamente el estado del feature.
    */
   const resetAll = useCallback(() => {
     setUnits([]);
     setSelectedUnitImei("");
     setError("");
-    setToastMessage("");
     resetRouteState();
   }, [resetRouteState]);
 
@@ -236,13 +227,11 @@ export const useTripMonitor = () => {
     isLoadingUnits,
     isLoadingRoute,
     error,
-    toastMessage,
 
     loadUnits,
     selectUnit,
     loadRouteByMode,
     loadTripById,
-    clearToast,
     resetAll,
     setSelectedTripId,
     setActiveMode,

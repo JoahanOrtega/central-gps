@@ -86,3 +86,47 @@ export interface RecentTripItem {
   duration_seconds: number;
   distance_km: number;
 }
+
+/** Opciones de rango predefinido */
+export type PredefinedRange = 
+  | 'current' 
+  | 'latest' 
+  | 'today' 
+  | 'yesterday' 
+  | 'day_before_yesterday'
+  | 'last_30_min'
+  | 'last_1_hour'
+  | 'last_2_hours'
+  | 'last_4_hours'
+  | 'last_8_hours'
+  | 'last_12_hours';
+
+/** Parámetros para consulta de rango personalizado */
+export interface CustomRangeParams {
+  startDate: string; // YYYY-MM-DD
+  startTime?: string; // HH:mm (opcional)
+  endDate: string;   // YYYY-MM-DD
+  endTime?: string;  // HH:mm (opcional)
+}
+
+/** Resumen extendido del recorrido (incluye excesos de velocidad) */
+export interface ExtendedRouteSummary {
+  movementCount: number;
+  distanceKm: number;
+  movingSeconds: number;
+  idleSeconds: number;    // En relentí
+  offSeconds: number;
+  speedingCount: number;  // Excesos de velocidad
+}
+
+/** Opciones de visualización de iconos en el mapa */
+export interface RouteDisplayOptions {
+  flags: boolean;      // Inicio/Fin
+  arrows: boolean;     // Dirección
+  stops: boolean;      // Paradas
+  speeding: boolean;   // Excesos de velocidad
+  engine: boolean;     // Encendido/Apagado
+  rfid: boolean;       // RFID
+  alerts: boolean;     // Alertas
+  doors: boolean;      // Puertas
+}

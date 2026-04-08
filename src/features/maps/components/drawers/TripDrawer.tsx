@@ -1,12 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-
-import type { RoutePoint } from "../../types/map.types";
-import { formatAppDateTime } from "@/lib/date-time";
-import { getTelemetryStatusLabel } from "../../lib/telemetry-status"; 
-import { formatDuration, getRouteSummary } from "../../lib/route-summary"; 
-import { useTripMonitor } from "../../hooks/useTripMonitor";
-import type { RouteMode } from "../../services/telemetryService";
-
+import { useState } from 'react';
+import { useTripDrawer } from '../../hooks/useTripDrawer';
+import { formatAppDateTime } from '@/lib/date-time';
+import { getTelemetryStatusLabel } from '../../lib/telemetry-status';
+import { ChevronDown } from 'lucide-react';
+import type { PredefinedRange, RoutePoint } from '../../types/map.types';
 
 interface TripDrawerProps {
   isOpen: boolean;
@@ -18,29 +15,7 @@ interface TripDrawerProps {
   onDirectionVisibilityChange: (visible: boolean) => void;
 }
 
-const routeButtonClass =
-  "border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50";
-
-/**
- * Drawer lateral para consultar recorridos históricos de una unidad.
- *
- * Este componente:
- * - permite buscar unidades
- * - seleccionar una unidad por IMEI
- * - ver resumen de la unidad
- * - cargar rutas por modo (último, hoy, ayer, antier)
- * - cargar trips recientes
- * - controlar overlays visuales del mapa
- */
-export const TripDrawer = ({
-  isOpen,
-  onClose,
-  onRouteSelected,
-  onRouteHidden,
-  onRouteVisibilityChange,
-  onStartEndVisibilityChange,
-  onDirectionVisibilityChange,
-}: TripDrawerProps) => {
+export const TripDrawer = (props: TripDrawerProps) => {
   const {
     units,
     selectedUnit,
@@ -48,196 +23,65 @@ export const TripDrawer = ({
     unitSummary,
     visibleTrips,
     selectedTripId,
-    activeMode,
     currentRoutePoints,
     isLoadingUnits,
     isLoadingRoute,
     error,
-    toastMessage,
+    mode,
+    setMode,
+    search,
+    setSearch,
+    customRange,
+    setCustomRange,
+    displayOptions,
+    setDisplayOptions,
+    extendedSummary,
+    formatDuration,
     loadUnits,
-    selectUnit,
-    loadRouteByMode,
-    loadTripById,
-    clearToast,
-    resetAll,
-  } = useTripMonitor();
+    handleUnitChange,
+    handleLoadPredefinedRoute,
+    handleLoadCustomRange,
+    handleLoadTripById,
+    handleArchiveTrip,
+    handleClose,
+  } = useTripDrawer(props);
 
-  const [search, setSearch] = useState("");
+  const [showPredefinedDropdown, setShowPredefinedDropdown] = useState(false);
 
-  const [showRouteLine, setShowRouteLine] = useState(true);
-  const [showStartEndFlags, setShowStartEndFlags] = useState(true);
-  const [showDirectionArrows, setShowDirectionArrows] = useState(false);
+  if (!props.isOpen) return null;
 
-  const routeSummary = useMemo(
-    () => getRouteSummary(currentRoutePoints),
-    [currentRoutePoints],
-  );
-
-  /**
-   * Oculta el toast automáticamente después de unos segundos.
-   */
-  useEffect(() => {
-    if (!toastMessage) return;
-
-    const timeout = window.setTimeout(() => {
-      clearToast();
-    }, 2500);
-
-    return () => window.clearTimeout(timeout);
-  }, [toastMessage, clearToast]);
-
-  /**
-   * Sincroniza la visibilidad de la polilínea con el mapa.
-   */
-  useEffect(() => {
-    onRouteVisibilityChange(showRouteLine);
-  }, [showRouteLine, onRouteVisibilityChange]);
-
-  /**
-   * Sincroniza la visibilidad de inicio/fin con el mapa.
-   */
-  useEffect(() => {
-    onStartEndVisibilityChange(showStartEndFlags);
-  }, [showStartEndFlags, onStartEndVisibilityChange]);
-
-  /**
-   * Sincroniza la visibilidad de flechas del recorrido con el mapa.
-   */
-  useEffect(() => {
-    onDirectionVisibilityChange(showDirectionArrows);
-  }, [showDirectionArrows, onDirectionVisibilityChange]);
-
-  /**
-   * Carga las unidades disponibles al abrir el drawer.
-   */
-  useEffect(() => {
-    if (!isOpen) return;
-    void loadUnits();
-  }, [isOpen, loadUnits]);
-
-  /**
-   * Aplica la ruta recibida al mapa y sincroniza overlays visuales.
-   */
-  const applyRouteToMap = (points: RoutePoint[]) => {
-    if (!points.length) {
-      onRouteHidden();
-      return;
-    }
-
-    onRouteSelected(points);
-    onRouteVisibilityChange(showRouteLine);
-    onStartEndVisibilityChange(showStartEndFlags);
-    onDirectionVisibilityChange(showDirectionArrows);
-  };
-
-  /**
-   * Selecciona unidad y prepara el drawer para mostrar sus recorridos.
-   */
-  const handleUnitChange = async (imei: string) => {
-    onRouteHidden();
-    await selectUnit(imei);
-  };
-
-  /**
-   * Carga una ruta por modo predefinido.
-   */
-  const handleLoadRouteByMode = async (mode: RouteMode) => {
-    const points = await loadRouteByMode(mode);
-
-    if (!points.length) {
-      onRouteHidden();
-      return;
-    }
-
-    applyRouteToMap(points);
-  };
-
-  /**
-   * Carga un recorrido puntual desde la lista de trips recientes.
-   */
-  const handleLoadTripById = async (tripId: string) => {
-    const points = await loadTripById(tripId);
-
-    if (!points.length) {
-      onRouteHidden();
-      return;
-    }
-
-    applyRouteToMap(points);
-  };
-
-  /**
-   * Cierra el drawer y limpia completamente el estado local del feature.
-   */
-  const handleClose = () => {
-    setSearch("");
-    setShowRouteLine(true);
-    setShowStartEndFlags(true);
-    setShowDirectionArrows(false);
-    onRouteHidden();
-    resetAll();
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <>
-      {toastMessage && (
-        <div className="absolute left-1/2 top-4 z-30 -translate-x-1/2 rounded-lg bg-slate-900 px-4 py-3 text-sm text-white shadow-lg md:left-auto md:right-6 md:top-6 md:translate-x-0">
-          {toastMessage}
-        </div>
-      )}
-
-      <aside className="absolute inset-x-2 top-2 bottom-2 z-20 flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl md:inset-x-auto md:right-4 md:top-4 md:bottom-4 md:w-[420px]">
-        {/* Tabs superiores */}
-        <div className="border-b border-slate-200 px-3 pt-3 md:px-4 md:pt-4">
-          <div className="flex items-center gap-4 overflow-x-auto text-sm md:gap-8">
-            <button className="whitespace-nowrap border-b-2 border-emerald-500 pb-3 font-medium text-emerald-600">
-              Nuevo
-            </button>
-            <button className="whitespace-nowrap pb-3 text-slate-400" disabled>
-              Eventos
-            </button>
-            <button className="whitespace-nowrap pb-3 text-slate-400" disabled>
-              Archivados
-            </button>
+  // Renderizado condicional por modo
+  const renderContent = () => {
+    // Modo 1: Selección de unidad
+    if (mode === 'unit_select') {
+      return (
+        <div className="flex-1 p-4">
+          <div className="tarjeta-unidad mb-4 flex h-14 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50">
+            <p className="text-center text-sm text-slate-500">
+              <i className="fa fa-arrow-circle-up mr-1" />
+              Seleccione Una Unidad
+            </p>
           </div>
-        </div>
-
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3 md:p-4">
-          {/* Búsqueda y selección de unidad */}
           <div className="space-y-3">
-            <div className="flex flex-col gap-2 md:flex-row">
+            <div className="flex gap-2">
               <input
                 type="text"
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar unidad..."
-                className="w-full flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none"
+                className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
               />
-
               <button
-                type="button"
-                onClick={() => void loadUnits(search)}
-                className="w-full rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 md:w-auto"
+                onClick={() => loadUnits(search)}
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
               >
                 Buscar
               </button>
-
-              <button
-                type="button"
-                onClick={handleClose}
-                className="w-full rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 md:w-auto"
-              >
-                Cerrar
-              </button>
             </div>
-
             <select
               value={selectedUnitImei}
-              onChange={(event) => void handleUnitChange(event.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none"
+              onChange={(e) => handleUnitChange(e.target.value)}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             >
               <option value="">--seleccione una unidad--</option>
               {units.map((unit) => (
@@ -246,269 +90,363 @@ export const TripDrawer = ({
                 </option>
               ))}
             </select>
-
-            {isLoadingUnits && (
-              <p className="text-sm text-slate-500">Cargando unidades...</p>
-            )}
-
+            {isLoadingUnits && <p className="text-sm text-slate-500">Cargando unidades...</p>}
             {error && <p className="text-sm text-red-500">{error}</p>}
           </div>
+        </div>
+      );
+    }
 
-          {/* Resumen de unidad seleccionada */}
-          {selectedUnit && (
-            <div className="mt-4 rounded-lg border border-slate-200 p-3 md:p-4">
-              <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 md:grid-cols-3">
-                <div>
-                  <p className="text-xs text-slate-400">Unidad</p>
-                  <p className="font-semibold text-slate-700">
-                    {selectedUnit.numero}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-slate-400">IMEI</p>
-                  <p className="break-all font-medium text-slate-700">
-                    {selectedUnit.imei}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-slate-400">Marca / Modelo</p>
-                  <p className="font-medium text-slate-700">
-                    {selectedUnit.marca} {selectedUnit.modelo}
-                  </p>
-                </div>
-
-                <div className="sm:col-span-2 md:col-span-3">
-                  <p className="text-xs text-slate-400">Estado</p>
-                  <p className="font-medium text-slate-700">
-                    {getTelemetryStatusLabel(
-                      selectedUnit.telemetry?.status,
-                      selectedUnit.telemetry?.velocidad,
-                    )}
-                  </p>
-                </div>
-
-                <div className="sm:col-span-2 md:col-span-3">
-                  <p className="text-xs text-slate-400">Último reporte</p>
-                  <p className="font-medium text-slate-700">
-                    {formatAppDateTime(
-                      unitSummary?.last_report ??
-                        selectedUnit.telemetry?.fecha_hora_gps ??
-                        null,
-                    )}
-                  </p>
-                </div>
+    // Modo 2: Rangos predefinidos
+    if (mode === 'predefined' && selectedUnit) {
+      return (
+        <div className="flex-1 overflow-y-auto p-4">
+          {/* Resumen de unidad */}
+          <div className="mb-4 rounded-lg border border-slate-200 p-3">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div><span className="text-slate-400">Unidad:</span> {selectedUnit.numero}</div>
+              <div><span className="text-slate-400">IMEI:</span> {selectedUnit.imei}</div>
+              <div className="col-span-2">
+                <span className="text-slate-400">Estado:</span>{' '}
+                {getTelemetryStatusLabel(selectedUnit.telemetry?.status, selectedUnit.telemetry?.velocidad)}
+              </div>
+              <div className="col-span-2">
+                <span className="text-slate-400">Último reporte:</span>{' '}
+                {formatAppDateTime(unitSummary?.last_report ?? selectedUnit.telemetry?.fecha_hora_gps)}
               </div>
             </div>
-          )}
+          </div>
 
-          {selectedUnitImei && (
-            <>
-              {/* Modos de recorrido */}
-              <div className="mt-4">
-                <p className="mb-2 text-sm font-medium text-slate-700">
-                  Mostrar recorrido previo:
-                </p>
-
-                <div className="grid grid-cols-2 overflow-hidden rounded-md border border-slate-300 md:flex md:flex-wrap">
-                  <button
-                    type="button"
-                    className={`${routeButtonClass} ${
-                      activeMode === "latest" ? "bg-slate-100" : ""
-                    }`}
-                    onClick={() => void handleLoadRouteByMode("latest")}
-                  >
-                    Último
-                  </button>
-
-                  <button
-                    type="button"
-                    className={`${routeButtonClass} ${
-                      activeMode === "today" ? "bg-slate-100" : ""
-                    }`}
-                    onClick={() => void handleLoadRouteByMode("today")}
-                  >
-                    Hoy
-                  </button>
-
-                  <button
-                    type="button"
-                    className={`${routeButtonClass} ${
-                      activeMode === "yesterday" ? "bg-slate-100" : ""
-                    }`}
-                    onClick={() => void handleLoadRouteByMode("yesterday")}
-                  >
-                    Ayer
-                  </button>
-
-                  <button
-                    type="button"
-                    className={`${routeButtonClass} ${
-                      activeMode === "day_before_yesterday" ? "bg-slate-100" : ""
-                    }`}
-                    onClick={() =>
-                      void handleLoadRouteByMode("day_before_yesterday")
-                    }
-                  >
-                    Antier
-                  </button>
-                </div>
-              </div>
-
-              {/* Lista de trips recientes */}
-              <div className="mt-4">
-                <p className="mb-2 text-sm font-medium text-slate-700">
-                  Últimos recorridos:
-                </p>
-
-                <select
-                  value={selectedTripId}
-                  onChange={(event) => void handleLoadTripById(event.target.value)}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none"
-                >
-                  <option value="">--seleccione un recorrido--</option>
-                  {visibleTrips.map((trip) => (
-                    <option key={trip.id} value={trip.id}>
-                      {trip.label} · {formatDuration(trip.duration_seconds)} ·{" "}
-                      {trip.distance_km.toFixed(2)} km
-                    </option>
-                  ))}
-                </select>
-
-                <div className="mt-3 space-y-3 rounded-lg border border-slate-200 p-3">
-                  {visibleTrips.length === 0 && (
-                    <p className="text-sm text-slate-500">
-                      No hay recorridos recientes disponibles.
-                    </p>
-                  )}
-
-                  {visibleTrips.map((trip) => (
+          <p className="mb-2 text-sm font-medium">Mostrar Recorrido Previo:</p>
+          
+          {/* Botones de rango rápido */}
+          <div className="mb-4 flex flex-wrap gap-1">
+            <button
+              onClick={() => handleLoadPredefinedRoute('current')}
+              className="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
+            >
+              Actual
+            </button>
+            <button
+              onClick={() => handleLoadPredefinedRoute('latest')}
+              className="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
+            >
+              Último
+            </button>
+            <button
+              onClick={() => handleLoadPredefinedRoute('today')}
+              className="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
+            >
+              Hoy
+            </button>
+            <button
+              onClick={() => handleLoadPredefinedRoute('yesterday')}
+              className="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
+            >
+              Ayer
+            </button>
+            <button
+              onClick={() => handleLoadPredefinedRoute('day_before_yesterday')}
+              className="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
+            >
+              Antier
+            </button>
+            
+            {/* Dropdown para más opciones */}
+            <div className="relative">
+              <button
+                onClick={() => setShowPredefinedDropdown(!showPredefinedDropdown)}
+                className="flex items-center gap-1 rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
+              {showPredefinedDropdown && (
+                <div className="absolute right-0 z-10 mt-1 w-36 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+                  {['30 min', '1 hr', '2 hrs', '4 hrs', '8 hrs', '12 hrs'].map((label) => (
                     <button
-                      key={trip.id}
-                      type="button"
-                      onClick={() => void handleLoadTripById(trip.id)}
-                      className="block w-full rounded-md border border-transparent px-2 py-2 text-left hover:bg-slate-50"
+                      key={label}
+                      className="w-full px-4 py-1.5 text-left text-sm hover:bg-slate-50"
+                      onClick={() => {
+                        // Implementar según corresponda
+                        notify.info(`Rango ${label} no implementado`);
+                        setShowPredefinedDropdown(false);
+                      }}
                     >
-                      <div className="flex flex-wrap items-center gap-2 text-sm">
-                        <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-xs font-semibold text-white">
-                          {trip.label}
-                        </span>
-                        <span className="text-slate-600">
-                          {formatDuration(trip.duration_seconds)}
-                        </span>
-                        <span className="text-slate-600">
-                          {trip.distance_km.toFixed(2)} km
-                        </span>
-                      </div>
-
-                      <p className="mt-1 text-xs text-slate-500">
-                        {formatAppDateTime(trip.start_time)} -{" "}
-                        {formatAppDateTime(trip.end_time)}
-                      </p>
+                      {label}
                     </button>
                   ))}
                 </div>
-              </div>
-
-              {/* Resumen del recorrido actual */}
-              {currentRoutePoints.length > 0 && (
-                <div className="mt-4 rounded-lg border border-slate-200 p-3 md:p-4">
-                  <h3 className="text-sm font-semibold text-slate-700">
-                    Resumen de recorrido
-                  </h3>
-
-                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-xs text-slate-400">Movimientos</p>
-                      <p className="text-lg font-semibold text-sky-500">
-                        {routeSummary.movementCount}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-slate-400">Kilómetros</p>
-                      <p className="text-lg font-semibold text-cyan-500">
-                        {routeSummary.distanceKm.toFixed(2)}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-slate-400">En movimiento</p>
-                      <p className="text-lg font-semibold text-emerald-500">
-                        {formatDuration(routeSummary.movingSeconds)}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-slate-400">En stop</p>
-                      <p className="text-lg font-semibold text-amber-500">
-                        {formatDuration(routeSummary.stopSeconds)}
-                      </p>
-                    </div>
-
-                    <div className="col-span-2">
-                      <p className="text-xs text-slate-400">Apagada</p>
-                      <p className="text-lg font-semibold text-slate-600">
-                        {formatDuration(routeSummary.offSeconds)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Controles visuales del recorrido */}
-                  <div className="mt-4">
-                    <p className="mb-2 text-sm font-medium text-slate-700">
-                      Ver en el mapa
-                    </p>
-
-                    <div className="flex flex-wrap items-center gap-3">
-                      <label className="flex items-center gap-2 text-sm text-slate-600">
-                        <input
-                          type="checkbox"
-                          checked={showRouteLine}
-                          onChange={(event) => setShowRouteLine(event.target.checked)}
-                          className="h-4 w-4"
-                        />
-                        <span>Ruta</span>
-                      </label>
-
-                      <label className="flex items-center gap-2 text-sm text-slate-600">
-                        <input
-                          type="checkbox"
-                          checked={showStartEndFlags}
-                          onChange={(event) =>
-                            setShowStartEndFlags(event.target.checked)
-                          }
-                          className="h-4 w-4"
-                        />
-                        <span>Inicio / Fin</span>
-                      </label>
-
-                      <label className="flex items-center gap-2 text-sm text-slate-600">
-                        <input
-                          type="checkbox"
-                          checked={showDirectionArrows}
-                          onChange={(event) =>
-                            setShowDirectionArrows(event.target.checked)
-                          }
-                          className="h-4 w-4"
-                        />
-                        <span>Dirección</span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
               )}
+            </div>
+          </div>
 
-              {isLoadingRoute && (
-                <p className="mt-4 text-sm text-slate-500">
-                  Cargando recorrido...
-                </p>
-              )}
-            </>
-          )}
+          <p className="mb-2 text-sm font-medium">Últimos Recorridos:</p>
+          <select
+            value={selectedTripId}
+            onChange={(e) => handleLoadTripById(e.target.value)}
+            className="mb-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          >
+            <option value="">--seleccione un recorrido--</option>
+            {visibleTrips.map((trip) => (
+              <option key={trip.id} value={trip.id}>
+                {trip.label} · {formatDuration(trip.duration_seconds)} · {trip.distance_km.toFixed(2)} km
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={() => setMode('custom')}
+            className="text-sm text-blue-600 hover:underline"
+          >
+            <i className="flaticon-calendar-with-a-clock-time-tools mr-1" />
+            Consultar Otro Rango
+          </button>
         </div>
-      </aside>
-    </>
+      );
+    }
+
+    // Modo 3: Rango personalizado
+    if (mode === 'custom' && selectedUnit) {
+      return (
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="space-y-3">
+            <div className="grid grid-cols-7 gap-2">
+              <div className="col-span-4">
+                <label className="text-xs text-slate-500">Fecha Inicial *</label>
+                <input
+                  type="date"
+                  value={customRange.startDate}
+                  onChange={(e) => setCustomRange({ ...customRange, startDate: e.target.value })}
+                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                />
+              </div>
+              <div className="col-span-3">
+                <label className="text-xs text-slate-500">Hora Inicial</label>
+                <input
+                  type="time"
+                  value={customRange.startTime}
+                  onChange={(e) => setCustomRange({ ...customRange, startTime: e.target.value })}
+                  placeholder="opcional"
+                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-7 gap-2">
+              <div className="col-span-4">
+                <label className="text-xs text-slate-500">Fecha Final *</label>
+                <input
+                  type="date"
+                  value={customRange.endDate}
+                  onChange={(e) => setCustomRange({ ...customRange, endDate: e.target.value })}
+                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                />
+              </div>
+              <div className="col-span-3">
+                <label className="text-xs text-slate-500">Hora Final</label>
+                <input
+                  type="time"
+                  value={customRange.endTime}
+                  onChange={(e) => setCustomRange({ ...customRange, endTime: e.target.value })}
+                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setMode('predefined')}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                <i className="flaticon-calendar-with-a-clock-time-tools mr-1" />
+                Consultar Rango Predefinido
+              </button>
+              <button
+                onClick={handleLoadCustomRange}
+                disabled={!customRange.startDate || !customRange.endDate}
+                className="rounded bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                <i className="fa fa-code-branch mr-1" />
+                Consultar
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Modo 4: Resumen del recorrido
+    if (mode === 'summary' && extendedSummary) {
+      return (
+        <div className="flex-1 overflow-y-auto p-4">
+          <h5 className="mb-3 text-sm font-medium">Resumen de Recorrido</h5>
+          
+          <div className="mb-4 space-y-2 rounded-lg border border-slate-200 p-3">
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-600">Movimientos</span>
+              <span className="font-semibold text-blue-500">{extendedSummary.movementCount}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-600">Kilómetros</span>
+              <span className="font-semibold text-cyan-500">{extendedSummary.distanceKm.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-600">Excesos de Vel.</span>
+              <span className="font-semibold text-red-500">{extendedSummary.speedingCount}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-600">En Movimiento</span>
+              <span className="font-semibold text-emerald-500">{formatDuration(extendedSummary.movingSeconds)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-600">En Relentí</span>
+              <span className="font-semibold text-amber-500">{formatDuration(extendedSummary.idleSeconds)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-600">Apagada</span>
+              <span className="font-semibold text-slate-600">{formatDuration(extendedSummary.offSeconds)}</span>
+            </div>
+          </div>
+
+          {/* Checkboxes de iconos */}
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-medium">Ver en el mapa</label>
+            <div className="flex flex-wrap gap-3">
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={displayOptions.flags}
+                  onChange={(e) => setDisplayOptions({ ...displayOptions, flags: e.target.checked })}
+                />
+                <img src="/images/map/flags.svg" alt="Inicio/Fin" width="18" />
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={displayOptions.arrows}
+                  onChange={(e) => setDisplayOptions({ ...displayOptions, arrows: e.target.checked })}
+                />
+                <img src="/images/map/arrow.svg" alt="Dirección" width="18" />
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={displayOptions.stops}
+                  onChange={(e) => setDisplayOptions({ ...displayOptions, stops: e.target.checked })}
+                />
+                <img src="/images/map/stop.svg" alt="Paradas" width="18" />
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={displayOptions.speeding}
+                  onChange={(e) => setDisplayOptions({ ...displayOptions, speeding: e.target.checked })}
+                />
+                <img src="/images/map/speed-icon.svg" alt="Excesos" width="18" />
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={displayOptions.engine}
+                  onChange={(e) => setDisplayOptions({ ...displayOptions, engine: e.target.checked })}
+                />
+                <img src="/images/map/engine.svg" alt="Motor" width="18" />
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={displayOptions.rfid}
+                  onChange={(e) => setDisplayOptions({ ...displayOptions, rfid: e.target.checked })}
+                />
+                <img src="/images/map/rfid.svg" alt="RFID" width="18" />
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={displayOptions.alerts}
+                  onChange={(e) => setDisplayOptions({ ...displayOptions, alerts: e.target.checked })}
+                />
+                <img src="/images/map/alert.svg" alt="Alertas" width="18" />
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={displayOptions.doors}
+                  onChange={(e) => setDisplayOptions({ ...displayOptions, doors: e.target.checked })}
+                />
+                <img src="/images/map/door.svg" alt="Puertas" width="18" />
+              </label>
+            </div>
+          </div>
+
+          {/* Botones de acción */}
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setMode('predefined')}
+              className="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
+            >
+              <i className="fa fa-reply mr-1" />
+              Cambiar Periodo
+            </button>
+            <button
+              onClick={handleArchiveTrip}
+              className="rounded border border-amber-500 px-3 py-1.5 text-sm text-amber-600 hover:bg-amber-50"
+              title="Archivar Recorrido"
+            >
+              <i className="fa fa-archive mr-1" />
+            </button>
+            <button
+              onClick={() => notify.info('Usar para ruta no implementado')}
+              className="rounded border border-blue-500 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50"
+              title="Usar Para Una Ruta"
+            >
+              <i className="fa fa-route mr-1" />
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <aside className="absolute inset-x-2 top-2 bottom-2 z-20 flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl md:inset-x-auto md:right-4 md:top-4 md:bottom-4 md:w-[450px]">
+      {/* Header fijo */}
+      <div className="border-b border-slate-200 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-medium text-slate-700">Consulta de Recorrido</h3>
+          <button
+            onClick={handleClose}
+            className="rounded-md p-1 hover:bg-slate-100"
+          >
+            ✕
+          </button>
+        </div>
+        {/* Tabs de navegación entre modos (solo si no estamos en summary) */}
+        {mode !== 'summary' && selectedUnit && (
+          <div className="mt-2 flex gap-4 text-sm">
+            <button
+              onClick={() => setMode('predefined')}
+              className={`pb-1 ${mode === 'predefined' ? 'border-b-2 border-emerald-500 font-medium text-emerald-600' : 'text-slate-400'}`}
+            >
+              Rangos
+            </button>
+            <button
+              onClick={() => setMode('custom')}
+              className={`pb-1 ${mode === 'custom' ? 'border-b-2 border-emerald-500 font-medium text-emerald-600' : 'text-slate-400'}`}
+            >
+              Personalizado
+            </button>
+          </div>
+        )}
+      </div>
+
+      {renderContent()}
+
+      {isLoadingRoute && (
+        <div className="border-t border-slate-200 p-3 text-center text-sm text-slate-500">
+          Cargando recorrido...
+        </div>
+      )}
+    </aside>
   );
 };

@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api";
 import type {
+  CustomRangeParams,
   RecentTripItem,
   RoutePoint,
   TripUnitSummary,
@@ -58,5 +59,34 @@ export const telemetryService = {
       `/telemetry/trip/${encodeURIComponent(imei)}/${encodeURIComponent(tripId)}`,
       { method: "GET" },
     );
+  },
+
+  /**
+   * Obtiene recorrido por rango personalizado.
+   */
+  getRouteByCustomRange(
+    imei: string,
+    params: CustomRangeParams
+  ): Promise<RoutePoint[]> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('start_date', params.startDate);
+    if (params.startTime) queryParams.append('start_time', params.startTime);
+    queryParams.append('end_date', params.endDate);
+    if (params.endTime) queryParams.append('end_time', params.endTime);
+
+    return apiFetch<RoutePoint[]>(
+      `/telemetry/route-custom/${encodeURIComponent(imei)}?${queryParams.toString()}`,
+      { method: 'GET' }
+    );
+  },
+
+  /**
+   * Archiva un recorrido (guardar para consulta posterior).
+   */
+  archiveTrip(imei: string, tripData: { start: string; end: string; label?: string }): Promise<{ success: boolean }> {
+    return apiFetch('/telemetry/archive-trip', {
+      method: 'POST',
+      body: JSON.stringify({ imei, ...tripData }),
+    });
   },
 };

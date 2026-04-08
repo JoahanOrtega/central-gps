@@ -12,6 +12,10 @@ import {
   getTelemetryStatusColor,
   getTelemetryStatusLabel,
 } from "../lib/telemetry-status";
+import {
+  haversineKm,
+  getHeadingBetweenPoints,
+} from "../lib/map-geometry";
 
 type RouteArrowMarkerData = {
   point: RoutePoint;
@@ -23,61 +27,6 @@ type RouteArrowMarkerData = {
 const DEFAULT_CENTER = { lat: 23.6345, lng: -102.5528 };
 const DEFAULT_ZOOM = 5;
 const USER_LOCATION_ZOOM = 16;
-
-/* =========================
-   Helpers matemáticos
-   ========================= */
-
-/** Convierte grados a radianes. */
-const toRadians = (value: number) => (value * Math.PI) / 180;
-/** Convierte radianes a grados. */
-const toDegrees = (value: number) => (value * 180) / Math.PI;
-
-/**
- * Calcula el rumbo entre dos puntos geográficos.
- * Se usa para orientar las flechas del recorrido.
- */
-const getHeadingBetweenPoints = (
-  start: google.maps.LatLngLiteral,
-  end: google.maps.LatLngLiteral,
-) => {
-  const lat1 = toRadians(start.lat);
-  const lng1 = toRadians(start.lng);
-  const lat2 = toRadians(end.lat);
-  const lng2 = toRadians(end.lng);
-
-  const dLng = lng2 - lng1;
-
-  const y = Math.sin(dLng) * Math.cos(lat2);
-  const x =
-    Math.cos(lat1) * Math.sin(lat2) -
-    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
-
-  const heading = toDegrees(Math.atan2(y, x));
-  return (heading + 360) % 360;
-};
-
-/** Calcula distancia entre dos puntos en kilómetros. */
-const haversineKm = (
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number,
-) => {
-  const earthRadiusKm = 6371;
-  const dLat = toRadians(lat2 - lat1);
-  const dLng = toRadians(lng2 - lng1);
-
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRadians(lat1)) *
-      Math.cos(toRadians(lat2)) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return earthRadiusKm * c;
-};
 
 /* =========================
    Helpers de texto / HTML
@@ -165,10 +114,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
      Inicialización del mapa
      ========================= */
 
-  /**
-   * Intenta obtener la ubicación actual del navegador.
-   * Si falla, el mapa usa el centro de México por defecto.
-   */
   const getBrowserLocation = () =>
     new Promise<{ lat: number; lng: number }>((resolve, reject) => {
       if (!navigator.geolocation) {
@@ -483,9 +428,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
      Gestión de rutas
      ========================= */
 
-  /**
-   * Elimina por completo la ruta y sus overlays asociados.
-   */
   const hideUnitRoute = () => {
     if (unitRoutePolylineRef.current) {
       unitRoutePolylineRef.current.setMap(null);
@@ -502,10 +444,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     }
   };
 
-  /**
-   * Calcula la distancia acumulada hasta un índice del recorrido.
-   * Se usa para el popup de cada flecha.
-   */
   const calculateDistanceFromStart = (points: RoutePoint[], index: number) => {
     let distanceKm = 0;
 
@@ -524,10 +462,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     return Number(distanceKm.toFixed(2));
   };
 
-  /**
-   * Dibuja una flecha por cada registro del recorrido.
-   * Cada flecha es clickeable y muestra información del punto.
-   */
   const drawRouteDirectionMarkers = (points: RoutePoint[]) => {
     const map = mapRef.current;
     const infoWindow = infoWindowRef.current;
@@ -613,9 +547,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     });
   };
 
-  /**
-   * Dibuja los markers de inicio y fin del recorrido.
-   */
   const drawRouteStartEndMarkers = (points: RoutePoint[]) => {
     const map = mapRef.current;
     if (!map || points.length === 0) return;
@@ -640,9 +571,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     );
   };
 
-  /**
-   * Sincroniza la visibilidad de la ruta y sus overlays auxiliares.
-   */
   const syncRouteOverlays = () => {
     const map = mapRef.current;
     const points = currentRoutePointsRef.current;
@@ -683,9 +611,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     }
   };
 
-  /**
-   * Dibuja un POI tipo círculo o polígono.
-   */
   const drawSinglePoiGeometry = (poi: MapPoiItem) => {
     const map = mapRef.current;
     if (!map) return;
