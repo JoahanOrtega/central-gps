@@ -2,15 +2,15 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import { LoginPage } from "../auth/pages/LoginPage";
 import { PrivateRoute } from "./PrivateRoute";
 
-import { HomeLayout } from "../home/components/layout/HomeLayout";
-import { DashboardPage } from "../home/pages/DashboardPage";
-import { MapsPage } from "../home/pages/MapsPage";
-import { ReportsPage } from "../home/pages/ReportsPage";
-import { UnitsPage } from "../home/pages/catalogs/UnitsPage";
-import { MonitorPage } from "../home/pages/operation/MonitorPage";
-import { FuelPage } from "../home/pages/fuel/FuelPage";
-import { PointsOfInterestPage } from "@/home/pages/catalogs/PointsOfInterestPage";
-import { PoiGroupsPage } from "@/home/pages/catalogs/PoiGroupsPage";
+import { HomeLayout } from "@/layout/HomeLayout";
+import { DashboardPage } from "@/pages/DashboardPage";
+import { MapsPage } from "@/pages/MapsPage";
+import { ReportsPage } from "@/pages/ReportsPage";
+import { UnitsPage } from "@/pages/UnitsPage";
+import { MonitorPage } from "@/pages/MonitorPage";
+import { FuelPage } from "@/pages/FuelPage";
+import { PointsOfInterestPage } from "@/pages/PointsOfInterestPage";
+import { PoiGroupsPage } from "@/pages/PoiGroupsPage";
 
 export const appRouter = createBrowserRouter([
   {

@@ -1,0 +1,43 @@
+<svg width="25" height="23" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <linearGradient y2="0.499999" y1="0.499999" x2="1" x1="0.000001" id="SVGID_1_">
+   <stop stop-color="#D59632" offset="0"/>
+   <stop stop-color="#D79B32" offset="0.0068"/>
+   <stop stop-color="#DFB434" offset="0.0456"/>
+   <stop stop-color="#E6C735" offset="0.0893"/>
+   <stop stop-color="#EAD535" offset="0.1397"/>
+   <stop stop-color="#EDDD36" offset="0.2032"/>
+   <stop stop-color="#EEDF36" offset="0.3214"/>
+   <stop stop-color="#EEDF36" offset="0.8061"/>
+   <stop stop-color="#EDDD36" offset="0.879"/>
+   <stop stop-color="#EBD535" offset="0.917"/>
+   <stop stop-color="#E6C735" offset="0.9469"/>
+   <stop stop-color="#DFB434" offset="0.9726"/>
+   <stop stop-color="#D79C32" offset="0.9954"/>
+   <stop stop-color="#D59632" offset="1"/>
+  </linearGradient>
+  <radialGradient r="28.7356" id="SVGID_2_" gradientUnits="userSpaceOnUse" gradientTransform="matrix(6.8138 0 0 6.8138 -1488.3801 -1283.6067)" cy="225.9443" cx="256.0078">
+   <stop stop-color="#000000" offset="0"/>
+   <stop stop-color="#3D4148" offset="1"/>
+  </radialGradient>
+  <radialGradient r="11.1161" id="SVGID_3_" gradientUnits="userSpaceOnUse" gradientTransform="matrix(6.8138 0 0 6.8138 -1488.3801 -1283.6067)" cy="229.458" cx="256.0078">
+   <stop stop-color="#000000" offset="0"/>
+   <stop stop-color="#3D4148" offset="1"/>
+  </radialGradient>
+ </defs>
+ <g>
+  <title>background</title>
+  <rect fill="none" id="canvas_background" height="25" width="27" y="-1" x="-1"/>
+ </g>
+ <g>
+  <title>Layer 1</title>
+  <g stroke="null" id="road__x2C__sign__x2C__alert__x2C__danger__x2C_">
+   <g stroke="null" id="svg_1">
+    <path stroke="null" id="svg_2" fill-rule="evenodd" clip-rule="evenodd" fill="url(#SVGID_1_)" d="m9.620751,1.83652l-8.998125,15.47163c-1.290446,2.219417 0.312089,5.002784 2.877667,5.002784l17.99995,0c2.565526,0 4.167856,-2.783316 2.877667,-5.002784l-8.997714,-15.47163c-1.286797,-2.208008 -4.473059,-2.208008 -5.759445,0l0,0z"/>
+    <path stroke="null" id="svg_3" fill-rule="evenodd" clip-rule="evenodd" fill="url(#SVGID_2_)" d="m21.342425,20.663381l-17.684109,0c-0.658456,0 -1.248923,-0.342152 -1.576121,-0.914068c-0.331001,-0.571504 -0.327198,-1.25252 0.003803,-1.824487l8.840153,-15.200344c0.330847,-0.56431 0.91746,-0.903173 1.572318,-0.903173c0.658456,0 1.24512,0.338863 1.576378,0.903173l8.839845,15.200344c0.331309,0.571967 0.334701,1.252983 0.003854,1.824487c-0.327455,0.571916 -0.917922,0.914068 -1.576121,0.914068l0,0zm-8.843956,-18.044248c-0.368926,0 -0.699619,0.187726 -0.884056,0.507576l-8.840256,15.200806c-0.187983,0.319798 -0.187983,0.703576 -0.003494,1.02322c0.188035,0.323704 0.518984,0.515233 0.887654,0.515233l17.684109,0c0.368464,0 0.699619,-0.191581 0.887551,-0.515233c0.184386,-0.319644 0.180583,-0.703422 -0.003854,-1.02322l-8.839999,-15.200806c-0.183872,-0.319849 -0.515336,-0.507576 -0.887654,-0.507576l0,0z"/>
+    <path stroke="null" id="svg_4" fill-rule="evenodd" clip-rule="evenodd" fill="url(#SVGID_3_)" d="m11.490461,13.851372l0,-6.78986l2.020025,0l0,6.78986l-2.020025,0l0,0zm0,4.032496l0,-2.279594l2.020025,0l0,2.279594l-2.020025,0z"/>
+   </g>
+  </g>
+  <g id="Layer_1"/>
+ </g>
+</svg>

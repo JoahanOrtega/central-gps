@@ -1,13 +1,9 @@
 const APP_TIMEZONE = "America/Mexico_City";
 
-const hasExplicitTimezone = (value: string) => {
-  return /([zZ]|[+-]\d{2}:\d{2})$/.test(value);
-};
-
 export const parseApiDate = (value?: string | null): Date | null => {
   if (!value) return null;
 
-  const normalized = hasExplicitTimezone(value) ? value : `${value}Z`;
+  const normalized = value.trim();
   const date = new Date(normalized);
 
   if (Number.isNaN(date.getTime())) {
@@ -18,6 +14,7 @@ export const parseApiDate = (value?: string | null): Date | null => {
 };
 
 export const formatAppDateTime = (value?: string | null) => {
+  
   const date = parseApiDate(value);
 
   if (!date) return "Sin fecha";
