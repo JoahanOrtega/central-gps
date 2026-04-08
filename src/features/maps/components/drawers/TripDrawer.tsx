@@ -4,6 +4,7 @@ import { formatAppDateTime } from '@/lib/date-time';
 import { getTelemetryStatusLabel } from '../../lib/telemetry-status';
 import { ChevronDown } from 'lucide-react';
 import type { PredefinedRange, RoutePoint } from '../../types/map.types';
+import { notify } from '@/stores/notificationStore';
 
 interface TripDrawerProps {
   isOpen: boolean;
