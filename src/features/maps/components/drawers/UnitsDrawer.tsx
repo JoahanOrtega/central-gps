@@ -6,7 +6,6 @@ import { getUnitStatusDotClass } from '../../lib/units-drawer.helpers';
 import type { MapUnitItem } from '../../types/map.types';
 
 interface UnitsDrawerProps {
-  isOpen: boolean;
   onClose: () => void;
   onSelectUnit: (unit: MapUnitItem) => void;
   onUnitsSelectionChange: (units: MapUnitItem[]) => void;
@@ -14,7 +13,6 @@ interface UnitsDrawerProps {
 }
 
 export const UnitsDrawer = ({
-  isOpen,
   onClose,
   onSelectUnit,
   onUnitsSelectionChange,
@@ -34,26 +32,22 @@ export const UnitsDrawer = ({
   } = useUnitsLive();
 
   useEffect(() => {
-    if (!isOpen) return;
     void loadUnits();
-  }, [isOpen, loadUnits]);
+  }, [loadUnits]);
 
   useEffect(() => {
-    if (!isOpen) return;
     if (selectedUnits.length === 0) {
       onUnitsHidden();
     } else {
       onUnitsSelectionChange(selectedUnits);
     }
-  }, [selectedUnits, isOpen, onUnitsSelectionChange, onUnitsHidden]);
+  }, [selectedUnits, onUnitsSelectionChange, onUnitsHidden]);
 
   const handleClose = () => {
     clearSelection();
     onUnitsHidden();
     onClose();
   };
-
-  if (!isOpen) return null;
 
   return (
     <aside className="absolute inset-x-2 top-2 bottom-2 z-20 flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl md:inset-x-auto md:right-4 md:top-4 md:bottom-4 md:w-[420px]">

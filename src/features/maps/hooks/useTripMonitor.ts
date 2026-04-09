@@ -62,24 +62,25 @@ export const useTripMonitor = () => {
   /**
    * Carga unidades disponibles para consulta.
    */
-  const loadUnits = useCallback(async (searchValue = "") => {
+  const loadUnits = useCallback(async (searchValue = '') => {
+    console.log('🔵 loadUnits llamado con search:', searchValue);
+
     try {
       setIsLoadingUnits(true);
-      setError("");
-
+      setError('');
       const response = await monitorService.getUnitsLive(searchValue);
+      console.log('🟢 respuesta de API:', response);
       setUnits(response);
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "No fue posible cargar las unidades";
+      const message = error instanceof Error ? error.message : 'No fue posible cargar las unidades';
+      console.error('🔴 error en loadUnits:', error);
 
       setError(message);
+      notify.error(message);
     } finally {
       setIsLoadingUnits(false);
     }
-  }, []);
+  }, []); // Sin dependencias, función estable
 
   /**
    * Selecciona una unidad y carga su resumen + trips recientes.

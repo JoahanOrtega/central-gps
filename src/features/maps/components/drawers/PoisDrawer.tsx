@@ -1,11 +1,10 @@
 import { ChevronRight, MapPin, Search, X } from "lucide-react";
 import { useEffect } from "react";
 
-import type { MapPoiItem } from "../../types/map.types"; 
-import { usePoisDrawer } from "../../hooks/usePoisDrawer"; 
+import type { MapPoiItem } from "../../types/map.types";
+import { usePoisDrawer } from "../../hooks/usePoisDrawer";
 
 interface PoisDrawerProps {
-  isOpen: boolean;
   onClose: () => void;
   onSelectPoi: (poi: MapPoiItem) => void;
   onPoisSelectionChange: (pois: MapPoiItem[]) => void;
@@ -17,7 +16,6 @@ interface PoisDrawerProps {
  * La lógica de carga, filtrado y selección vive en usePoisDrawer.
  */
 export const PoisDrawer = ({
-  isOpen,
   onClose,
   onSelectPoi,
   onPoisSelectionChange,
@@ -41,22 +39,20 @@ export const PoisDrawer = ({
    * Al abrir, carga POIs. Al cerrar, limpia selección.
    */
   useEffect(() => {
-    if (!isOpen) {
-      clearSelection();
-      onPoisHidden();
-      return;
-    }
+
+    clearSelection();
+    onPoisHidden();
+    return;
 
     void loadPois();
-  }, [isOpen, clearSelection, loadPois, onPoisHidden]);
+  }, [clearSelection, loadPois, onPoisHidden]);
 
   /**
    * Sincroniza la selección actual con el mapa.
    */
   useEffect(() => {
-    if (!isOpen) return;
     onPoisSelectionChange(selectedPois);
-  }, [selectedPois, isOpen, onPoisSelectionChange]);
+  }, [selectedPois, onPoisSelectionChange]);
 
   /**
    * Cambia el estado de selección de un POI.
@@ -90,13 +86,10 @@ export const PoisDrawer = ({
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
     <aside
-      className={`absolute right-0 top-0 z-20 h-full w-full max-w-[92vw] sm:max-w-[380px] md:max-w-[420px] border-l border-slate-200 bg-white shadow-xl transition-transform duration-300 ${
-        isOpen ? "translate-x-0" : "translate-x-full"
-      }`}
+      className={`absolute right-0 top-0 z-20 h-full w-full max-w-[92vw] sm:max-w-[380px] md:max-w-[420px] border-l border-slate-200 bg-white shadow-xl transition-transform duration-300 "translate-x-0"
+        }`}
     >
       <div className="flex h-full flex-col">
         {/* Header */}

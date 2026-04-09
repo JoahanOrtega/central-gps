@@ -137,31 +137,34 @@ export const MapsView = () => {
         <div className="relative min-h-0 flex-1 overflow-hidden">
           <MapCanvas ref={mapCanvasRef} />
 
-          <PoisDrawer
-            isOpen={activeDrawer === "pois"}
-            onClose={closeAllDrawers}
-            onSelectPoi={handleSelectPoi}
-            onPoisSelectionChange={handlePoisSelectionChange}
-            onPoisHidden={handlePoisHidden}
-          />
+          {activeDrawer === "pois" && (
+            <PoisDrawer
+              onClose={closeAllDrawers}
+              onSelectPoi={handleSelectPoi}
+              onPoisSelectionChange={handlePoisSelectionChange}
+              onPoisHidden={handlePoisHidden}
+            />
+          )}
 
-          <UnitsDrawer
-            isOpen={activeDrawer === "units"}
-            onClose={closeAllDrawers}
-            onSelectUnit={handleSelectUnit}
-            onUnitsSelectionChange={handleUnitsSelectionChange}
-            onUnitsHidden={handleUnitsHidden}
-          />
+          {activeDrawer === "units" && (
+            <UnitsDrawer
+              onClose={closeAllDrawers}
+              onSelectUnit={handleSelectUnit}
+              onUnitsSelectionChange={handleUnitsSelectionChange}
+              onUnitsHidden={handleUnitsHidden}
+            />
+          )}
 
-          <TripDrawer
-            isOpen={activeDrawer === "trips"}
-            onClose={closeAllDrawers}
-            onRouteSelected={handleRouteSelected}
-            onRouteHidden={handleRouteHidden}
-            onRouteVisibilityChange={handleRouteVisibilityChange}
-            onStartEndVisibilityChange={handleStartEndVisibilityChange}
-            onDirectionVisibilityChange={handleDirectionVisibilityChange}
-          />
+          {activeDrawer === "trips" && (
+            <TripDrawer
+              onClose={closeAllDrawers}
+              onRouteSelected={handleRouteSelected}
+              onRouteHidden={handleRouteHidden}
+              onRouteVisibilityChange={handleRouteVisibilityChange}
+              onStartEndVisibilityChange={handleStartEndVisibilityChange}
+              onDirectionVisibilityChange={handleDirectionVisibilityChange}
+            />
+          )}
         </div>
       </section>
     </main>
