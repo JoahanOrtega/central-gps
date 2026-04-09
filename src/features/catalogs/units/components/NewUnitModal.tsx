@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { BusFront, RotateCcw, X } from "lucide-react"
 
 import {
@@ -9,12 +9,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-import { unitService } from "../services/unitService"  
+import { unitService } from "../services/unitService"
+import { catalogService } from "../services/catalogServices"
+import type { OperatorOption, UnitGroupOption, AvlModelOption, ProtocolOption } from "../services/catalogServices"
 import { defaultNewUnitForm } from "./new-unit-form.constants"
 import { NewUnitGeneralStep } from "./NewUnitGeneralStep"
 import { NewUnitAdditionalStep } from "./NewUnitAdditionalStep"
 import type { NewUnitModalProps } from "./new-unit-form.types"
-import type { CreateUnitPayload } from "../types/unit.types" 
+import type { CreateUnitPayload } from "../types/unit.types"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 
 export const NewUnitModal = ({
@@ -28,6 +30,49 @@ export const NewUnitModal = ({
   const [error, setError] = useState("")
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false)
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false)
+  const [operators, setOperators] = useState<OperatorOption[]>([]);
+  const [unitGroups, setUnitGroups] = useState<UnitGroupOption[]>([]);
+  const [avlModels, setAvlModels] = useState<AvlModelOption[]>([]);
+  const [protocolsIn, setProtocolsIn] = useState<ProtocolOption[]>([]);
+  const [protocolsOut, setProtocolsOut] = useState<ProtocolOption[]>([]);
+  const [protocolsRs232, setProtocolsRs232] = useState<ProtocolOption[]>([]);
+  const [loadingCatalogs, setLoadingCatalogs] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const loadCatalogs = async () => {
+      setLoadingCatalogs(true);
+      try {
+        const [
+          ops,
+          groups,
+          models,
+          pIn,
+          pOut,
+          pRs232,
+        ] = await Promise.all([
+          catalogService.getOperators(),
+          catalogService.getUnitGroups(),
+          catalogService.getAvlModels(),
+          catalogService.getProtocols('in'),
+          catalogService.getProtocols('out'),
+          catalogService.getProtocols('rs232'),
+        ]);
+        setOperators(ops);
+        setUnitGroups(groups);
+        setAvlModels(models);
+        setProtocolsIn(pIn);
+        setProtocolsOut(pOut);
+        setProtocolsRs232(pRs232);
+      } catch (error) {
+        console.error('Error cargando catálogos', error);
+      } finally {
+        setLoadingCatalogs(false);
+      }
+    };
+    loadCatalogs();
+  }, [open]);
+
 
   const handleChange = (
     event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -57,6 +102,10 @@ export const NewUnitModal = ({
     onOpenChange(false)
   }
 
+  const handleImageChange = (imageBase64: string) => {
+    setForm(prev => ({ ...prev, imagen: imageBase64 }));
+  };
+
   const generalStepValid = useMemo(() => {
     return Boolean(
       form.numero.trim() &&
@@ -68,9 +117,9 @@ export const NewUnitModal = ({
       String(form.odometro_inicial).trim() &&
       form.fecha_instalacion.trim() &&
       form.imei.trim() &&
-      form.chip.trim(),
-    )
-  }, [form])
+      form.chip.trim()
+    );
+  }, [form]);
 
   const handleSubmit = async () => {
     try {
@@ -160,11 +209,25 @@ export const NewUnitModal = ({
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6">
               {step === 1 && (
-                <NewUnitGeneralStep form={form} onChange={handleChange} />
+                <NewUnitGeneralStep
+                  form={form}
+                  onChange={handleChange}
+                  onImageChange={handleImageChange}
+                  operators={operators}
+                  unitGroups={unitGroups}
+                  avlModels={avlModels}
+                  protocolsIn={protocolsIn}
+                  protocolsOut={protocolsOut}
+                  protocolsRs232={protocolsRs232}
+                  loadingCatalogs={loadingCatalogs}
+                />
               )}
 
               {step === 2 && (
-                <NewUnitAdditionalStep form={form} onChange={handleChange} />
+                <NewUnitAdditionalStep
+                  form={form}
+                  onChange={handleChange}
+                />
               )}
 
               {error && <p className="mt-6 text-sm text-rose-500">{error}</p>}

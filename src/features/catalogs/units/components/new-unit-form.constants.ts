@@ -1,4 +1,4 @@
-import type { CreateUnitPayload } from "../types/unit.types" 
+import type { CreateUnitPayload } from "../types/unit.types"
 
 export const defaultNewUnitForm: CreateUnitPayload = {
   numero: "",
@@ -6,6 +6,11 @@ export const defaultNewUnitForm: CreateUnitPayload = {
   modelo: "",
   anio: "",
   no_serie: "",
+  imagen: "",
+  fecha_asignacion_operador: "",
+  id_grupo_unidades: null,
+  temp_min: 0,
+  temp_max: 1,
   matricula: "",
   tipo: "",
   odometro_inicial: "",

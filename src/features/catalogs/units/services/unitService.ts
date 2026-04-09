@@ -3,7 +3,7 @@ import type {
   CreateUnitPayload,
   CreateUnitResponse,
   UnitItem,
-} from "./services/unit.types";
+} from "../types/unit.types";
 
 export const unitService = {
   getUnits(search = ""): Promise<UnitItem[]> {

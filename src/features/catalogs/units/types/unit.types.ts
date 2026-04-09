@@ -19,6 +19,11 @@ export interface CreateUnitPayload {
   modelo: string
   anio: string
   no_serie: string
+  imagen?: string; // base64 o URL temporal
+  fecha_asignacion_operador?: string; // opcional
+  id_grupo_unidades?: number | null;   // podría ser array si es múltiple
+  temp_min?: number;
+  temp_max?: number;
   matricula: string
   tipo: string
   odometro_inicial: number | string

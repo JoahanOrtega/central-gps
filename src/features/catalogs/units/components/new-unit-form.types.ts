@@ -7,10 +7,9 @@ export interface NewUnitModalProps {
 }
 
 export interface NewUnitStepProps {
-  form: CreateUnitPayload
-  onChange: (
-    event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => void
+  form: CreateUnitPayload;
+  onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  onImageChange?: (imageBase64: string) => void;
 }
 
 export interface FieldProps {
