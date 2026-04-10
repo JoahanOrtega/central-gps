@@ -1,6 +1,7 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet, useLocation } from "react-router-dom";
 import { LoginPage } from "../auth/pages/LoginPage";
 import { PrivateRoute } from "./PrivateRoute";
+import { useAuthStore } from "@/stores/authStore";
 
 import { HomeLayout } from "@/layout/HomeLayout";
 import { DashboardPage } from "@/pages/DashboardPage";
@@ -56,7 +57,7 @@ export const appRouter = createBrowserRouter([
       {
         path: "fuel/general",
         element: <FuelPage />,
-      }, 
+      },
       {
         path: "catalogs/points-of-interest",
         element: <PointsOfInterestPage />,

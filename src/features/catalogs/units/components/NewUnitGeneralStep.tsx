@@ -1,4 +1,4 @@
-import type { AvlModelOption, OperatorOption, ProtocolOption, UnitGroupOption } from "../services/catalogServices";
+import type { AvlModelOption, OperatorOption, UnitGroupOption } from "../services/catalogServices";
 import { inputClass } from "./new-unit-form.constants";
 import type { FieldProps, NewUnitStepProps, SelectFieldProps } from "./new-unit-form.types";
 
@@ -6,21 +6,16 @@ interface NewUnitGeneralStepProps extends NewUnitStepProps {
   operators: OperatorOption[];
   unitGroups: UnitGroupOption[];
   avlModels: AvlModelOption[];
-  protocolsIn: ProtocolOption[];
-  protocolsOut: ProtocolOption[];
-  protocolsRs232: ProtocolOption[];
   loadingCatalogs?: boolean;
 }
 
-export const NewUnitGeneralStep = ({ form,
+export const NewUnitGeneralStep = ({
+  form,
   onChange,
   onImageChange,
   operators,
   unitGroups,
   avlModels,
-  protocolsIn,
-  protocolsOut,
-  protocolsRs232,
   loadingCatalogs,
 }: NewUnitGeneralStepProps) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -34,6 +29,7 @@ export const NewUnitGeneralStep = ({ form,
       reader.readAsDataURL(file);
     }
   };
+
   return (
     <div className="grid grid-cols-1 gap-8 2xl:grid-cols-[minmax(0,1.3fr)_320px]">
       <div className="space-y-6">
@@ -103,7 +99,6 @@ export const NewUnitGeneralStep = ({ form,
               className={inputClass}
               disabled={loadingCatalogs}
             >
-              {/* TODO: cargar operadores desde API */}
               <option value="">-seleccione-</option>
               {operators.map(op => (
                 <option key={op.id_operador} value={op.id_operador}>
@@ -132,7 +127,6 @@ export const NewUnitGeneralStep = ({ form,
             className={inputClass}
             disabled={loadingCatalogs}
           >
-            {/* TODO: cargar grupos */}
             <option value="">-seleccione-</option>
             {unitGroups.map(g => (
               <option key={g.id_grupo_unidades} value={g.id_grupo_unidades}>
@@ -155,7 +149,6 @@ export const NewUnitGeneralStep = ({ form,
                 disabled={loadingCatalogs}
               >
                 <option value="">-seleccione-</option>
-                {/* TODO: cargar modelos */}
                 {avlModels.map(m => (
                   <option key={m.id_modelo_avl} value={m.id_modelo_avl}>
                     {m.modelo}
@@ -180,23 +173,44 @@ export const NewUnitGeneralStep = ({ form,
             </Field>
           </div>
 
-          {/* Periféricos Instalados */}
+          {/* Periféricos Instalados - Solo Input1, Input2, Output1, Output2 */}
           <p className="mb-3 mt-5 text-base text-slate-600 md:text-lg">Periféricos Instalados</p>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <SelectField label="Input 1" name="input1" value={form.input1} onChange={onChange} options={protocolsIn} />
-            <SelectField label="Input 2" name="input2" value={form.input2} onChange={onChange} options={protocolsIn} />
-            <SelectField label="Input 3" name="input3" value={form.input3} onChange={onChange} options={protocolsIn} />
-            <SelectField label="Input 4" name="input4" value={form.input4} onChange={onChange} options={protocolsIn} />
-            <SelectField label="Output 1" name="output1" value={form.output1} onChange={onChange} options={protocolsOut} />
-            <SelectField label="Output 2" name="output2" value={form.output2} onChange={onChange} options={protocolsOut} />
-            <SelectField label="Output 3" name="output3" value={form.output3} onChange={onChange} options={protocolsOut} />
-            <SelectField label="Output 4" name="output4" value={form.output4} onChange={onChange} options={protocolsOut} />
-            <SelectField label="RS232" name="rs232" value={form.rs232} onChange={onChange} options={protocolsRs232} />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Field label="Input 1">
+              <select name="input1" value={form.input1} onChange={onChange} className={inputClass}>
+                <option value="0">sin uso</option>
+                <option value="1">Encendido/Apagado</option>
+                <option value="2">Sensor de puerta</option>
+                <option value="3">Botón de pánico</option>
+              </select>
+            </Field>
+            <Field label="Input 2">
+              <select name="input2" value={form.input2} onChange={onChange} className={inputClass}>
+                <option value="0">sin uso</option>
+                <option value="1">Encendido/Apagado</option>
+                <option value="2">Sensor de puerta</option>
+                <option value="3">Botón de pánico</option>
+              </select>
+            </Field>
+            <Field label="Output 1">
+              <select name="output1" value={form.output1} onChange={onChange} className={inputClass}>
+                <option value="0">sin uso</option>
+                <option value="1">Bloqueo de motor</option>
+                <option value="2">Bocina</option>
+              </select>
+            </Field>
+            <Field label="Output 2">
+              <select name="output2" value={form.output2} onChange={onChange} className={inputClass}>
+                <option value="0">sin uso</option>
+                <option value="1">Bloqueo de motor</option>
+                <option value="2">Bocina</option>
+              </select>
+            </Field>
           </div>
         </div>
       </div>
 
-      {/* Sección de imagen (placeholder mejorado) */}
+      {/* Sección de imagen */}
       <div className="flex flex-col items-center justify-start">
         <p className="mb-4 text-center text-base font-medium text-slate-600 md:text-lg">
           Agregar Fotografía
@@ -227,23 +241,9 @@ export const NewUnitGeneralStep = ({ form,
   );
 };
 
-// Componentes Field y SelectField (pueden permanecer igual o mejorarlos)
 const Field = ({ label, children }: FieldProps) => (
   <label className="block">
     <span className="mb-2 block text-sm text-slate-600">{label}</span>
     {children}
   </label>
-);
-
-const SelectField = ({ label, name, value, onChange, options }: SelectFieldProps & { options?: ProtocolOption[] }) => (
-  <Field label={label}>
-    <select name={name} value={value} onChange={onChange} className={inputClass}>
-      <option value="sin uso">sin uso</option>
-      {options?.map(opt => (
-        <option key={opt.id_protocolo} value={opt.id_protocolo}>
-          {opt.nombre}
-        </option>
-      ))}
-    </select>
-  </Field>
 );

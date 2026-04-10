@@ -19,11 +19,11 @@ export interface CreateUnitPayload {
   modelo: string
   anio: string
   no_serie: string
-  imagen?: string; // base64 o URL temporal
-  fecha_asignacion_operador?: string; // opcional
-  id_grupo_unidades?: number | null;   // podría ser array si es múltiple
-  temp_min?: number;
-  temp_max?: number;
+  imagen?: string
+  fecha_asignacion_operador?: string
+  id_grupo_unidades?: number | null
+  temp_min?: number
+  temp_max?: number
   matricula: string
   tipo: string
   odometro_inicial: number | string
@@ -34,13 +34,8 @@ export interface CreateUnitPayload {
   chip: string
   input1: string
   input2: string
-  input3: string
-  input4: string
   output1: string
   output2: string
-  output3: string
-  output4: string
-  rs232: string
   tipo_combustible: string
   capacidad_tanque: number | string
   rendimiento_establecido: number | string

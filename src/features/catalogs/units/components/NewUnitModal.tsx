@@ -11,7 +11,7 @@ import {
 
 import { unitService } from "../services/unitService"
 import { catalogService } from "../services/catalogServices"
-import type { OperatorOption, UnitGroupOption, AvlModelOption, ProtocolOption } from "../services/catalogServices"
+import type { OperatorOption, UnitGroupOption, AvlModelOption } from "../services/catalogServices"
 import { defaultNewUnitForm } from "./new-unit-form.constants"
 import { NewUnitGeneralStep } from "./NewUnitGeneralStep"
 import { NewUnitAdditionalStep } from "./NewUnitAdditionalStep"
@@ -33,9 +33,6 @@ export const NewUnitModal = ({
   const [operators, setOperators] = useState<OperatorOption[]>([]);
   const [unitGroups, setUnitGroups] = useState<UnitGroupOption[]>([]);
   const [avlModels, setAvlModels] = useState<AvlModelOption[]>([]);
-  const [protocolsIn, setProtocolsIn] = useState<ProtocolOption[]>([]);
-  const [protocolsOut, setProtocolsOut] = useState<ProtocolOption[]>([]);
-  const [protocolsRs232, setProtocolsRs232] = useState<ProtocolOption[]>([]);
   const [loadingCatalogs, setLoadingCatalogs] = useState(false);
 
   useEffect(() => {
@@ -47,23 +44,14 @@ export const NewUnitModal = ({
           ops,
           groups,
           models,
-          pIn,
-          pOut,
-          pRs232,
         ] = await Promise.all([
           catalogService.getOperators(),
           catalogService.getUnitGroups(),
           catalogService.getAvlModels(),
-          catalogService.getProtocols('in'),
-          catalogService.getProtocols('out'),
-          catalogService.getProtocols('rs232'),
         ]);
         setOperators(ops);
         setUnitGroups(groups);
         setAvlModels(models);
-        setProtocolsIn(pIn);
-        setProtocolsOut(pOut);
-        setProtocolsRs232(pRs232);
       } catch (error) {
         console.error('Error cargando catálogos', error);
       } finally {
@@ -216,9 +204,6 @@ export const NewUnitModal = ({
                   operators={operators}
                   unitGroups={unitGroups}
                   avlModels={avlModels}
-                  protocolsIn={protocolsIn}
-                  protocolsOut={protocolsOut}
-                  protocolsRs232={protocolsRs232}
                   loadingCatalogs={loadingCatalogs}
                 />
               )}

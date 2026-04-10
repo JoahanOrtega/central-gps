@@ -15,11 +15,6 @@ export interface AvlModelOption {
   modelo: string;
 }
 
-export interface ProtocolOption {
-  id_protocolo: number;
-  nombre: string;
-  tipo: string; // 'in', 'out', 'rs232'
-}
 
 export const catalogService = {
   getOperators(search?: string): Promise<OperatorOption[]> {
@@ -34,10 +29,5 @@ export const catalogService = {
 
   getAvlModels(): Promise<AvlModelOption[]> {
     return apiFetch('/catalogs/avl-models', { method: 'GET' });
-  },
-
-  getProtocols(tipo?: 'in' | 'out' | 'rs232'): Promise<ProtocolOption[]> {
-    const query = tipo ? `?tipo=${tipo}` : '';
-    return apiFetch(`/catalogs/protocols${query}`, { method: 'GET' });
   },
 };

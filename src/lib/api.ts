@@ -1,4 +1,4 @@
-import { getStoredToken, clearAuthSession } from "@/auth/utils/auth-storage";
+import { useAuthStore } from "@/stores/authStore";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -17,7 +17,8 @@ export const apiFetch = async <T>(
 ): Promise<T> => {
   const { body, requiresAuth = true, headers, ...rest } = options;
 
-  const token = getStoredToken();
+  // Obtener el token directamente del store Zustand
+  const token = useAuthStore.getState().token;
 
   const requestHeaders = new Headers(headers);
   requestHeaders.set("Content-Type", "application/json");
@@ -50,7 +51,8 @@ export const apiFetch = async <T>(
 
   if (!response.ok) {
     if (response.status === 401 && requiresAuth) {
-      clearAuthSession();
+      // Limpiar sesión usando el store
+      useAuthStore.getState().logout();
       throw new Error(data?.error || "Sesión no válida");
     }
 

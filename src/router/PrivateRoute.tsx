@@ -1,17 +1,16 @@
-import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { getStoredToken } from "@/auth/utils/auth-storage";
+import { useAuthStore } from "@/stores/authStore";
 
 interface PrivateRouteProps {
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
 export const PrivateRoute = ({ children }: PrivateRouteProps) => {
   const location = useLocation();
-  const token = getStoredToken();
+  const token = useAuthStore((state) => state.token);
 
   if (!token) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return <>{children}</>;

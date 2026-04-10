@@ -1,6 +1,7 @@
-import { useMemo } from "react"
-import { useNavigate } from "react-router-dom"
-import { CircleUserRound, LogOut } from "lucide-react"
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { CircleUserRound, LogOut } from "lucide-react";
+import { useAuthStore } from "@/stores/authStore";
 
 import {
   DropdownMenu,
@@ -8,29 +9,23 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-
-import {
-  clearAuthSession,
-  getStoredAuthUser,
-} from "@/auth/utils/auth-storage"
+} from "@/components/ui/dropdown-menu";
 
 export const UserMenu = () => {
-  const navigate = useNavigate()
-  const user = getStoredAuthUser()
+  const navigate = useNavigate();
+  const { user, logout } = useAuthStore();
 
   const displayName = useMemo(() => {
     if (!user?.username) {
-      return "Mi perfil"
+      return "Mi perfil";
     }
-
-    return user.username
-  }, [user])
+    return user.username;
+  }, [user]);
 
   const handleLogout = () => {
-    clearAuthSession()
-    navigate("/login", { replace: true })
-  }
+    logout();
+    navigate("/login", { replace: true });
+  };
 
   return (
     <DropdownMenu>
@@ -61,5 +56,5 @@ export const UserMenu = () => {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
+  );
+};

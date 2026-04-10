@@ -1,5 +1,9 @@
+import { useEffect } from 'react';
+import { useAuthStore } from '@/stores/authStore';
+import { useCompanyStore } from '@/stores/companyStore';
 import {
   Bell,
+  Building2,
   ChevronDown,
   FolderOpen,
   Fuel,
@@ -17,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/shared/UserMenu";
+
 
 const navbarGroups = [
   {
@@ -76,6 +81,25 @@ interface HomeNavbarProps {
 export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuthStore();
+  const { companies, currentCompany, isLoading, fetchCompanies, switchCompany } = useCompanyStore();
+  const isAdmin = user?.perfil === 777;
+  console.log("soy un admin? " + isAdmin + "user " + user?.perfil)
+  useEffect(() => {
+    if (user) {
+      fetchCompanies();
+    }
+  }, [user]);
+
+  const handleSwitchCompany = async (companyId: number) => {
+    try {
+      await switchCompany(companyId);
+      // Opcional: recargar página o solo actualizar datos
+      window.location.reload();
+    } catch {
+      // Error ya manejado en el store
+    }
+  };
 
   return (
     <header className="border-b border-slate-200 bg-white">
@@ -144,17 +168,44 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
         </div>
 
         <div className="flex shrink-0 items-center gap-2 md:gap-3">
-          <div className="hidden items-center rounded-lg border border-blue-400 px-4 py-2 text-sm font-medium text-blue-600 xl:flex">
-            SERVICIO INDUSTRIAL AUTOEXPRESS S.A. DE C.V.
-          </div>
-
-          <button
-            type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 md:h-12 md:w-12"
-          >
-            <Bell className="h-5 w-5" />
-          </button>
-
+          {companies.length > 0 ? (
+            isAdmin ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 rounded-lg border border-blue-400 bg-white px-3 py-1.5 text-sm font-medium text-blue-600 shadow-sm transition-all hover:bg-blue-50 hover:shadow md:px-4 md:py-2">
+                    <Building2 className="h-4 w-4 shrink-0" />
+                    <span className="max-w-[120px] truncate sm:max-w-[180px] lg:max-w-[240px]">
+                      {currentCompany?.nombre || 'Seleccionar empresa'}
+                    </span>
+                    <ChevronDown className="h-4 w-4 shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[280px]">
+                  {companies.map(company => (
+                    <DropdownMenuItem
+                      key={company.id_empresa}
+                      onClick={() => handleSwitchCompany(company.id_empresa)}
+                      className={company.id_empresa === currentCompany?.id_empresa ? 'bg-slate-100' : ''}
+                    >
+                      {company.nombre}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="flex items-center gap-2 rounded-lg border border-blue-400 bg-white px-3 py-1.5 text-sm font-medium text-blue-600 shadow-sm md:px-4 md:py-2">
+                <Building2 className="h-4 w-4 shrink-0" />
+                <span className="max-w-[120px] truncate sm:max-w-[180px] lg:max-w-[240px]">
+                  {currentCompany?.nombre}
+                </span>
+              </div>
+            )
+          ) : (
+            <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-500 shadow-sm md:px-4 md:py-2">
+              <Building2 className="h-4 w-4 shrink-0" />
+              <span>Sin empresa</span>
+            </div>
+          )}
           <UserMenu />
         </div>
       </div>
