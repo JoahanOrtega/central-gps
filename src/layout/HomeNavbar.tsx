@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useCompanyStore } from '@/stores/companyStore';
 import {
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/shared/UserMenu";
+import { SwitchCompanyModal } from '@/components/shared/SwitchCompanyModal';
 
 
 const navbarGroups = [
@@ -82,24 +83,15 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuthStore();
-  const { companies, currentCompany, isLoading, fetchCompanies, switchCompany } = useCompanyStore();
-  const isAdmin = user?.perfil === 777;
-  console.log("soy un admin? " + isAdmin + "user " + user?.perfil)
+  const { currentCompany, fetchCompanies } = useCompanyStore();
+  const [switchModalOpen, setSwitchModalOpen] = useState(false);
+
+  // Cargar empresas al montar si hay usuario autenticado
   useEffect(() => {
     if (user) {
       fetchCompanies();
     }
-  }, [user]);
-
-  const handleSwitchCompany = async (companyId: number) => {
-    try {
-      await switchCompany(companyId);
-      // Opcional: recargar página o solo actualizar datos
-      window.location.reload();
-    } catch {
-      // Error ya manejado en el store
-    }
-  };
+  }, [user, fetchCompanies]);
 
   return (
     <header className="border-b border-slate-200 bg-white">
@@ -168,44 +160,17 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
         </div>
 
         <div className="flex shrink-0 items-center gap-2 md:gap-3">
-          {companies.length > 0 ? (
-            isAdmin ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 rounded-lg border border-blue-400 bg-white px-3 py-1.5 text-sm font-medium text-blue-600 shadow-sm transition-all hover:bg-blue-50 hover:shadow md:px-4 md:py-2">
-                    <Building2 className="h-4 w-4 shrink-0" />
-                    <span className="max-w-[120px] truncate sm:max-w-[180px] lg:max-w-[240px]">
-                      {currentCompany?.nombre || 'Seleccionar empresa'}
-                    </span>
-                    <ChevronDown className="h-4 w-4 shrink-0" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[280px]">
-                  {companies.map(company => (
-                    <DropdownMenuItem
-                      key={company.id_empresa}
-                      onClick={() => handleSwitchCompany(company.id_empresa)}
-                      className={company.id_empresa === currentCompany?.id_empresa ? 'bg-slate-100' : ''}
-                    >
-                      {company.nombre}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <div className="flex items-center gap-2 rounded-lg border border-blue-400 bg-white px-3 py-1.5 text-sm font-medium text-blue-600 shadow-sm md:px-4 md:py-2">
-                <Building2 className="h-4 w-4 shrink-0" />
-                <span className="max-w-[120px] truncate sm:max-w-[180px] lg:max-w-[240px]">
-                  {currentCompany?.nombre}
-                </span>
-              </div>
-            )
-          ) : (
-            <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-500 shadow-sm md:px-4 md:py-2">
-              <Building2 className="h-4 w-4 shrink-0" />
-              <span>Sin empresa</span>
-            </div>
-          )}
+          <button
+            onClick={() => setSwitchModalOpen(true)}
+            className="group flex items-center gap-2 rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-sm font-medium text-blue-700 shadow-sm transition-all hover:border-blue-400 hover:bg-blue-50 hover:shadow md:px-4 md:py-2"
+          >
+            <Building2 className="h-4 w-4 shrink-0 text-blue-500" />
+            <span className="max-w-[120px] truncate sm:max-w-[180px] lg:max-w-[240px]">
+              {currentCompany?.nombre || 'Cargando...'}
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-blue-500 transition-transform group-hover:rotate-180" />
+          </button>
+          <SwitchCompanyModal open={switchModalOpen} onOpenChange={setSwitchModalOpen} />
           <UserMenu />
         </div>
       </div>

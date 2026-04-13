@@ -7,7 +7,6 @@ export const NewUnitAdditionalStep = ({
 }: NewUnitStepProps) => {
   return (
     <div className="space-y-6">
-      // NewUnitAdditionalStep.tsx (fragmento relevante)
       <div>
         <h3 className="text-xl font-semibold text-slate-700 md:text-2xl">Información Sobre el Combustible</h3>
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
