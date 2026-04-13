@@ -65,13 +65,17 @@ export const NewUnitModal = ({
   const handleChange = (
     event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
-    const { name, value } = event.target
+    const { name, value } = event.target;
+    if (name === 'id_grupo_unidades') {
+      // value viene como string de un input, pero nosotros lo manejamos con el handler personalizado
+      return;
+    }
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
 
-    setForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
-  }
+  const handleGroupSelectionChange = (newSelection: number[]) => {
+    setForm(prev => ({ ...prev, id_grupo_unidades: newSelection }));
+  };
 
   const resetFormState = () => {
     setForm(defaultNewUnitForm)
@@ -113,8 +117,16 @@ export const NewUnitModal = ({
     try {
       setIsLoading(true)
       setError("")
+      // Primer paso de la verificación (ya se ha controlado en la interfaz de usuario, pero se vuelve a comprobar por seguridad)
+      if (!generalStepValid) {
+        setError("Por favor complete todos los campos requeridos en Datos Generales.");
+        setStep(1);
+        return;
+      }
 
-      await unitService.createUnit(form)
+      const payload = normalizePayload(form);
+      await unitService.createUnit(payload as any); // La afirmación de tipo ya cumple con los requisitos del backend
+
       onCreated()
       resetFormState()
       onOpenChange(false)
@@ -126,6 +138,60 @@ export const NewUnitModal = ({
       setIsLoading(false)
     }
   }
+  // Función auxiliar: analiza números de forma segura; devuelve null si la cadena está vacía
+  const parseNumberOrNull = (value: string | number | undefined): number | null => {
+    if (typeof value === 'number') return value;
+    if (!value || value === '') return null;
+    const num = Number(value);
+    return isNaN(num) ? null : num;
+  };
+
+  // Normalización payload (sin lanzar excepciones, solo convierte tipos)
+  const normalizePayload = (data: CreateUnitPayload) => {
+    return {
+      // Campos de texto obligatorios (ya validados en generalStepValid)
+      numero: data.numero.trim(),
+      marca: data.marca.trim(),
+      modelo: data.modelo.trim(),
+      anio: data.anio.trim(),
+      matricula: data.matricula.trim(),
+      tipo: data.tipo,
+      imei: data.imei.trim(),
+      chip: data.chip.trim(),
+      fecha_instalacion: data.fecha_instalacion,
+
+      // Campos numéricos
+      odometro_inicial: parseNumberOrNull(data.odometro_inicial) ?? 0,
+      id_operador: data.id_operador ? Number(data.id_operador) : null,
+      id_modelo_avl: data.id_modelo_avl ? Number(data.id_modelo_avl) : null,
+      id_grupo_unidades: data.id_grupo_unidades, // ya es array
+
+      // Opcionales con posible vacío → null
+      no_serie: data.no_serie?.trim() || null,
+      fecha_asignacion_operador: data.fecha_asignacion_operador?.trim() || null,
+      tipo_combustible: data.tipo_combustible?.trim() || null,
+      capacidad_tanque: parseNumberOrNull(data.capacidad_tanque),
+      rendimiento_establecido: parseNumberOrNull(data.rendimiento_establecido),
+      nombre_aseguradora: data.nombre_aseguradora?.trim() || null,
+      telefono_aseguradora: data.telefono_aseguradora?.trim() || null,
+      no_poliza_seguro: data.no_poliza_seguro?.trim() || null,
+      vigencia_poliza_seguro: data.vigencia_poliza_seguro?.trim() || null,
+      vigencia_verificacion_vehicular: data.vigencia_verificacion_vehicular?.trim() || null,
+      temp_min: parseNumberOrNull(data.temp_min) ?? -10,
+      temp_max: parseNumberOrNull(data.temp_max) ?? 5,
+
+      // Periféricos
+      input1: String(data.input1),
+      input2: String(data.input2),
+      output1: String(data.output1),
+      output2: String(data.output2),
+
+      // Imagen (base64)
+      imagen: data.imagen?.trim() || null,
+    };
+  };
+
+
 
   return (
     <>
@@ -200,6 +266,7 @@ export const NewUnitModal = ({
                 <NewUnitGeneralStep
                   form={form}
                   onChange={handleChange}
+                  onGroupSelectionChange={handleGroupSelectionChange}  // <-- nueva prop
                   onImageChange={handleImageChange}
                   operators={operators}
                   unitGroups={unitGroups}

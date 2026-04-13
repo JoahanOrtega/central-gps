@@ -42,9 +42,9 @@ export const PoisDrawer = ({
 
     clearSelection();
     onPoisHidden();
+    void loadPois();
     return;
 
-    void loadPois();
   }, [clearSelection, loadPois, onPoisHidden]);
 
   /**

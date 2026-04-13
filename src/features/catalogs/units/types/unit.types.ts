@@ -21,7 +21,7 @@ export interface CreateUnitPayload {
   no_serie: string
   imagen?: string
   fecha_asignacion_operador?: string
-  id_grupo_unidades?: number | null
+  id_grupo_unidades: number[]; // cambia de number | null a array
   temp_min?: number
   temp_max?: number
   matricula: string

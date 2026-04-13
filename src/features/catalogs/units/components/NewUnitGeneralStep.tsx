@@ -13,6 +13,7 @@ export const NewUnitGeneralStep = ({
   form,
   onChange,
   onImageChange,
+  onGroupSelectionChange,
   operators,
   unitGroups,
   avlModels,
@@ -28,6 +29,22 @@ export const NewUnitGeneralStep = ({
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleSelectAll = () => {
+    const allIds = unitGroups.map(g => g.id_grupo_unidades);
+    onGroupSelectionChange?.(allIds);
+  };
+
+  const handleDeselectAll = () => {
+    onGroupSelectionChange?.([]);
+  };
+
+  const handleToggleGroup = (groupId: number, checked: boolean) => {
+    const newSelection = checked
+      ? [...form.id_grupo_unidades, groupId]
+      : form.id_grupo_unidades.filter(id => id !== groupId);
+    onGroupSelectionChange?.(newSelection);
   };
 
   return (
@@ -120,20 +137,43 @@ export const NewUnitGeneralStep = ({
 
         {/* Grupos de Unidades */}
         <Field label="Grupos de Unidades">
-          <select
-            name="id_grupo_unidades"
-            value={form.id_grupo_unidades ?? ""}
-            onChange={onChange}
-            className={inputClass}
-            disabled={loadingCatalogs}
-          >
-            <option value="">-seleccione-</option>
-            {unitGroups.map(g => (
-              <option key={g.id_grupo_unidades} value={g.id_grupo_unidades}>
-                {g.nombre}
-              </option>
-            ))}
-          </select>
+          <div className="rounded-md border border-slate-300 bg-white">
+            <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
+              <span className="text-sm text-slate-600">
+                Seleccionados {form.id_grupo_unidades.length} de {unitGroups.length}
+              </span>
+              <div className="flex gap-2">
+                <button type="button" onClick={handleSelectAll} className="text-xs text-blue-600 hover:underline" disabled={loadingCatalogs}>
+                  Seleccionar Todos
+                </button>
+                <button type="button" onClick={handleDeselectAll} className="text-xs text-blue-600 hover:underline" disabled={loadingCatalogs}>
+                  Desmarcar Todos
+                </button>
+              </div>
+            </div>
+            <div className="max-h-48 overflow-y-auto p-2">
+              {loadingCatalogs ? (
+                <p className="p-2 text-sm text-slate-500">Cargando grupos...</p>
+              ) : unitGroups.length === 0 ? (
+                <p className="p-2 text-sm text-slate-500">No hay grupos disponibles</p>
+              ) : (
+                unitGroups.map(group => {
+                  const checked = form.id_grupo_unidades.includes(group.id_grupo_unidades);
+                  return (
+                    <label key={group.id_grupo_unidades} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => handleToggleGroup(group.id_grupo_unidades, e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500"
+                      />
+                      <span className="text-sm text-slate-700">{group.nombre}</span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </Field>
 
         {/* Equipo Instalado */}

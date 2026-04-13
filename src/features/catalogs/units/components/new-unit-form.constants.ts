@@ -8,7 +8,7 @@ export const defaultNewUnitForm: CreateUnitPayload = {
   no_serie: "",
   imagen: "",
   fecha_asignacion_operador: "",
-  id_grupo_unidades: null,
+  id_grupo_unidades: [],
   temp_min: -10,
   temp_max: 5,
   matricula: "",

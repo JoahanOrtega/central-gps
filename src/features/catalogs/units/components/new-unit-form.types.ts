@@ -10,6 +10,7 @@ export interface NewUnitStepProps {
   form: CreateUnitPayload;
   onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   onImageChange?: (imageBase64: string) => void;
+  onGroupSelectionChange?: (newSelection: number[]) => void;
 }
 
 export interface FieldProps {
