@@ -6,11 +6,15 @@ export interface NewUnitModalProps {
   onCreated: () => void
 }
 
+export type FieldError = string | undefined;
+
 export interface NewUnitStepProps {
   form: CreateUnitPayload;
   onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   onImageChange?: (imageBase64: string) => void;
   onGroupSelectionChange?: (newSelection: number[]) => void;
+  errors?: Record<string, FieldError>;
+  touched?: Record<string, boolean>;
 }
 
 export interface FieldProps {

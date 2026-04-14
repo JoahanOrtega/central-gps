@@ -14,36 +14,37 @@ export interface UnitItem {
 }
 
 export interface CreateUnitPayload {
-  numero: string
-  marca: string
-  modelo: string
-  anio: string
-  no_serie: string
-  imagen?: string
-  fecha_asignacion_operador?: string
-  id_grupo_unidades: number[]; // cambia de number | null a array
-  temp_min?: number
-  temp_max?: number
-  matricula: string
-  tipo: string
-  odometro_inicial: number | string
-  id_operador: number | null
-  id_modelo_avl: number | null
-  fecha_instalacion: string
-  imei: string
-  chip: string
-  input1: string
-  input2: string
-  output1: string
-  output2: string
-  tipo_combustible: string
-  capacidad_tanque: number | string
-  rendimiento_establecido: number | string
-  nombre_aseguradora: string
-  telefono_aseguradora: string
-  no_poliza_seguro: string
-  vigencia_poliza_seguro: string
-  vigencia_verificacion_vehicular: string
+  // Obligatorios
+  numero: string;
+  marca: string;
+  tipo: string;
+  odometro_inicial: number | string;
+  fecha_instalacion: string;
+  imei: string;
+  chip: string;
+
+  // Opcionales
+  modelo?: string;
+  anio?: string;
+  no_serie?: string | null;
+  matricula?: string;
+  id_operador?: number | null;
+  fecha_asignacion_operador?: string | null;
+  id_grupo_unidades?: number[];
+  id_modelo_avl?: number | null;
+  input1?: string;
+  input2?: string;
+  output1?: string;
+  output2?: string;
+  tipo_combustible?: string | null;
+  capacidad_tanque?: number | string | null;
+  rendimiento_establecido?: number | string | null;
+  nombre_aseguradora?: string | null;
+  telefono_aseguradora?: string | null;
+  no_poliza_seguro?: string | null;
+  vigencia_poliza_seguro?: string | null;
+  vigencia_verificacion_vehicular?: string | null;
+  imagen?: string | null;
 }
 
 export interface CreateUnitResponse {

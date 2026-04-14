@@ -1,23 +1,27 @@
 import type { AvlModelOption, OperatorOption, UnitGroupOption } from "../services/catalogServices";
 import { inputClass } from "./new-unit-form.constants";
-import type { FieldProps, NewUnitStepProps, SelectFieldProps } from "./new-unit-form.types";
+import type { FieldProps, NewUnitStepProps } from "./new-unit-form.types";
 
 interface NewUnitGeneralStepProps extends NewUnitStepProps {
   operators: OperatorOption[];
   unitGroups: UnitGroupOption[];
   avlModels: AvlModelOption[];
   loadingCatalogs?: boolean;
+  onBlur?: (event: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => void;
 }
 
 export const NewUnitGeneralStep = ({
   form,
   onChange,
+  onBlur,
   onImageChange,
   onGroupSelectionChange,
   operators,
   unitGroups,
   avlModels,
   loadingCatalogs,
+  errors = {},
+  touched = {},
 }: NewUnitGeneralStepProps) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -31,51 +35,50 @@ export const NewUnitGeneralStep = ({
     }
   };
 
-  const handleSelectAll = () => {
+  const handleSelectAllGroups = () => {
     const allIds = unitGroups.map(g => g.id_grupo_unidades);
     onGroupSelectionChange?.(allIds);
   };
 
-  const handleDeselectAll = () => {
+  const handleDeselectAllGroups = () => {
     onGroupSelectionChange?.([]);
   };
 
   const handleToggleGroup = (groupId: number, checked: boolean) => {
+    const currentGroups = form.id_grupo_unidades ?? [];
     const newSelection = checked
-      ? [...form.id_grupo_unidades, groupId]
-      : form.id_grupo_unidades.filter(id => id !== groupId);
+      ? [...currentGroups, groupId]
+      : currentGroups.filter(id => id !== groupId);
     onGroupSelectionChange?.(newSelection);
   };
 
   return (
     <div className="grid grid-cols-1 gap-8 2xl:grid-cols-[minmax(0,1.3fr)_320px]">
       <div className="space-y-6">
-        {/* Primera fila: Número, Marca, Modelo, Año */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Field label="Numero *">
-            <input name="numero" value={form.numero} onChange={onChange} className={inputClass} />
+          <Field label="Número *" error={errors.numero} touched={touched.numero}>
+            <input name="numero" value={form.numero} onChange={onChange} onBlur={onBlur} className={inputClass} />
           </Field>
-          <Field label="Marca *">
-            <input name="marca" value={form.marca} onChange={onChange} className={inputClass} />
+          <Field label="Marca *" error={errors.marca} touched={touched.marca}>
+            <input name="marca" value={form.marca} onChange={onChange} onBlur={onBlur} className={inputClass} />
           </Field>
-          <Field label="Modelo *">
+          <Field label="Modelo">
             <input name="modelo" value={form.modelo} onChange={onChange} className={inputClass} />
           </Field>
-          <Field label="Año *">
+          <Field label="Año">
             <input name="anio" value={form.anio} onChange={onChange} className={inputClass} />
           </Field>
         </div>
 
-        {/* Segunda fila: No. Serie, Matrícula, Tipo, Odómetro */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Field label="No. Serie">
-            <input name="no_serie" value={form.no_serie} onChange={onChange} className={inputClass} />
+            <input name="no_serie" value={form.no_serie ?? ""} onChange={onChange} className={inputClass} />
           </Field>
-          <Field label="Matrícula *">
+          <Field label="Matrícula">
             <input name="matricula" value={form.matricula} onChange={onChange} className={inputClass} />
           </Field>
-          <Field label="Tipo *">
-            <select name="tipo" value={form.tipo} onChange={onChange} className={inputClass}>
+          <Field label="Tipo *" error={errors.tipo} touched={touched.tipo}>
+            <select name="tipo" value={form.tipo} onChange={onChange} onBlur={onBlur} className={inputClass}>
               <option value="">- - -</option>
               <option value="1">Camión</option>
               <option value="2">Camioneta / Van</option>
@@ -93,60 +96,39 @@ export const NewUnitGeneralStep = ({
               <option value="17">Camión de Volteo</option>
             </select>
           </Field>
-          <Field label="Odometro *">
+          <Field label="Odómetro *" error={errors.odometro_inicial} touched={touched.odometro_inicial}>
             <div className="relative">
-              <input
-                name="odometro_inicial"
-                value={form.odometro_inicial}
-                onChange={onChange}
-                className={`${inputClass} pr-12`}
-              />
+              <input name="odometro_inicial" value={form.odometro_inicial} onChange={onChange} onBlur={onBlur} className={`${inputClass} pr-12`} />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">km</span>
             </div>
           </Field>
         </div>
 
-        {/* Operador y Fecha Asignación */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Field label="Operador">
-            <select
-              name="id_operador"
-              value={form.id_operador ?? ""}
-              onChange={onChange}
-              className={inputClass}
-              disabled={loadingCatalogs}
-            >
+            <select name="id_operador" value={form.id_operador ?? ""} onChange={onChange} className={inputClass} disabled={loadingCatalogs}>
               <option value="">-seleccione-</option>
               {operators.map(op => (
-                <option key={op.id_operador} value={op.id_operador}>
-                  {op.nombre}
-                </option>
+                <option key={op.id_operador} value={op.id_operador}>{op.nombre}</option>
               ))}
             </select>
           </Field>
           <Field label="Fecha de Asignación de Operador">
-            <input
-              type="date"
-              name="fecha_asignacion_operador"
-              value={form.fecha_asignacion_operador || ""}
-              onChange={onChange}
-              className={inputClass}
-            />
+            <input type="date" name="fecha_asignacion_operador" value={form.fecha_asignacion_operador ?? ""} onChange={onChange} className={inputClass} />
           </Field>
         </div>
 
-        {/* Grupos de Unidades */}
         <Field label="Grupos de Unidades">
           <div className="rounded-md border border-slate-300 bg-white">
             <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
               <span className="text-sm text-slate-600">
-                Seleccionados {form.id_grupo_unidades.length} de {unitGroups.length}
+                Seleccionados {form.id_grupo_unidades?.length ?? 0} de {unitGroups.length}
               </span>
               <div className="flex gap-2">
-                <button type="button" onClick={handleSelectAll} className="text-xs text-blue-600 hover:underline" disabled={loadingCatalogs}>
+                <button type="button" onClick={handleSelectAllGroups} className="text-xs text-blue-600 hover:underline" disabled={loadingCatalogs}>
                   Seleccionar Todos
                 </button>
-                <button type="button" onClick={handleDeselectAll} className="text-xs text-blue-600 hover:underline" disabled={loadingCatalogs}>
+                <button type="button" onClick={handleDeselectAllGroups} className="text-xs text-blue-600 hover:underline" disabled={loadingCatalogs}>
                   Desmarcar Todos
                 </button>
               </div>
@@ -158,15 +140,10 @@ export const NewUnitGeneralStep = ({
                 <p className="p-2 text-sm text-slate-500">No hay grupos disponibles</p>
               ) : (
                 unitGroups.map(group => {
-                  const checked = form.id_grupo_unidades.includes(group.id_grupo_unidades);
+                  const checked = (form.id_grupo_unidades ?? []).includes(group.id_grupo_unidades);
                   return (
                     <label key={group.id_grupo_unidades} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-slate-50">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => handleToggleGroup(group.id_grupo_unidades, e.target.checked)}
-                        className="h-4 w-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500"
-                      />
+                      <input type="checkbox" checked={checked} onChange={(e) => handleToggleGroup(group.id_grupo_unidades, e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500" />
                       <span className="text-sm text-slate-700">{group.nombre}</span>
                     </label>
                   );
@@ -176,44 +153,28 @@ export const NewUnitGeneralStep = ({
           </div>
         </Field>
 
-        {/* Equipo Instalado */}
         <div>
           <h3 className="mb-4 text-xl font-semibold text-slate-700 md:text-2xl">Equipo Instalado</h3>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Field label="Modelo AVL Instalado">
-              <select
-                name="id_modelo_avl"
-                value={form.id_modelo_avl ?? ""}
-                onChange={onChange}
-                className={inputClass}
-                disabled={loadingCatalogs}
-              >
+              <select name="id_modelo_avl" value={form.id_modelo_avl ?? ""} onChange={onChange} className={inputClass} disabled={loadingCatalogs}>
                 <option value="">-seleccione-</option>
                 {avlModels.map(m => (
-                  <option key={m.id_modelo_avl} value={m.id_modelo_avl}>
-                    {m.modelo}
-                  </option>
+                  <option key={m.id_modelo_avl} value={m.id_modelo_avl}>{m.modelo}</option>
                 ))}
               </select>
             </Field>
-            <Field label="Fecha Instalación *">
-              <input
-                type="date"
-                name="fecha_instalacion"
-                value={form.fecha_instalacion}
-                onChange={onChange}
-                className={inputClass}
-              />
+            <Field label="Fecha Instalación *" error={errors.fecha_instalacion} touched={touched.fecha_instalacion}>
+              <input type="date" name="fecha_instalacion" value={form.fecha_instalacion} onChange={onChange} onBlur={onBlur} className={inputClass} />
             </Field>
-            <Field label="Numero Imei del AVL *">
-              <input name="imei" value={form.imei} onChange={onChange} className={inputClass} />
+            <Field label="Número IMEI del AVL *" error={errors.imei} touched={touched.imei}>
+              <input name="imei" value={form.imei} onChange={onChange} onBlur={onBlur} className={inputClass} />
             </Field>
-            <Field label="Numero de Chip *">
-              <input name="chip" value={form.chip} onChange={onChange} className={inputClass} />
+            <Field label="Número de Chip *" error={errors.chip} touched={touched.chip}>
+              <input name="chip" value={form.chip} onChange={onChange} onBlur={onBlur} className={inputClass} />
             </Field>
           </div>
 
-          {/* Periféricos Instalados - Solo Input1, Input2, Output1, Output2 */}
           <p className="mb-3 mt-5 text-base text-slate-600 md:text-lg">Periféricos Instalados</p>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Field label="Input 1">
@@ -250,11 +211,8 @@ export const NewUnitGeneralStep = ({
         </div>
       </div>
 
-      {/* Sección de imagen */}
       <div className="flex flex-col items-center justify-start">
-        <p className="mb-4 text-center text-base font-medium text-slate-600 md:text-lg">
-          Agregar Fotografía
-        </p>
+        <p className="mb-4 text-center text-base font-medium text-slate-600 md:text-lg">Agregar Fotografía</p>
         <div className="flex h-56 w-full max-w-[260px] items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-300 md:h-72">
           {form.imagen ? (
             <img src={form.imagen} alt="Preview" className="h-full w-full object-cover rounded-lg" />
@@ -262,18 +220,8 @@ export const NewUnitGeneralStep = ({
             <span>Sin imagen</span>
           )}
         </div>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="hidden"
-          id="imagen-input"
-        />
-        <button
-          type="button"
-          onClick={() => document.getElementById('imagen-input')?.click()}
-          className="mt-6 text-slate-500 hover:text-slate-700"
-        >
+        <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" id="imagen-input" />
+        <button type="button" onClick={() => document.getElementById('imagen-input')?.click()} className="mt-6 text-slate-500 hover:text-slate-700">
           Cambiar Imagen
         </button>
       </div>
@@ -281,9 +229,10 @@ export const NewUnitGeneralStep = ({
   );
 };
 
-const Field = ({ label, children }: FieldProps) => (
+const Field = ({ label, children, error, touched }: FieldProps & { error?: string; touched?: boolean }) => (
   <label className="block">
     <span className="mb-2 block text-sm text-slate-600">{label}</span>
     {children}
+    {touched && error && <p className="mt-1 text-xs text-rose-500">{error}</p>}
   </label>
 );
