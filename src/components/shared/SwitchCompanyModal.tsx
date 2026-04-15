@@ -64,7 +64,7 @@ export const SwitchCompanyModal = ({
         try {
             await switchCompany(selectedCompanyId);
             onOpenChange(false);
-            window.location.reload(); // Recarga para aplicar la nueva empresa en toda la app
+            // Recarga para aplicar la nueva empresa en toda la app
         } catch (error) {
             console.error("Error al cambiar de empresa", error);
         } finally {

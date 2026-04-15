@@ -8,23 +8,23 @@ import type { LoginFormValues } from "../types/auth.types";
 import { authService } from "../services/authService";
 import bgImage from "@/assets/images/login-bg.jpg";
 
-interface LoginPageProps extends React.ComponentProps<"div"> {}
+interface LoginPageProps extends React.ComponentProps<"div"> { }
 
 export const LoginPage = ({ className }: LoginPageProps) => {
   const navigate = useNavigate();
-  const { token, setToken } = useAuthStore();
-
+  const { token, setToken, user } = useAuthStore();
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const hasRedirected = useRef(false);
 
-  // Solo redirige si ya hay token al montar el componente (por ejemplo, al recargar la página)
+  // Si ya hay sesión activa al cargar, siempre ir a /home
+  // El sudo_erp accede al panel ERP desde el botón en el navbar
   useEffect(() => {
     if (token && !hasRedirected.current) {
       hasRedirected.current = true;
       navigate("/home", { replace: true });
     }
-  }, [token, navigate]);
+  }, [token, user, navigate]);
 
   const handleLogin = async (values: LoginFormValues) => {
     setError("");
@@ -34,13 +34,12 @@ export const LoginPage = ({ className }: LoginPageProps) => {
         username: values.username,
         password: values.password,
       });
-      // Guardar token en el store (se persiste automáticamente)
       setToken(response.token);
-      // Redirigir inmediatamente después del login exitoso
+      // Todos los roles aterrizan en /home
+      // El sudo_erp tiene el botón del panel ERP en el navbar
       navigate("/home", { replace: true });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Error al iniciar sesión";
-      setError(message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al iniciar sesión");
     } finally {
       setIsLoading(false);
     }
@@ -50,7 +49,7 @@ export const LoginPage = ({ className }: LoginPageProps) => {
     <div
       className={cn(
         "fixed inset-0 flex items-center justify-center bg-cover bg-center",
-        className,
+        className
       )}
       style={{ backgroundImage: `url(${bgImage})` }}
     >

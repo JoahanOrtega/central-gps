@@ -7,9 +7,9 @@ import { useAuthStore } from "@/stores/authStore";
 
 // Ítems del menú del panel ERP
 const NAV_ITEMS = [
-    { path: "/admin-erp/empresas", label: "Empresas", icon: "🏢" },
-    { path: "/admin-erp/permisos", label: "Permisos", icon: "🔑" },
-    { path: "/admin-erp/auditoria", label: "Auditoría", icon: "📋" },
+    { path: "/home/admin-erp/empresas", label: "Empresas", icon: "🏢" },
+    { path: "/home/admin-erp/permisos", label: "Permisos", icon: "🔑" },
+    { path: "/home/admin-erp/auditoria", label: "Auditoría", icon: "📋" },
 ];
 
 export const ErpLayout = () => {
