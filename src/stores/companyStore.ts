@@ -1,6 +1,7 @@
-import { create } from 'zustand';
-import { apiFetch } from '@/lib/api';
-import { useAuthStore } from './authStore';
+// src/stores/companyStore.ts
+import { create } from "zustand";
+import { apiFetch } from "@/lib/api";
+import { useAuthStore } from "./authStore";
 
 interface Company {
     id_empresa: number;
@@ -26,41 +27,53 @@ export const useCompanyStore = create<CompanyStore>((set, get) => ({
 
         set({ isLoading: true });
         try {
-            const data = await apiFetch<Company[]>('/companies', { method: 'GET' });
+            const data = await apiFetch<Company[]>("/companies");
+
+            // Usar la empresa que viene en el JWT como empresa activa actual.
+            // Si no coincide ninguna (ej: fue suspendida), usar la primera disponible.
             const currentCompanyId = useAuthStore.getState().user?.id_empresa;
+            const selectedCompany =
+                data.find((c) => c.id_empresa === currentCompanyId) ?? data[0] ?? null;
 
-            let selectedCompany = null;
-            if (data.length > 0) {
-                // Si el usuario ya tiene empresa en el token, usarla; si no, la primera
-                selectedCompany = data.find(c => c.id_empresa === currentCompanyId) || data[0];
-            }
-
-            set({
-                companies: data,
-                currentCompany: selectedCompany,
-                isLoading: false,
-            });
+            set({ companies: data, currentCompany: selectedCompany });
         } catch (error) {
-            console.error('Error fetching companies', error);
+            console.error("Error al cargar empresas:", error);
+        } finally {
             set({ isLoading: false });
         }
     },
 
     switchCompany: async (companyId: number) => {
+        // Evitar cambiar a la empresa que ya está activa
+        if (get().currentCompany?.id_empresa === companyId) return;
+
         set({ isLoading: true });
         try {
-            const response = await apiFetch<{ token: string; id_empresa: number; nombre_empresa: string }>('/auth/switch-company', {
-                method: 'POST',
+            const response = await apiFetch<{
+                token: string;
+                id_empresa: number;
+                nombre_empresa: string;
+            }>("/auth/switch-company", {
+                method: "POST",
                 body: { id_empresa: companyId },
             });
-            // Actualizar token en authStore
+
+            // 1. Actualizar el JWT en authStore con el nuevo token
+            //    Esto actualiza user.id_empresa, es_admin_empresa, etc.
             useAuthStore.getState().setToken(response.token);
-            // Recargar página para reiniciar datos con nueva empresa
-            window.location.reload();
+
+            // 2. Actualizar la empresa activa en el store sin recargar la página
+            const newCurrent = get().companies.find(
+                (c) => c.id_empresa === response.id_empresa
+            ) ?? { id_empresa: response.id_empresa, nombre: response.nombre_empresa };
+
+            set({ currentCompany: newCurrent });
+
         } catch (error) {
-            console.error('Error switching company', error);
+            console.error("Error al cambiar empresa:", error);
+            throw error; // Re-lanzar para que el componente pueda mostrar el error
+        } finally {
             set({ isLoading: false });
         }
     },
-
 }));
