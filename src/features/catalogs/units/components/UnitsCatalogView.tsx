@@ -8,10 +8,11 @@ import {
   X,
 } from "lucide-react";
 
-import { unitService } from "../services/unitService"; 
-import type { UnitItem } from "../types/unit.types"; 
+import { unitService } from "../services/unitService";
+import type { UnitItem } from "../types/unit.types";
 import { UnitCard } from "./UnitCard";
 import { NewUnitModal } from "./NewUnitModal";
+import { useEmpresaActiva } from "@/hooks/useEmpresa";
 
 export const UnitsCatalogView = () => {
   const [units, setUnits] = useState<UnitItem[]>([]);
@@ -19,6 +20,10 @@ export const UnitsCatalogView = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // Escuchar el id de la empresa activa — cuando cambie, el useEffect
+  // de abajo se re-ejecuta y recarga los datos automáticamente
+  const { idEmpresa } = useEmpresaActiva();
 
   const loadUnits = async (searchValue = "") => {
     try {
@@ -36,17 +41,21 @@ export const UnitsCatalogView = () => {
     }
   };
 
+  // Recargar cuando cambia la empresa activa
+  // Al limpiar units[] primero evitamos mostrar datos de la empresa anterior
+  // mientras llega la respuesta del backend
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      loadUnits(search);
-    }, 350);
-
-    return () => clearTimeout(timeout);
-  }, [search]);
-
-  useEffect(() => {
+    setUnits([]);
+    setSearch("");
     loadUnits();
-  }, []);
+  }, [idEmpresa]);
+
+  // Recargar cuando cambia el buscador (con debounce de 350ms)
+  useEffect(() => {
+    if (!idEmpresa) return;
+    const timeout = setTimeout(() => loadUnits(search), 350);
+    return () => clearTimeout(timeout);
+  }, [search, idEmpresa]);
 
   return (
     <main className="h-full overflow-auto bg-[#f5f6f8] p-3 md:p-6">
