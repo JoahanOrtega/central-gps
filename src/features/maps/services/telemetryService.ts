@@ -86,7 +86,7 @@ export const telemetryService = {
   archiveTrip(imei: string, tripData: { start: string; end: string; label?: string }): Promise<{ success: boolean }> {
     return apiFetch('/telemetry/archive-trip', {
       method: 'POST',
-      body: JSON.stringify({ imei, ...tripData }),
+      body: { imei, ...tripData },
     });
   },
 };
