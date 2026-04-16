@@ -6,6 +6,8 @@ import type { PoiItem } from "./poi.types";
 import { PoiCard } from "./PoiCard";
 import { NewPoiModal } from "./NewPoiModal";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
+import { SkeletonGrid } from "@/components/shared/SkeletonCard";
+import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 
 export const PointsOfInterestView = () => {
   const [pois, setPois] = useState<PoiItem[]>([]);
@@ -13,6 +15,9 @@ export const PointsOfInterestView = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // Delay de 150ms al apagar el skeleton para evitar parpadeo visual
+  const showSkeleton = useDelayedLoading(isLoading);
 
   const { idEmpresa } = useEmpresaActiva();
 
@@ -85,23 +90,19 @@ export const PointsOfInterestView = () => {
         </div>
 
         <div className="p-4 md:p-6">
-          {isLoading && (
-            <div className="py-10 text-center text-slate-500">
-              Cargando POIs...
-            </div>
-          )}
+          {showSkeleton && <SkeletonGrid variant="poi" count={6} />}
 
           {error && (
             <div className="py-10 text-center text-red-500">{error}</div>
           )}
 
-          {!isLoading && !error && pois.length === 0 && (
+          {!showSkeleton && !error && pois.length === 0 && (
             <div className="py-10 text-center text-slate-500">
               No hay puntos de interés para mostrar
             </div>
           )}
 
-          {!isLoading && !error && pois.length > 0 && (
+          {!showSkeleton && !error && pois.length > 0 && (
             <div className="grid grid-cols-1 gap-4 md:gap-6 2xl:grid-cols-2">
               {pois.map((poi) => (
                 <PoiCard key={poi.id_poi} poi={poi} />
