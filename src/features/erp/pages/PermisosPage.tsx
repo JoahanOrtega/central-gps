@@ -2,6 +2,7 @@
 // Permite ver todos los permisos existentes y agregar nuevos.
 
 import { useEffect, useState } from "react";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { KeyRound, Plus, Search, ShieldCheck } from "lucide-react";
 import { getPermisos, createPermiso } from "../services/erpService";
 import type { PermisoSistema, PermisoFormData } from "../types/erp.types";
@@ -20,6 +21,7 @@ const moduloColor = (modulo: string) =>
 
 // ── Componente principal ──────────────────────────────────
 export const PermisosPage = () => {
+    useDocumentTitle("Permisos");
     const [permisos, setPermisos] = useState<PermisoSistema[]>([]);
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);

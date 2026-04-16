@@ -1,5 +1,7 @@
-import { MapsView } from "@/features/maps/components/MapsView"
+import { MapsView } from "@/features/maps/components/MapsView";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 export const MapsPage = () => {
-  return <MapsView />
-}
+  useDocumentTitle("Mapa");
+  return <MapsView />;
+};

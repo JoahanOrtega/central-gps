@@ -2,6 +2,7 @@
 // Lista todas las empresas con sus métricas y permite crear, editar y suspender.
 
 import { useEffect, useState } from "react";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { Building2, Plus, Search } from "lucide-react";
 import { getEmpresas, toggleEmpresaStatus, createEmpresa, updateEmpresa } from "../services/erpService";
 import type { EmpresaResumen, EmpresaFormData } from "../types/erp.types";
@@ -28,6 +29,7 @@ const CONFIRM_CLOSED: ConfirmState = {
 
 // ── Componente principal ──────────────────────────────────────
 export const EmpresasPage = () => {
+    useDocumentTitle("Empresas");
     const [empresas, setEmpresas] = useState<EmpresaResumen[]>([]);
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);

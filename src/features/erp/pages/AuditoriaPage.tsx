@@ -3,6 +3,7 @@
 // con filtros por entidad y paginación simple.
 
 import { useEffect, useState } from "react";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { ClipboardList, Filter, RefreshCw } from "lucide-react";
 import { getAuditoria } from "../services/erpService";
 import type { RegistroAuditoria } from "../types/erp.types";
@@ -36,6 +37,7 @@ const formatFecha = (iso: string) => {
 
 // ── Componente principal ──────────────────────────────────
 export const AuditoriaPage = () => {
+    useDocumentTitle("Auditoría");
     const [registros, setRegistros] = useState<RegistroAuditoria[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
