@@ -1,9 +1,11 @@
+// src/features/catalogs/pois/PoiGroupsView.tsx
 import { useEffect, useState } from "react";
 import { FolderTree, Plus, Search } from "lucide-react";
 
 import { poiService } from "./poiService";
 import type { PoiGroupItem } from "./poi.types";
 import { NewPoiGroupModal } from "./NewPoiGroupModal";
+import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 
 export const PoiGroupsView = () => {
   const [groups, setGroups] = useState<PoiGroupItem[]>([]);
@@ -12,35 +14,36 @@ export const PoiGroupsView = () => {
   const [error, setError] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
+  const { idEmpresa } = useEmpresaActiva();
+
   const loadPoiGroups = async (searchValue = "") => {
     try {
       setIsLoading(true);
       setError("");
-
       const data = await poiService.getPoiGroups(searchValue);
       setGroups(data);
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Error al cargar grupos de POIs";
+        error instanceof Error ? error.message : "Error al cargar grupos de POIs";
       setError(message);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Recargar cuando cambia la empresa activa
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      loadPoiGroups(search);
-    }, 350);
-
-    return () => clearTimeout(timeout);
-  }, [search]);
-
-  useEffect(() => {
+    setGroups([]);
+    setSearch("");
     loadPoiGroups();
-  }, []);
+  }, [idEmpresa]);
+
+  // Recargar cuando cambia el buscador
+  useEffect(() => {
+    if (!idEmpresa) return;
+    const timeout = setTimeout(() => loadPoiGroups(search), 350);
+    return () => clearTimeout(timeout);
+  }, [search, idEmpresa]);
 
   return (
     <main className="h-full overflow-auto bg-[#f5f6f8] p-3 md:p-6">
@@ -67,11 +70,10 @@ export const PoiGroupsView = () => {
               <div className="flex h-10 w-10 items-center justify-center border-r border-slate-300 text-emerald-500">
                 <Search className="h-4 w-4" />
               </div>
-
               <input
                 type="text"
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(e) => setSearch(e.target.value)}
                 placeholder="buscar..."
                 className="h-10 w-56 rounded-r-lg px-3 text-sm outline-none"
               />
@@ -81,68 +83,33 @@ export const PoiGroupsView = () => {
 
         <div className="p-6">
           {isLoading && (
-            <div className="py-10 text-center text-slate-500">
-              Cargando grupos...
-            </div>
+            <div className="py-10 text-center text-slate-500">Cargando grupos...</div>
           )}
-
           {error && (
             <div className="py-10 text-center text-red-500">{error}</div>
           )}
-
           {!isLoading && !error && groups.length === 0 && (
-            <div className="py-10 text-center text-slate-500">
-              No hay grupos para mostrar
-            </div>
+            <div className="py-10 text-center text-slate-500">No hay grupos para mostrar</div>
           )}
-
           {!isLoading && !error && groups.length > 0 && (
             <div className="overflow-hidden rounded-xl border border-slate-200">
               <table className="w-full border-collapse text-sm">
                 <thead className="bg-slate-50 text-slate-600">
                   <tr>
-                    <th className="border-b border-slate-200 px-4 py-3 text-left">
-                      ID
-                    </th>
-                    <th className="border-b border-slate-200 px-4 py-3 text-left">
-                      Nombre
-                    </th>
-                    <th className="border-b border-slate-200 px-4 py-3 text-left">
-                      Cliente
-                    </th>
-                    <th className="border-b border-slate-200 px-4 py-3 text-left">
-                      POIs
-                    </th>
-                    <th className="border-b border-slate-200 px-4 py-3 text-left">
-                      Predeterminado
-                    </th>
-                    <th className="border-b border-slate-200 px-4 py-3 text-left">
-                      Observaciones
-                    </th>
+                    {["ID", "Nombre", "Cliente", "POIs", "Predeterminado", "Observaciones"].map((h) => (
+                      <th key={h} className="border-b border-slate-200 px-4 py-3 text-left">{h}</th>
+                    ))}
                   </tr>
                 </thead>
-
                 <tbody>
                   {groups.map((group) => (
                     <tr key={group.id_grupo_pois} className="hover:bg-slate-50">
-                      <td className="border-b border-slate-200 px-4 py-3">
-                        {group.id_grupo_pois}
-                      </td>
-                      <td className="border-b border-slate-200 px-4 py-3 font-medium text-slate-800">
-                        {group.nombre}
-                      </td>
-                      <td className="border-b border-slate-200 px-4 py-3">
-                        {group.id_cliente || "---"}
-                      </td>
-                      <td className="border-b border-slate-200 px-4 py-3">
-                        {group.pois}
-                      </td>
-                      <td className="border-b border-slate-200 px-4 py-3">
-                        {group.is_default === 1 ? "Sí" : "No"}
-                      </td>
-                      <td className="border-b border-slate-200 px-4 py-3 text-slate-500">
-                        {group.observaciones || "---"}
-                      </td>
+                      <td className="border-b border-slate-200 px-4 py-3">{group.id_grupo_pois}</td>
+                      <td className="border-b border-slate-200 px-4 py-3 font-medium text-slate-800">{group.nombre}</td>
+                      <td className="border-b border-slate-200 px-4 py-3">{group.id_cliente || "---"}</td>
+                      <td className="border-b border-slate-200 px-4 py-3">{group.pois}</td>
+                      <td className="border-b border-slate-200 px-4 py-3">{group.is_default === 1 ? "Sí" : "No"}</td>
+                      <td className="border-b border-slate-200 px-4 py-3 text-slate-500">{group.observaciones || "---"}</td>
                     </tr>
                   ))}
                 </tbody>
