@@ -26,6 +26,7 @@ export const SwitchCompanyModal = ({
         companies,                                        // Lista de empresas disponibles
         currentCompany,                                   // Empresa activa actualmente
         isLoading,                                        // Estado de carga de empresas
+        fetchError,                                       // Error de la última carga
         fetchCompanies,                                   // Función para obtener empresas del backend
         switchCompany,                                    // Función para cambiar de empresa
     } = useCompanyStore();
@@ -35,12 +36,17 @@ export const SwitchCompanyModal = ({
     const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null); // ID de empresa seleccionada
     const [isSubmitting, setIsSubmitting] = useState(false); // Estado durante el cambio de empresa
 
-    // --- Efecto: cargar empresas cuando se abre el modal y hay usuario ---
+    // --- Efecto: cargar empresas al abrir el modal ----------------
+    // Solo hace la petición si:
+    //   a) La lista aún no se ha cargado (companies.length === 0)
+    //   b) Hubo un error en la carga anterior (fetchError !== null)
+    // Esto evita una petición innecesaria cada vez que el usuario
+    // abre el modal cuando la lista ya está disponible en el store.
     useEffect(() => {
-        if (open && user) {
+        if (open && user && (companies.length === 0 || fetchError !== null)) {
             fetchCompanies();
         }
-    }, [open, user, fetchCompanies]);
+    }, [open, user, companies.length, fetchError, fetchCompanies]);
 
     // --- Efecto: preseleccionar la empresa actual al abrir el modal ---
     useEffect(() => {
@@ -115,6 +121,18 @@ export const SwitchCompanyModal = ({
                         <div className="py-10 text-center">
                             <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
                             <p className="mt-3 text-sm text-slate-500">Cargando empresas...</p>
+                        </div>
+                    ) : fetchError ? (
+                        // Error al cargar — mostrar mensaje y botón de reintento
+                        <div className="py-10 text-center">
+                            <p className="text-sm font-medium text-red-600">{fetchError}</p>
+                            <button
+                                type="button"
+                                onClick={fetchCompanies}
+                                className="mt-3 rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                            >
+                                Reintentar
+                            </button>
                         </div>
                     ) : companies.length === 0 ? (
                         // No hay empresas disponibles
