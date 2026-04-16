@@ -5,7 +5,7 @@ import { poiService } from "./poiService";
 import type { PoiItem } from "./poi.types";
 import { PoiCard } from "./PoiCard";
 import { NewPoiModal } from "./NewPoiModal";
-import { useEmpresaActiva } from "@/hooks/useEmpresa";
+import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 
 export const PointsOfInterestView = () => {
   const [pois, setPois] = useState<PoiItem[]>([]);
