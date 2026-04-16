@@ -12,7 +12,7 @@ import { unitService } from "../services/unitService";
 import type { UnitItem } from "../types/unit.types";
 import { UnitCard } from "./UnitCard";
 import { NewUnitModal } from "./NewUnitModal";
-import { useEmpresaActiva } from "@/hooks/useEmpresa";
+import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 
 export const UnitsCatalogView = () => {
   const [units, setUnits] = useState<UnitItem[]>([]);
