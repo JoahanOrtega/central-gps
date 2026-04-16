@@ -1,13 +1,34 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CentralGPS</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CentralGPS</title>
+
+  <!--
+      Content Security Policy (CSP)
+      ─────────────────────────────────────────────────────────────────────
+      La CSP se inyecta como header HTTP desde vite.config.ts (desarrollo)
+      y desde el servidor nginx/Apache (producción).
+
+      Los headers HTTP tienen precedencia sobre meta tags, y además
+      permiten leer variables de entorno para incluir la URL del backend
+      dinámicamente según el entorno.
+
+      Ver vite.config.ts → server.headers para la configuración activa.
+      ─────────────────────────────────────────────────────────────────────
+    -->
+
+  <!-- Impide que el navegador detecte automáticamente tipos MIME incorrectos -->
+  <!-- Nota: X-Content-Type-Options y X-Frame-Options se configuran como    -->
+  <!-- headers HTTP en vite.config.ts (desarrollo) y en nginx (producción). -->
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>
