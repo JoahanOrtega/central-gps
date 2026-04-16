@@ -6,7 +6,10 @@ import { CustomLogo } from "@/components/shared/CustomLogo";
 import { LoginForm } from "../components/LoginForm";
 import type { LoginFormValues } from "../types/auth.types";
 import { authService } from "../services/authService";
-import bgImage from "@/assets/images/login-bg.jpg";
+
+// Imagen de fondo del login — se referencia desde /public para evitar
+// que Vite la incluya en el bundle principal (mejora el tiempo de carga inicial).
+const BG_IMAGE_URL = "/images/app/bg-1.jpg";
 
 interface LoginPageProps extends React.ComponentProps<"div"> { }
 
@@ -17,8 +20,8 @@ export const LoginPage = ({ className }: LoginPageProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const hasRedirected = useRef(false);
 
-  // Si ya hay sesión activa al cargar, siempre ir a /home
-  // El sudo_erp accede al panel ERP desde el botón en el navbar
+  // Si ya hay sesión activa al cargar, redirigir a /home.
+  // El sudo_erp accede al panel ERP desde el botón en el navbar.
   useEffect(() => {
     if (token && !hasRedirected.current) {
       hasRedirected.current = true;
@@ -34,9 +37,8 @@ export const LoginPage = ({ className }: LoginPageProps) => {
         username: values.username,
         password: values.password,
       });
-      setToken(response.token);
-      // Todos los roles aterrizan en /home
-      // El sudo_erp tiene el botón del panel ERP en el navbar
+      // Pasar `remember` al store para que elija localStorage o sessionStorage
+      setToken(response.token, values.remember);
       navigate("/home", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al iniciar sesión");
@@ -51,7 +53,7 @@ export const LoginPage = ({ className }: LoginPageProps) => {
         "fixed inset-0 flex items-center justify-center bg-cover bg-center",
         className
       )}
-      style={{ backgroundImage: `url(${bgImage})` }}
+      style={{ backgroundImage: `url(${BG_IMAGE_URL})` }}
     >
       <div className="absolute inset-0 bg-white/35 backdrop-blur-[1px]" />
       <div className="relative z-10 flex w-full max-w-md flex-col items-center px-6">

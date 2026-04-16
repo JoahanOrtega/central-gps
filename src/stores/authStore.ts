@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 // ── Tipo del payload decodificado del JWT ─────────────────────
 // Refleja exactamente los campos que el backend incluye en el token.
@@ -23,11 +23,15 @@ interface JwtPayload {
 interface AuthState {
     token: string | null;
     user: JwtPayload | null;
-    setToken: (token: string | null) => void;
+    // Indica si el usuario eligió "Recordarme" al iniciar sesión.
+    // true  → sesión persistida en localStorage (sobrevive al cerrar el navegador)
+    // false → sesión en sessionStorage (se borra al cerrar el tab)
+    remember: boolean;
+    setToken: (token: string | null, remember?: boolean) => void;
     logout: () => void;
     // Verifica si el token actualmente almacenado ha expirado
     isTokenExpired: () => boolean;
-    // Revisa la sesión guardada en localStorage al arrancar la app.
+    // Revisa la sesión guardada al arrancar la app.
     // Si el token expiró, hace logout silencioso antes de mostrar la UI.
     checkAndRefreshSession: () => void;
     // Helper: verifica si el usuario activo es sudo ERP
@@ -46,17 +50,24 @@ const hasExpired = (exp: number): boolean => {
     return exp < nowInSeconds + EXPIRY_MARGIN_SECONDS;
 };
 
+// ── Selección de storage según preferencia del usuario ────────
+// Si remember=true  → localStorage  (persiste al cerrar el navegador)
+// Si remember=false → sessionStorage (se limpia al cerrar el tab)
+const getStorage = (remember: boolean) =>
+    createJSONStorage(() => remember ? localStorage : sessionStorage);
+
 // ── Store de autenticación ────────────────────────────────────
 export const useAuthStore = create<AuthState>()(
     persist(
         (set, get) => ({
             token: null,
             user: null,
+            remember: false,
 
-            setToken: (token) => {
+            setToken: (token, remember = false) => {
                 // Token nulo o vacío → limpiar sesión
                 if (!token) {
-                    set({ token: null, user: null });
+                    set({ token: null, user: null, remember: false });
                     return;
                 }
 
@@ -68,18 +79,18 @@ export const useAuthStore = create<AuthState>()(
                     // Esto cubre el caso donde el backend emite el token justo
                     // en el límite de expiración o hay desajuste de reloj.
                     if (hasExpired(payload.exp)) {
-                        set({ token: null, user: null });
+                        set({ token: null, user: null, remember: false });
                         return;
                     }
 
-                    set({ token, user: payload });
+                    set({ token, user: payload, remember });
                 } catch {
                     // Si el JWT tiene formato inválido, no guardar nada
-                    set({ token: null, user: null });
+                    set({ token: null, user: null, remember: false });
                 }
             },
 
-            logout: () => set({ token: null, user: null }),
+            logout: () => set({ token: null, user: null, remember: false }),
 
             // Retorna true si el token almacenado ya expiró (o no existe)
             isTokenExpired: () => {
@@ -88,7 +99,7 @@ export const useAuthStore = create<AuthState>()(
                 return hasExpired(user.exp);
             },
 
-            // Llamar esta función al arrancar la app (en PrivateRoute o en el layout raíz).
+            // Llamar esta función al arrancar la app (en PrivateRoute).
             // Si el usuario tenía sesión guardada pero el token ya venció,
             // lo expulsa silenciosamente antes de que la UI siquiera se muestre.
             checkAndRefreshSession: () => {
@@ -109,6 +120,21 @@ export const useAuthStore = create<AuthState>()(
         }),
         {
             name: "auth-storage",
+            // El storage se elige dinámicamente según el valor de `remember`
+            // almacenado en el propio store. En la primera carga (antes del login)
+            // usa localStorage por defecto para poder leer una sesión previa.
+            storage: getStorage(
+                (() => {
+                    try {
+                        const stored = localStorage.getItem("auth-storage");
+                        if (!stored) return false;
+                        return (JSON.parse(stored) as { state?: { remember?: boolean } })
+                            .state?.remember ?? false;
+                    } catch {
+                        return false;
+                    }
+                })()
+            ),
         }
     )
 );
