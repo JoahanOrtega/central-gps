@@ -2,6 +2,7 @@ import { apiFetch } from "@/lib/api";
 import type {
   PoiItem,
   PoiGroupItem,
+  ClientOption,
   CreatePoiPayload,
   CreatePoiGroupPayload,
 } from "./poi.types";
@@ -41,8 +42,9 @@ export const poiService = {
     });
   },
 
-  getClients() {
-    return apiFetch("/clients", {
+  // Retorna la lista de clientes disponibles para asignar a un grupo de POIs
+  getClients(): Promise<ClientOption[]> {
+    return apiFetch<ClientOption[]>("/clients", {
       method: "GET",
     });
   },

@@ -23,7 +23,6 @@ export const TripDrawer = (props: TripDrawerProps) => {
     unitSummary,
     visibleTrips,
     selectedTripId,
-    currentRoutePoints,
     isLoadingUnits,
     isLoadingRoute,
     error,

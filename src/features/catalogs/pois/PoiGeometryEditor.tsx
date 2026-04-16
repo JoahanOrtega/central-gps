@@ -95,7 +95,7 @@ export const PoiGeometryEditor = forwardRef<
             drawingManager.setMap(map)
             drawingManagerRef.current = drawingManager
 
-            drawingManager.addListener("circlecomplete", async (circle) => {
+            drawingManager.addListener("circlecomplete", async (circle: google.maps.Circle) => {
                 clearPolygon(false)
                 clearCircle(false)
 
@@ -106,7 +106,7 @@ export const PoiGeometryEditor = forwardRef<
                 await updateCircleState(circle)
             })
 
-            drawingManager.addListener("polygoncomplete", async (polygon) => {
+            drawingManager.addListener("polygoncomplete", async (polygon: google.maps.Polygon) => {
                 const path = polygon.getPath()
 
                 if (path.getLength() < 3) {

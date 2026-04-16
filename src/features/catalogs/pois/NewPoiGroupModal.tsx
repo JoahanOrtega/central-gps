@@ -9,17 +9,12 @@ import {
 } from "@/components/ui/dialog"
 
 import { poiService } from "./poiService"
-import type { CreatePoiGroupPayload } from "./poi.types"
+import type { CreatePoiGroupPayload, ClientOption } from "./poi.types"
 
 interface NewPoiGroupModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreated: () => void
-}
-
-interface ClientOption {
-  id_cliente: number
-  nombre: string
 }
 
 const defaultForm: CreatePoiGroupPayload = {

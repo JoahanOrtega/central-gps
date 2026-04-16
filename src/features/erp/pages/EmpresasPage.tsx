@@ -2,6 +2,7 @@
 // Lista todas las empresas con sus métricas y permite crear, editar y suspender.
 
 import { useEffect, useState } from "react";
+import { Building2, Plus, Search } from "lucide-react";
 import { getEmpresas, toggleEmpresaStatus, createEmpresa, updateEmpresa } from "../services/erpService";
 import type { EmpresaResumen, EmpresaFormData } from "../types/erp.types";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -28,15 +29,15 @@ const CONFIRM_CLOSED: ConfirmState = {
 // ── Componente principal ──────────────────────────────────────
 export const EmpresasPage = () => {
     const [empresas, setEmpresas] = useState<EmpresaResumen[]>([]);
+    const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [actionError, setActionError] = useState<string | null>(null);
 
     // Estado del modal de creación/edición
     const [modalOpen, setModalOpen] = useState(false);
     const [editTarget, setEditTarget] = useState<EmpresaResumen | null>(null);
 
-    // Estado del diálogo de confirmación — reemplaza a confirm() y alert()
+    // Estado del diálogo de confirmación — reemplaza confirm() y alert() nativos
     const [confirmState, setConfirmState] = useState<ConfirmState>(CONFIRM_CLOSED);
 
     const cargarEmpresas = async () => {
@@ -53,6 +54,15 @@ export const EmpresasPage = () => {
     };
 
     useEffect(() => { cargarEmpresas(); }, []);
+
+    // Filtro local por nombre o email
+    const empresasFiltradas = empresas.filter((emp) => {
+        const q = search.toLowerCase();
+        return (
+            emp.empresa.toLowerCase().includes(q) ||
+            emp.email_principal?.toLowerCase().includes(q)
+        );
+    });
 
     // Muestra un diálogo de error accesible en lugar de alert()
     const showError = (message: string) => {
@@ -81,7 +91,7 @@ export const EmpresasPage = () => {
             confirmText: accion,
             confirmButtonClassName: nuevoStatus === 0
                 ? "bg-red-600 text-white hover:bg-red-700"
-                : "bg-green-600 text-white hover:bg-green-700",
+                : "bg-emerald-600 text-white hover:bg-emerald-700",
             onConfirm: async () => {
                 setConfirmState(CONFIRM_CLOSED);
                 try {
@@ -97,7 +107,7 @@ export const EmpresasPage = () => {
     const handleOpenCreate = () => { setEditTarget(null); setModalOpen(true); };
     const handleOpenEdit = (emp: EmpresaResumen) => { setEditTarget(emp); setModalOpen(true); };
 
-    // Guardar empresa — reemplaza alert() en caso de error
+    // Guardar empresa — muestra error en diálogo en lugar de alert()
     const handleModalSave = async (data: EmpresaFormData) => {
         try {
             if (editTarget) {
@@ -114,78 +124,142 @@ export const EmpresasPage = () => {
 
     // ── Render ────────────────────────────────────────────────
     return (
-        <div>
-            {/* Encabezado */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-                <div>
-                    <h1 style={{ fontSize: 22, fontWeight: 600, color: "#0f172a", margin: 0 }}>Empresas</h1>
-                    <p style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
-                        {empresas.length} empresa{empresas.length !== 1 ? "s" : ""} registradas
-                    </p>
-                </div>
-                <button onClick={handleOpenCreate} style={btnPrimary}>
-                    + Nueva empresa
-                </button>
-            </div>
+        <main className="h-full overflow-auto bg-[#f5f6f8] p-3 md:p-6">
+            <section className="flex min-h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
 
-            {/* Estado de carga / error */}
-            {loading && <p style={{ color: "#64748b", fontSize: 14 }}>Cargando...</p>}
-            {error && <p style={{ color: "#dc2626", fontSize: 14 }}>{error}</p>}
-            {actionError && <p style={{ color: "#dc2626", fontSize: 14 }}>{actionError}</p>}
+                {/* Encabezado */}
+                <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                    <div className="flex items-center gap-3">
+                        <Building2 className="h-5 w-5 text-slate-500" />
+                        <div>
+                            <h1 className="text-xl font-semibold text-slate-800">
+                                Empresas
+                            </h1>
+                            <p className="text-xs text-slate-400">
+                                {empresas.length} empresa{empresas.length !== 1 ? "s" : ""} registradas
+                            </p>
+                        </div>
+                    </div>
 
-            {/* Tabla de empresas */}
-            {!loading && !error && (
-                <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", overflow: "hidden" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                        <thead>
-                            <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                                {["Empresa", "Unidades", "Usuarios", "Clientes", "Status", "Acciones"].map((h) => (
-                                    <th key={h} style={{ padding: "11px 16px", textAlign: "left", fontWeight: 500, color: "#475569", fontSize: 12 }}>
-                                        {h}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {empresas.map((emp) => (
-                                <tr key={emp.id_empresa} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                                    <td style={{ padding: "12px 16px" }}>
-                                        <p style={{ fontWeight: 500, color: "#0f172a", margin: 0 }}>{emp.empresa}</p>
-                                        {emp.email_principal && (
-                                            <p style={{ fontSize: 11, color: "#94a3b8", margin: "2px 0 0" }}>{emp.email_principal}</p>
-                                        )}
-                                    </td>
-                                    <td style={{ padding: "12px 16px", color: "#475569" }}>{emp.total_unidades}</td>
-                                    <td style={{ padding: "12px 16px", color: "#475569" }}>{emp.total_usuarios}</td>
-                                    <td style={{ padding: "12px 16px", color: "#475569" }}>{emp.total_clientes}</td>
-                                    <td style={{ padding: "12px 16px" }}>
-                                        <span style={{
-                                            fontSize: 11, fontWeight: 500, padding: "3px 8px", borderRadius: 20,
-                                            background: emp.status === 1 ? "#dcfce7" : "#fee2e2",
-                                            color: emp.status === 1 ? "#166534" : "#991b1b",
-                                        }}>
-                                            {emp.status === 1 ? "Activa" : "Suspendida"}
-                                        </span>
-                                    </td>
-                                    <td style={{ padding: "12px 16px" }}>
-                                        <div style={{ display: "flex", gap: 8 }}>
-                                            <button onClick={() => handleOpenEdit(emp)} style={btnSecondary}>
-                                                Editar
-                                            </button>
-                                            <button
-                                                onClick={() => handleToggleStatus(emp)}
-                                                style={{ ...btnSecondary, color: emp.status === 1 ? "#dc2626" : "#16a34a" }}
-                                            >
-                                                {emp.status === 1 ? "Suspender" : "Activar"}
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <div className="flex items-center gap-3">
+                        {/* Buscador */}
+                        <div className="flex items-center rounded-lg border border-slate-300 bg-white">
+                            <div className="flex h-10 w-10 items-center justify-center border-r border-slate-300 text-blue-500">
+                                <Search className="h-4 w-4" />
+                            </div>
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="buscar empresa o email..."
+                                className="h-10 w-52 rounded-r-lg px-3 text-sm outline-none"
+                            />
+                        </div>
+
+                        {/* Botón nueva empresa */}
+                        <button
+                            type="button"
+                            onClick={handleOpenCreate}
+                            className="flex h-10 w-12 items-center justify-center rounded-lg border border-blue-400 bg-white text-blue-500 hover:bg-blue-50"
+                            title="Nueva empresa"
+                        >
+                            <Plus className="h-4 w-4" />
+                        </button>
+                    </div>
                 </div>
-            )}
+
+                {/* Contenido */}
+                <div className="p-6">
+
+                    {loading && (
+                        <div className="py-10 text-center text-slate-500">Cargando empresas...</div>
+                    )}
+
+                    {error && (
+                        <div className="py-10 text-center text-red-500">{error}</div>
+                    )}
+
+                    {!loading && !error && empresasFiltradas.length === 0 && (
+                        <div className="py-10 text-center text-slate-400">
+                            {search ? "Sin resultados para tu búsqueda" : "No hay empresas registradas"}
+                        </div>
+                    )}
+
+                    {!loading && !error && empresasFiltradas.length > 0 && (
+                        <div className="overflow-hidden rounded-xl border border-slate-200">
+                            <table className="w-full border-collapse text-sm">
+                                <thead className="bg-slate-50 text-slate-600">
+                                    <tr>
+                                        {["Empresa", "Unidades", "Usuarios", "Clientes", "Status", "Acciones"].map((h) => (
+                                            <th key={h} className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium">
+                                                {h}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {empresasFiltradas.map((emp) => (
+                                        <tr key={emp.id_empresa} className="hover:bg-slate-50">
+
+                                            {/* Nombre + email */}
+                                            <td className="border-b border-slate-200 px-4 py-3">
+                                                <p className="font-medium text-slate-800">{emp.empresa}</p>
+                                                {emp.email_principal && (
+                                                    <p className="mt-0.5 text-xs text-slate-400">{emp.email_principal}</p>
+                                                )}
+                                            </td>
+
+                                            {/* Métricas */}
+                                            <td className="border-b border-slate-200 px-4 py-3 text-slate-500">
+                                                {emp.total_unidades}
+                                            </td>
+                                            <td className="border-b border-slate-200 px-4 py-3 text-slate-500">
+                                                {emp.total_usuarios}
+                                            </td>
+                                            <td className="border-b border-slate-200 px-4 py-3 text-slate-500">
+                                                {emp.total_clientes}
+                                            </td>
+
+                                            {/* Status con badge de color */}
+                                            <td className="border-b border-slate-200 px-4 py-3">
+                                                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${emp.status === 1
+                                                        ? "bg-emerald-50 text-emerald-700"
+                                                        : "bg-red-50 text-red-700"
+                                                    }`}>
+                                                    {emp.status === 1 ? "Activa" : "Suspendida"}
+                                                </span>
+                                            </td>
+
+                                            {/* Acciones */}
+                                            <td className="border-b border-slate-200 px-4 py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenEdit(emp)}
+                                                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+                                                    >
+                                                        Editar
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleToggleStatus(emp)}
+                                                        className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${emp.status === 1
+                                                                ? "border-red-200 text-red-600 hover:bg-red-50"
+                                                                : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+                                                            }`}
+                                                    >
+                                                        {emp.status === 1 ? "Suspender" : "Activar"}
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            </section>
 
             {/* Modal crear / editar */}
             {modalOpen && (
@@ -206,7 +280,7 @@ export const EmpresasPage = () => {
                 confirmButtonClassName={confirmState.confirmButtonClassName}
                 onConfirm={confirmState.onConfirm}
             />
-        </div>
+        </main>
     );
 };
 
@@ -227,7 +301,7 @@ const EmpresaModal = ({ empresa, onSave, onClose }: EmpresaModalProps) => {
     const [fieldError, setFieldError] = useState("");
 
     const handleSubmit = async () => {
-        // Validación en el componente en lugar de alert()
+        // Validación inline en lugar de alert()
         if (!form.nombre.trim()) {
             setFieldError("El nombre de la empresa es obligatorio");
             return;
@@ -239,57 +313,71 @@ const EmpresaModal = ({ empresa, onSave, onClose }: EmpresaModalProps) => {
     };
 
     return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
-            <div style={{ background: "#fff", borderRadius: 12, padding: 28, width: 440, boxShadow: "0 20px 60px rgba(0,0,0,.15)" }}>
-                <h2 style={{ fontSize: 17, fontWeight: 600, color: "#0f172a", margin: "0 0 20px" }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="w-[440px] rounded-2xl bg-white p-7 shadow-2xl">
+                <h2 className="mb-5 text-base font-semibold text-slate-800">
                     {empresa ? "Editar empresa" : "Nueva empresa"}
                 </h2>
 
-                {(["nombre", "direccion", "telefonos"] as const).map((campo) => (
-                    <div key={campo} style={{ marginBottom: 14 }}>
-                        <label style={{ fontSize: 12, fontWeight: 500, color: "#475569", display: "block", marginBottom: 5, textTransform: "capitalize" }}>
-                            {campo}{campo === "nombre" ? " *" : ""}
-                        </label>
-                        <input
-                            value={form[campo] ?? ""}
-                            onChange={(e) => {
-                                setForm((f) => ({ ...f, [campo]: e.target.value }));
-                                if (campo === "nombre") setFieldError("");
-                            }}
-                            style={{
-                                width: "100%", padding: "8px 12px", borderRadius: 7, fontSize: 13, outline: "none",
-                                border: campo === "nombre" && fieldError ? "1px solid #dc2626" : "1px solid #e2e8f0"
-                            }}
-                        />
-                        {/* Error de validación inline — reemplaza alert() */}
-                        {campo === "nombre" && fieldError && (
-                            <p role="alert" style={{ fontSize: 11, color: "#dc2626", marginTop: 4 }}>
-                                {fieldError}
-                            </p>
-                        )}
-                    </div>
-                ))}
+                {/* Campo nombre */}
+                <div className="mb-4">
+                    <label className="mb-1.5 block text-xs font-medium text-slate-500">
+                        Nombre <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                        value={form.nombre}
+                        onChange={(e) => { setForm((f) => ({ ...f, nombre: e.target.value })); setFieldError(""); }}
+                        placeholder="Nombre de la empresa"
+                        className={`w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-blue-400 ${fieldError ? "border-red-400" : "border-slate-200"
+                            }`}
+                    />
+                    {fieldError && (
+                        <p role="alert" className="mt-1 text-xs text-red-500">{fieldError}</p>
+                    )}
+                </div>
 
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24 }}>
-                    <button onClick={onClose} style={btnSecondary} disabled={saving}>Cancelar</button>
-                    <button onClick={handleSubmit} style={btnPrimary} disabled={saving}>
-                        {saving ? "Guardando..." : "Guardar"}
+                {/* Campo dirección */}
+                <div className="mb-4">
+                    <label className="mb-1.5 block text-xs font-medium text-slate-500">Dirección</label>
+                    <input
+                        value={form.direccion}
+                        onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))}
+                        placeholder="Dirección de la empresa"
+                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+                    />
+                </div>
+
+                {/* Campo teléfonos */}
+                <div className="mb-6">
+                    <label className="mb-1.5 block text-xs font-medium text-slate-500">Teléfonos</label>
+                    <input
+                        value={form.telefonos}
+                        onChange={(e) => setForm((f) => ({ ...f, telefonos: e.target.value }))}
+                        placeholder="Teléfonos de contacto"
+                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+                    />
+                </div>
+
+                {/* Acciones */}
+                <div className="flex justify-end gap-2">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={saving}
+                        className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleSubmit}
+                        disabled={saving}
+                        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    >
+                        {saving ? "Guardando..." : "Guardar empresa"}
                     </button>
                 </div>
             </div>
         </div>
     );
-};
-
-// ── Estilos reutilizables ─────────────────────────────────────
-const btnPrimary: React.CSSProperties = {
-    padding: "8px 16px", borderRadius: 8, border: "none",
-    background: "#1d4ed8", color: "#fff", fontSize: 13,
-    fontWeight: 500, cursor: "pointer",
-};
-
-const btnSecondary: React.CSSProperties = {
-    padding: "7px 14px", borderRadius: 7,
-    border: "1px solid #e2e8f0", background: "#fff",
-    color: "#475569", fontSize: 12, cursor: "pointer",
 };

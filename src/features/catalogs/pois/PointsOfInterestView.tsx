@@ -1,4 +1,4 @@
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { MapPinned, Plus, Search } from "lucide-react";
 
 import { poiService } from "./poiService";

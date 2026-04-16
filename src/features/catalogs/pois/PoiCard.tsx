@@ -1,4 +1,4 @@
-import { MapPinned, Circle, Pentagon } from "lucide-react"
+import { Circle, Pentagon } from "lucide-react"
 import type { PoiItem } from "./poi.types"
 
 interface PoiCardProps {

@@ -71,3 +71,9 @@ export interface CreatePoiGroupPayload {
   observaciones: string
   is_default: number
 }
+
+// Opción del selector de clientes — usada en NewPoiGroupModal y poiService
+export interface ClientOption {
+  id_cliente: number
+  nombre: string
+}
