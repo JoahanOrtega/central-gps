@@ -66,7 +66,7 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuthStore();
-  const { currentCompany, fetchCompanies } = useCompanyStore();
+  const { currentCompany, fetchCompanies, fetchError } = useCompanyStore();
   const [switchModalOpen, setSwitchModalOpen] = useState(false);
 
   // Verificar todos los permisos del navbar en una sola llamada
@@ -210,13 +210,18 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
         <div className="flex shrink-0 items-center gap-2 md:gap-3">
           <button
             onClick={() => setSwitchModalOpen(true)}
-            className="group flex items-center gap-2 rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-sm font-medium text-blue-700 shadow-sm transition-all hover:border-blue-400 hover:bg-blue-50 hover:shadow md:px-4 md:py-2"
+            className={cn(
+              "group flex items-center gap-2 rounded-lg border bg-white px-3 py-1.5 text-sm font-medium shadow-sm transition-all md:px-4 md:py-2",
+              fetchError
+                ? "border-red-300 text-red-600 hover:border-red-400 hover:bg-red-50"
+                : "border-blue-300 text-blue-700 hover:border-blue-400 hover:bg-blue-50 hover:shadow"
+            )}
           >
-            <Building2 className="h-4 w-4 shrink-0 text-blue-500" />
+            <Building2 className={cn("h-4 w-4 shrink-0", fetchError ? "text-red-400" : "text-blue-500")} />
             <span className="max-w-[120px] truncate sm:max-w-[180px] lg:max-w-[240px]">
-              {currentCompany?.nombre || "Cargando..."}
+              {fetchError ? "Error al cargar" : (currentCompany?.nombre || "Cargando...")}
             </span>
-            <ChevronDown className="h-4 w-4 shrink-0 text-blue-500 transition-transform group-hover:rotate-180" />
+            <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform group-hover:rotate-180", fetchError ? "text-red-400" : "text-blue-500")} />
           </button>
 
           <SwitchCompanyModal
