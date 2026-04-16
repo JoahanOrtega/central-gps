@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { MapPinned, Plus, Search } from "lucide-react";
 
 import { poiService } from "./poiService";
 import type { PoiItem } from "./poi.types";
 import { PoiCard } from "./PoiCard";
 import { NewPoiModal } from "./NewPoiModal";
+import { useEmpresaActiva } from "@/hooks/useEmpresa";
 
 export const PointsOfInterestView = () => {
   const [pois, setPois] = useState<PoiItem[]>([]);
@@ -12,6 +13,8 @@ export const PointsOfInterestView = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  const { idEmpresa } = useEmpresaActiva();
 
   const loadPois = async (searchValue = "") => {
     try {
@@ -28,17 +31,19 @@ export const PointsOfInterestView = () => {
     }
   };
 
+  // Recargar cuando cambia la empresa activa
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      loadPois(search);
-    }, 350);
-
-    return () => clearTimeout(timeout);
-  }, [search]);
-
-  useEffect(() => {
+    setPois([]);
+    setSearch("");
     loadPois();
-  }, []);
+  }, [idEmpresa]);
+
+  // Recargar cuando cambia el buscador
+  useEffect(() => {
+    if (!idEmpresa) return;
+    const timeout = setTimeout(() => loadPois(search), 350);
+    return () => clearTimeout(timeout);
+  }, [search, idEmpresa]);
 
   return (
     <main className="h-full overflow-auto bg-[#f5f6f8] p-3 md:p-6">
