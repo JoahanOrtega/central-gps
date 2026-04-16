@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,8 @@ export const LoginForm = ({
   });
 
   const [localError, setLocalError] = useState("");
+  // Controla si el campo de contraseña muestra el texto en claro
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = event.target;
@@ -32,9 +35,7 @@ export const LoginForm = ({
       [name]: type === "checkbox" ? checked : value,
     }));
 
-    if (localError) {
-      setLocalError("");
-    }
+    if (localError) setLocalError("");
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -56,6 +57,7 @@ export const LoginForm = ({
       onSubmit={handleSubmit}
       className="flex w-full flex-col items-center gap-5"
     >
+      {/* ── Campo de usuario ── */}
       <div className="flex w-full flex-col gap-2">
         <Label htmlFor="username">Usuario</Label>
         <Input
@@ -67,23 +69,43 @@ export const LoginForm = ({
           className="h-12 rounded-full bg-white/80"
           placeholder="Ingresa tu usuario"
           disabled={isLoading}
+          autoComplete="username"
         />
       </div>
 
+      {/* ── Campo de contraseña con botón show/hide ── */}
       <div className="flex w-full flex-col gap-2">
         <Label htmlFor="password">Contraseña</Label>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          value={form.password}
-          onChange={handleChange}
-          className="h-12 rounded-full bg-white/80"
-          placeholder="Ingresa tu contraseña"
-          disabled={isLoading}
-        />
+        <div className="relative">
+          <Input
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            value={form.password}
+            onChange={handleChange}
+            className="h-12 rounded-full bg-white/80 pr-12"
+            placeholder="Ingresa tu contraseña"
+            disabled={isLoading}
+            autoComplete="current-password"
+          />
+          {/* Botón para mostrar u ocultar la contraseña.
+              type="button" evita que dispare el submit del form. */}
+          <button
+            type="button"
+            onClick={() => setShowPassword((prev) => !prev)}
+            disabled={isLoading}
+            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 disabled:opacity-40"
+          >
+            {showPassword
+              ? <EyeOff className="h-5 w-5" />
+              : <Eye className="h-5 w-5" />
+            }
+          </button>
+        </div>
       </div>
 
+      {/* ── Checkbox recordarme ── */}
       <div className="self-start flex items-center gap-2 text-sm text-gray-600">
         <input
           id="remember"
@@ -97,8 +119,15 @@ export const LoginForm = ({
         <Label htmlFor="remember">Recordarme</Label>
       </div>
 
+      {/* ── Mensaje de error accesible ──
+          role="alert" hace que lectores de pantalla lo anuncien
+          inmediatamente sin que el usuario deba navegar hasta él. */}
       {displayedError && (
-        <p className="w-full text-left text-sm text-red-500">
+        <p
+          role="alert"
+          aria-live="assertive"
+          className="w-full text-left text-sm text-red-500"
+        >
           {displayedError}
         </p>
       )}
