@@ -4,15 +4,40 @@
 import { useEffect, useState } from "react";
 import { getEmpresas, toggleEmpresaStatus, createEmpresa, updateEmpresa } from "../services/erpService";
 import type { EmpresaResumen, EmpresaFormData } from "../types/erp.types";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
-// ── Componente principal ──────────────────────────────────
+// ── Tipo para el estado del diálogo de confirmación ──────────
+interface ConfirmState {
+    open: boolean;
+    title: string;
+    description: string;
+    confirmText: string;
+    confirmButtonClassName: string;
+    onConfirm: () => void;
+}
+
+const CONFIRM_CLOSED: ConfirmState = {
+    open: false,
+    title: "",
+    description: "",
+    confirmText: "",
+    confirmButtonClassName: "",
+    onConfirm: () => { },
+};
+
+// ── Componente principal ──────────────────────────────────────
 export const EmpresasPage = () => {
     const [empresas, setEmpresas] = useState<EmpresaResumen[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    // Modal de creación/edición
+    const [actionError, setActionError] = useState<string | null>(null);
+
+    // Estado del modal de creación/edición
     const [modalOpen, setModalOpen] = useState(false);
     const [editTarget, setEditTarget] = useState<EmpresaResumen | null>(null);
+
+    // Estado del diálogo de confirmación — reemplaza a confirm() y alert()
+    const [confirmState, setConfirmState] = useState<ConfirmState>(CONFIRM_CLOSED);
 
     const cargarEmpresas = async () => {
         try {
@@ -29,22 +54,50 @@ export const EmpresasPage = () => {
 
     useEffect(() => { cargarEmpresas(); }, []);
 
-    // Activar / suspender empresa
-    const handleToggleStatus = async (empresa: EmpresaResumen) => {
+    // Muestra un diálogo de error accesible en lugar de alert()
+    const showError = (message: string) => {
+        setConfirmState({
+            open: true,
+            title: "Ocurrió un error",
+            description: message,
+            confirmText: "Entendido",
+            confirmButtonClassName: "bg-slate-800 text-white hover:bg-slate-700",
+            onConfirm: () => setConfirmState(CONFIRM_CLOSED),
+        });
+    };
+
+    // Activar / suspender empresa — reemplaza confirm() + alert()
+    const handleToggleStatus = (empresa: EmpresaResumen) => {
         const nuevoStatus = empresa.status === 1 ? 0 : 1;
-        const accion = nuevoStatus === 0 ? "suspender" : "activar";
-        if (!confirm(`¿Deseas ${accion} la empresa "${empresa.empresa}"?`)) return;
-        try {
-            await toggleEmpresaStatus(empresa.id_empresa, nuevoStatus as 0 | 1);
-            await cargarEmpresas();
-        } catch (e: unknown) {
-            alert(e instanceof Error ? e.message : "Error al cambiar status");
-        }
+        const accion = nuevoStatus === 0 ? "Suspender" : "Activar";
+        const descripcion = nuevoStatus === 0
+            ? `La empresa "${empresa.empresa}" quedará suspendida y sus usuarios no podrán acceder.`
+            : `La empresa "${empresa.empresa}" volverá a estar activa.`;
+
+        setConfirmState({
+            open: true,
+            title: `${accion} empresa`,
+            description: descripcion,
+            confirmText: accion,
+            confirmButtonClassName: nuevoStatus === 0
+                ? "bg-red-600 text-white hover:bg-red-700"
+                : "bg-green-600 text-white hover:bg-green-700",
+            onConfirm: async () => {
+                setConfirmState(CONFIRM_CLOSED);
+                try {
+                    await toggleEmpresaStatus(empresa.id_empresa, nuevoStatus as 0 | 1);
+                    await cargarEmpresas();
+                } catch (e: unknown) {
+                    showError(e instanceof Error ? e.message : "Error al cambiar status");
+                }
+            },
+        });
     };
 
     const handleOpenCreate = () => { setEditTarget(null); setModalOpen(true); };
     const handleOpenEdit = (emp: EmpresaResumen) => { setEditTarget(emp); setModalOpen(true); };
 
+    // Guardar empresa — reemplaza alert() en caso de error
     const handleModalSave = async (data: EmpresaFormData) => {
         try {
             if (editTarget) {
@@ -55,11 +108,11 @@ export const EmpresasPage = () => {
             setModalOpen(false);
             await cargarEmpresas();
         } catch (e: unknown) {
-            alert(e instanceof Error ? e.message : "Error al guardar");
+            showError(e instanceof Error ? e.message : "Error al guardar la empresa");
         }
     };
 
-    // ── Render ──
+    // ── Render ────────────────────────────────────────────────
     return (
         <div>
             {/* Encabezado */}
@@ -78,6 +131,7 @@ export const EmpresasPage = () => {
             {/* Estado de carga / error */}
             {loading && <p style={{ color: "#64748b", fontSize: 14 }}>Cargando...</p>}
             {error && <p style={{ color: "#dc2626", fontSize: 14 }}>{error}</p>}
+            {actionError && <p style={{ color: "#dc2626", fontSize: 14 }}>{actionError}</p>}
 
             {/* Tabla de empresas */}
             {!loading && !error && (
@@ -141,11 +195,22 @@ export const EmpresasPage = () => {
                     onClose={() => setModalOpen(false)}
                 />
             )}
+
+            {/* Diálogo de confirmación — reemplaza confirm() y alert() nativos */}
+            <ConfirmDialog
+                open={confirmState.open}
+                onOpenChange={(open) => !open && setConfirmState(CONFIRM_CLOSED)}
+                title={confirmState.title}
+                description={confirmState.description}
+                confirmText={confirmState.confirmText}
+                confirmButtonClassName={confirmState.confirmButtonClassName}
+                onConfirm={confirmState.onConfirm}
+            />
         </div>
     );
 };
 
-// ── Modal de creación / edición ───────────────────────────
+// ── Modal de creación / edición ───────────────────────────────
 interface EmpresaModalProps {
     empresa: EmpresaResumen | null;
     onSave: (data: EmpresaFormData) => Promise<void>;
@@ -159,9 +224,15 @@ const EmpresaModal = ({ empresa, onSave, onClose }: EmpresaModalProps) => {
         telefonos: "",
     });
     const [saving, setSaving] = useState(false);
+    const [fieldError, setFieldError] = useState("");
 
     const handleSubmit = async () => {
-        if (!form.nombre.trim()) { alert("El nombre es obligatorio"); return; }
+        // Validación en el componente en lugar de alert()
+        if (!form.nombre.trim()) {
+            setFieldError("El nombre de la empresa es obligatorio");
+            return;
+        }
+        setFieldError("");
         setSaving(true);
         await onSave(form);
         setSaving(false);
@@ -181,9 +252,21 @@ const EmpresaModal = ({ empresa, onSave, onClose }: EmpresaModalProps) => {
                         </label>
                         <input
                             value={form[campo] ?? ""}
-                            onChange={(e) => setForm((f) => ({ ...f, [campo]: e.target.value }))}
-                            style={{ width: "100%", padding: "8px 12px", borderRadius: 7, border: "1px solid #e2e8f0", fontSize: 13, outline: "none" }}
+                            onChange={(e) => {
+                                setForm((f) => ({ ...f, [campo]: e.target.value }));
+                                if (campo === "nombre") setFieldError("");
+                            }}
+                            style={{
+                                width: "100%", padding: "8px 12px", borderRadius: 7, fontSize: 13, outline: "none",
+                                border: campo === "nombre" && fieldError ? "1px solid #dc2626" : "1px solid #e2e8f0"
+                            }}
                         />
+                        {/* Error de validación inline — reemplaza alert() */}
+                        {campo === "nombre" && fieldError && (
+                            <p role="alert" style={{ fontSize: 11, color: "#dc2626", marginTop: 4 }}>
+                                {fieldError}
+                            </p>
+                        )}
                     </div>
                 ))}
 
@@ -198,7 +281,7 @@ const EmpresaModal = ({ empresa, onSave, onClose }: EmpresaModalProps) => {
     );
 };
 
-// ── Estilos reutilizables ─────────────────────────────────
+// ── Estilos reutilizables ─────────────────────────────────────
 const btnPrimary: React.CSSProperties = {
     padding: "8px 16px", borderRadius: 8, border: "none",
     background: "#1d4ed8", color: "#fff", fontSize: 13,
