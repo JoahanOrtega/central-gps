@@ -15,6 +15,7 @@ import { NewUnitModal } from "./NewUnitModal";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { SkeletonGrid } from "@/components/shared/SkeletonCard";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 export const UnitsCatalogView = () => {
   const [units, setUnits] = useState<UnitItem[]>([]);
@@ -153,9 +154,26 @@ export const UnitsCatalogView = () => {
           )}
 
           {!showSkeleton && !error && units.length === 0 && (
-            <div className="py-10 text-center text-slate-500">
-              No hay unidades para mostrar
-            </div>
+            search
+              ? (
+                // Búsqueda sin resultados — invitar a limpiar el filtro
+                <EmptyState
+                  icon={BusFront}
+                  title="Sin resultados"
+                  description={`No se encontraron unidades que coincidan con "${search}".`}
+                  actionLabel="Limpiar búsqueda"
+                  onAction={() => setSearch("")}
+                />
+              ) : (
+                // Lista genuinamente vacía — invitar a crear la primera unidad
+                <EmptyState
+                  icon={BusFront}
+                  title="No hay unidades registradas"
+                  description="Agrega la primera unidad para comenzar monitorear."
+                  actionLabel="+ Agregar unidad"
+                  onAction={() => setIsCreateModalOpen(true)}
+                />
+              )
           )}
 
           {!showSkeleton && !error && units.length > 0 && (

@@ -8,6 +8,7 @@ import { NewPoiModal } from "./NewPoiModal";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { SkeletonGrid } from "@/components/shared/SkeletonCard";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 export const PointsOfInterestView = () => {
   const [pois, setPois] = useState<PoiItem[]>([]);
@@ -25,7 +26,7 @@ export const PointsOfInterestView = () => {
     try {
       setIsLoading(true);
       setError("");
-      const data = await poiService.getPois(searchValue, idEmpresa);
+      const data = await poiService.getPois(searchValue);
       setPois(data);
     } catch (error) {
       const message =
@@ -100,9 +101,26 @@ export const PointsOfInterestView = () => {
           )}
 
           {!showSkeleton && !error && pois.length === 0 && (
-            <div className="py-10 text-center text-slate-500">
-              No hay puntos de interés para mostrar
-            </div>
+            search
+              ? (
+                // Búsqueda sin resultados — invitar a limpiar el filtro
+                <EmptyState
+                  icon={MapPinned}
+                  title="Sin resultados"
+                  description={`No se encontraron puntos de interés que coincidan con "${search}".`}
+                  actionLabel="Limpiar búsqueda"
+                  onAction={() => setSearch("")}
+                />
+              ) : (
+                // Lista genuinamente vacía — invitar a crear el primer POI
+                <EmptyState
+                  icon={MapPinned}
+                  title="No hay puntos de interés registrados"
+                  description="Agrega el primer punto de interés para comenzar a organizar tus ubicaciones."
+                  actionLabel="+ Agregar punto de interés"
+                  onAction={() => setIsCreateModalOpen(true)}
+                />
+              )
           )}
 
           {!showSkeleton && !error && pois.length > 0 && (
