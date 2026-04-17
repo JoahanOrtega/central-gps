@@ -77,10 +77,40 @@ export const NewUnitModal = ({
     name: keyof CreateUnitPayload,
     value: CreateUnitPayload[keyof CreateUnitPayload],
   ): FieldError => {
-    if (!REQUIRED_FIELDS.includes(name)) return undefined;
-    if (!value || (typeof value === "string" && !value.trim())) {
-      return "Este campo es obligatorio";
+    // Primero validar presencia en campos obligatorios
+    if (REQUIRED_FIELDS.includes(name)) {
+      if (!value || (typeof value === "string" && !value.trim())) {
+        return "Este campo es obligatorio";
+      }
     }
+
+    // Luego validar calidad del valor ingresado
+    const strValue = String(value ?? "").trim();
+
+    switch (name) {
+      case "imei":
+        // IMEI estándar: exactamente 15 dígitos numéricos
+        if (strValue && !/^\d{15}$/.test(strValue)) {
+          return "El IMEI debe tener exactamente 15 dígitos numéricos";
+        }
+        break;
+
+      case "odometro_inicial": {
+        const num = Number(strValue);
+        if (strValue && (isNaN(num) || num < 0)) {
+          return "El odómetro debe ser un número positivo";
+        }
+        break;
+      }
+
+      case "fecha_instalacion":
+        // La fecha de instalación no puede ser futura
+        if (strValue && strValue > new Date().toISOString().split("T")[0]) {
+          return "La fecha de instalación no puede ser futura";
+        }
+        break;
+    }
+
     return undefined;
   };
 
@@ -200,6 +230,13 @@ export const NewUnitModal = ({
   const handleSubmit = async () => {
     if (!validateForm()) {
       setStep(1);
+      // Dar tiempo a React para re-renderizar el paso antes de buscar el campo
+      setTimeout(() => {
+        const firstError = document.querySelector<HTMLElement>(
+          "[aria-invalid='true'], .border-rose-400"
+        );
+        firstError?.focus();
+      }, 50);
       return;
     }
     try {

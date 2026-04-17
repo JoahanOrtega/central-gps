@@ -1,3 +1,4 @@
+import React from "react";
 import type { AvlModelOption, OperatorOption, UnitGroupOption } from "../services/catalogServices";
 import { inputClass } from "./new-unit-form.constants";
 import type { FieldProps, NewUnitStepProps } from "./new-unit-form.types";
@@ -229,10 +230,22 @@ export const NewUnitGeneralStep = ({
   );
 };
 
-const Field = ({ label, children, error, touched }: FieldProps & { error?: string; touched?: boolean }) => (
-  <label className="block">
-    <span className="mb-2 block text-sm text-slate-600">{label}</span>
-    {children}
-    {touched && error && <p className="mt-1 text-xs text-rose-500">{error}</p>}
-  </label>
-);
+const Field = ({ label, children, error, touched }: FieldProps & { error?: string; touched?: boolean }) => {
+  const hasError = touched && !!error;
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm text-slate-600">{label}</span>
+      {/* React.cloneElement inyecta aria-invalid y borde rojo cuando hay error */}
+      {hasError && React.isValidElement(children)
+        ? React.cloneElement(children as React.ReactElement<React.HTMLAttributes<HTMLElement>>, {
+          "aria-invalid": true,
+          className: `${(children as React.ReactElement<React.HTMLAttributes<HTMLElement>>).props.className ?? ""} border-rose-400 focus:border-rose-400`,
+        })
+        : children
+      }
+      {hasError && (
+        <p className="mt-1 text-xs text-rose-500" role="alert">{error}</p>
+      )}
+    </label>
+  );
+};

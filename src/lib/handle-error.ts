@@ -1,44 +1,55 @@
 import { notify } from "@/stores/notificationStore";
 
-// ── Política unificada de manejo de errores ───────────────────
+// ── Política única de manejo de errores del frontend ─────────
 //
-// Reglas:
-//   AbortError  → ignorar silenciosamente (cancelación intencional)
-//   Error known → mostrar mensaje al usuario via toast
-//   Error 5xx   → mensaje genérico + log en consola
-//   Unknown     → mensaje genérico + log en consola
+// Toda la app debe pasar por aquí. Nunca hacer catch manuales
+// con lógica propia — eso produce inconsistencia entre módulos.
 //
-// Uso en componentes:
+// REGLAS:
+//
+//   AbortError        → ignorar silenciosamente (cancelación intencional)
+//   Error de carga    → mostrar inline con retry (usa setError)
+//   Error de acción   → toast de error (sin setError)
+//   Error inesperado  → mensaje genérico, log en consola (solo DEV)
+//
+// CUÁNDO USAR QUÉ:
+//
+//   Error de formulario      → validación inline por campo (NO usar handleError)
+//   Error de carga principal → handleError(error, msg, setError)
+//   Error de acción rápida  → handleError(error, msg)
+//   Error inesperado         → handleError(error, msg)
+//
+// EJEMPLOS:
+//
+//   // Carga de datos — aparece inline con retry
 //   catch (error) {
-//     handleError(error, "No fue posible cargar las unidades");
+//     handleError(error, "No fue posible cargar las unidades", setError);
 //   }
 //
-// Uso con setter de error local (para errores de carga de datos):
+//   // Acción (guardar, eliminar) — aparece como toast
 //   catch (error) {
-//     handleError(error, "Error al cargar", setError);
+//     handleError(error, "No fue posible guardar la unidad");
 //   }
 
 export const handleError = (
     error: unknown,
     fallbackMessage: string,
-    // Setter opcional para mostrar el error inline en lugar de toast
+    // Con setter → error inline (carga de datos con retry visible)
+    // Sin setter → toast    (acciones rápidas sin bloque en la UI)
     setError?: (msg: string) => void,
 ): void => {
-    // Cancelaciones intencionales — no mostrar nada al usuario
+    // Cancelaciones de AbortController — nunca mostrar al usuario
     if (error instanceof Error && error.name === "AbortError") return;
 
-    const message =
-        error instanceof Error ? error.message : fallbackMessage;
+    const message = error instanceof Error ? error.message : fallbackMessage;
 
     if (setError) {
-        // Error de carga de datos → mostrar inline en la vista
         setError(message);
     } else {
-        // Error de acción (guardar, eliminar) → toast de error
         notify.error(message);
     }
 
-    // Log estructurado solo en desarrollo
+    // Log solo en desarrollo — nunca en producción
     if (import.meta.env.DEV) {
         console.error(`[handleError] ${fallbackMessage}:`, error);
     }
