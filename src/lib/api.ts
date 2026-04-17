@@ -61,7 +61,10 @@ export const apiFetch = async <T>(
       headers: requestHeaders,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
-  } catch {
+  } catch (err) {
+    // Re-lanzar AbortError tal cual — handleError lo ignora silenciosamente.
+    // Envolverlo en un nuevo Error perdería el name="AbortError" y el filtro fallaría.
+    if (err instanceof Error && err.name === "AbortError") throw err;
     throw new Error("No fue posible conectar con el servidor");
   }
 
