@@ -34,8 +34,7 @@ export const UnitsCatalogView = () => {
     try {
       setIsLoading(true);
       setError("");
-
-      const data = await unitService.getUnits(searchValue);
+      const data = await unitService.getUnits(searchValue, idEmpresa);
       setUnits(data);
     } catch (error) {
       const message =
@@ -46,10 +45,11 @@ export const UnitsCatalogView = () => {
     }
   };
 
-  // Recargar cuando cambia la empresa activa
-  // Al limpiar units[] primero evitamos mostrar datos de la empresa anterior
-  // mientras llega la respuesta del backend
+  // Recargar cuando cambia la empresa activa.
+  // La guarda !idEmpresa evita disparar la petición antes de que
+  // companyStore haya terminado de cargar la empresa activa.
   useEffect(() => {
+    if (!idEmpresa) return;
     setUnits([]);
     setSearch("");
     loadUnits();

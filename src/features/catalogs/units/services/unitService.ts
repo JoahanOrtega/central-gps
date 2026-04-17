@@ -6,10 +6,12 @@ import type {
 } from "../types/unit.types";
 
 export const unitService = {
-  getUnits(search = ""): Promise<UnitItem[]> {
-    const query = search.trim()
-      ? `/units?search=${encodeURIComponent(search.trim())}`
-      : "/units";
+  getUnits(search = "", idEmpresa?: number | null): Promise<UnitItem[]> {
+    const params = new URLSearchParams();
+    if (search.trim()) params.set("search", search.trim());
+    if (idEmpresa) params.set("id_empresa", String(idEmpresa));
+
+    const query = params.toString() ? `/units?${params.toString()}` : "/units";
 
     return apiFetch<UnitItem[]>(query, {
       method: "GET",

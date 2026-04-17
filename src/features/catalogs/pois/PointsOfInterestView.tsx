@@ -25,7 +25,7 @@ export const PointsOfInterestView = () => {
     try {
       setIsLoading(true);
       setError("");
-      const data = await poiService.getPois(searchValue);
+      const data = await poiService.getPois(searchValue, idEmpresa);
       setPois(data);
     } catch (error) {
       const message =
@@ -36,8 +36,11 @@ export const PointsOfInterestView = () => {
     }
   };
 
-  // Recargar cuando cambia la empresa activa
+  // Recargar cuando cambia la empresa activa.
+  // La guarda !idEmpresa evita disparar la petición antes de que
+  // companyStore haya terminado de cargar la empresa activa.
   useEffect(() => {
+    if (!idEmpresa) return;
     setPois([]);
     setSearch("");
     loadPois();

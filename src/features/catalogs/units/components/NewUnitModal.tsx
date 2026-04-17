@@ -18,6 +18,7 @@ import { NewUnitAdditionalStep } from "./NewUnitAdditionalStep";
 import type { NewUnitModalProps, FieldError } from "./new-unit-form.types";
 import type { CreateUnitPayload } from "../types/unit.types";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 
 const REQUIRED_FIELDS: (keyof CreateUnitPayload)[] = [
   "numero",
@@ -47,15 +48,16 @@ export const NewUnitModal = ({
   const [avlModels, setAvlModels] = useState<AvlModelOption[]>([]);
   const [loadingCatalogs, setLoadingCatalogs] = useState(false);
 
+  const { idEmpresa } = useEmpresaActiva();
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !idEmpresa) return;
     const loadCatalogs = async () => {
       setLoadingCatalogs(true);
       try {
         const [ops, groups, models] = await Promise.all([
-          catalogService.getOperators(),
-          catalogService.getUnitGroups(),
+          catalogService.getOperators(undefined, idEmpresa),
+          catalogService.getUnitGroups(undefined, idEmpresa),
           catalogService.getAvlModels(),
         ]);
         setOperators(ops);
@@ -68,7 +70,7 @@ export const NewUnitModal = ({
       }
     };
     loadCatalogs();
-  }, [open]);
+  }, [open, idEmpresa]);
 
   const validateField = (name: keyof CreateUnitPayload, value: any): FieldError => {
     if (!REQUIRED_FIELDS.includes(name)) return undefined;
@@ -200,7 +202,9 @@ export const NewUnitModal = ({
       setIsLoading(true);
       setError("");
       const payload = normalizePayload(form);
-      await unitService.createUnit(payload as any);
+      // Incluir id_empresa en el body para que el backend lo reciba
+      // correctamente cuando el usuario es sudo_erp (id_empresa null en JWT)
+      await unitService.createUnit({ ...payload, id_empresa: idEmpresa } as any);
       onCreated();
       resetFormState();
       onOpenChange(false);

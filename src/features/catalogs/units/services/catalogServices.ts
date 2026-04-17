@@ -15,19 +15,24 @@ export interface AvlModelOption {
   modelo: string;
 }
 
-
 export const catalogService = {
-  getOperators(search?: string): Promise<OperatorOption[]> {
-    const query = search ? `?search=${encodeURIComponent(search)}` : '';
-    return apiFetch(`/catalogs/operators${query}`, { method: 'GET' });
+  getOperators(search?: string, idEmpresa?: number | null): Promise<OperatorOption[]> {
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    if (idEmpresa) params.set("id_empresa", String(idEmpresa));
+    const query = params.toString() ? `?${params.toString()}` : "";
+    return apiFetch(`/catalogs/operators${query}`, { method: "GET" });
   },
 
-  getUnitGroups(search?: string): Promise<UnitGroupOption[]> {
-    const query = search ? `?search=${encodeURIComponent(search)}` : '';
-    return apiFetch(`/catalogs/unit-groups${query}`, { method: 'GET' });
+  getUnitGroups(search?: string, idEmpresa?: number | null): Promise<UnitGroupOption[]> {
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    if (idEmpresa) params.set("id_empresa", String(idEmpresa));
+    const query = params.toString() ? `?${params.toString()}` : "";
+    return apiFetch(`/catalogs/unit-groups${query}`, { method: "GET" });
   },
 
   getAvlModels(): Promise<AvlModelOption[]> {
-    return apiFetch('/catalogs/avl-models', { method: 'GET' });
+    return apiFetch("/catalogs/avl-models", { method: "GET" });
   },
 };

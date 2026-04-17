@@ -8,10 +8,11 @@ import type {
 } from "./poi.types";
 
 export const poiService = {
-  getPois(search = ""): Promise<PoiItem[]> {
-    const query = search.trim()
-      ? `/pois?search=${encodeURIComponent(search.trim())}`
-      : "/pois";
+  getPois(search = "", idEmpresa?: number | null): Promise<PoiItem[]> {
+    const params = new URLSearchParams();
+    if (search.trim()) params.set("search", search.trim());
+    if (idEmpresa) params.set("id_empresa", String(idEmpresa));
+    const query = params.toString() ? `/pois?${params.toString()}` : "/pois";
 
     return apiFetch<PoiItem[]>(query, {
       method: "GET",
