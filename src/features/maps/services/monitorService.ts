@@ -8,17 +8,20 @@ import type { MapUnitItem } from "../types/map.types";
 export const monitorService = {
   /**
    * Obtiene las unidades activas con su última telemetría disponible.
-   * Si se envía un texto de búsqueda, el backend filtra por número de unidad.
+   *
+   * idEmpresa es necesario para sudo_erp, que no tiene empresa fija
+   * en el JWT y debe indicar explícitamente con qué empresa opera.
+   * Para usuarios normales el backend lo toma del JWT como fallback.
    */
-  getUnitsLive(search = ""): Promise<MapUnitItem[]> {
-    const normalizedSearch = search.trim();
+  getUnitsLive(search = "", idEmpresa?: number | null): Promise<MapUnitItem[]> {
+    const params = new URLSearchParams();
+    if (search.trim()) params.set("search", search.trim());
+    if (idEmpresa) params.set("id_empresa", String(idEmpresa));
 
-    const query = normalizedSearch
-      ? `/monitor/units-live?search=${encodeURIComponent(normalizedSearch)}`
+    const query = params.toString()
+      ? `/monitor/units-live?${params.toString()}`
       : "/monitor/units-live";
 
-    return apiFetch<MapUnitItem[]>(query, {
-      method: "GET",
-    });
+    return apiFetch<MapUnitItem[]>(query, { method: "GET" });
   },
 };

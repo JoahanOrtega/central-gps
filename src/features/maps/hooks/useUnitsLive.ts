@@ -28,7 +28,8 @@ export const useUnitsLive = () => {
     try {
       setIsLoading(true);
       setError("");
-      const response = await monitorService.getUnitsLive(searchValue);
+      // idEmpresa es necesario para sudo_erp — pasarlo explícitamente
+      const response = await monitorService.getUnitsLive(searchValue, idEmpresa);
       setUnits(response);
     } catch (error) {
       const message =
@@ -39,7 +40,9 @@ export const useUnitsLive = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+    // idEmpresa como dependencia — garantiza que al cambiar empresa
+    // loadUnits use el id correcto y no el del closure anterior
+  }, [idEmpresa]);
 
   // Recargar y limpiar selección cuando cambia la empresa activa
   useEffect(() => {

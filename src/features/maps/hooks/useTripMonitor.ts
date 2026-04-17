@@ -9,6 +9,7 @@ import type {
   TripUnitSummary,
 } from "../types/map.types";
 import { notify } from '@/stores/notificationStore';
+import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 
 /**
  * Estado central del drawer de recorridos.
@@ -32,6 +33,10 @@ export const useTripMonitor = () => {
   const [isLoadingUnits, setIsLoadingUnits] = useState(false);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [error, setError] = useState("");
+
+  // Empresa activa — necesaria para sudo_erp que no tiene empresa fija en el JWT
+  const { idEmpresa } = useEmpresaActiva();
+
   const selectedUnit = useMemo(
     () => units.find((unit) => unit.imei === selectedUnitImei) ?? null,
     [units, selectedUnitImei],
@@ -61,12 +66,13 @@ export const useTripMonitor = () => {
 
   /**
    * Carga unidades disponibles para consulta.
+   * idEmpresa se pasa explícitamente para soportar sudo_erp.
    */
   const loadUnits = useCallback(async (searchValue = '') => {
     try {
       setIsLoadingUnits(true);
       setError('');
-      const response = await monitorService.getUnitsLive(searchValue);
+      const response = await monitorService.getUnitsLive(searchValue, idEmpresa);
       setUnits(response);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No fue posible cargar las unidades';
@@ -75,7 +81,7 @@ export const useTripMonitor = () => {
     } finally {
       setIsLoadingUnits(false);
     }
-  }, []);
+  }, [idEmpresa]);
 
   /**
    * Selecciona una unidad y carga su resumen + trips recientes.
