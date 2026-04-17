@@ -20,6 +20,7 @@ import type { CreateUnitPayload } from "../types/unit.types";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { notify } from "@/stores/notificationStore";
+import { handleError } from "@/lib/handle-error";
 
 const REQUIRED_FIELDS: (keyof CreateUnitPayload)[] = [
   "numero",
@@ -53,6 +54,12 @@ export const NewUnitModal = ({
 
   useEffect(() => {
     if (!open || !idEmpresa) return;
+
+    // AbortController cancela las peticiones si el efecto se re-ejecuta
+    // antes de que terminen (React StrictMode monta dos veces en desarrollo,
+    // lo que sin este cancelador agota el pool de conexiones del backend)
+    const controller = new AbortController();
+
     const loadCatalogs = async () => {
       setLoadingCatalogs(true);
       try {
@@ -61,16 +68,21 @@ export const NewUnitModal = ({
           catalogService.getUnitGroups(undefined, idEmpresa),
           catalogService.getAvlModels(),
         ]);
+        if (controller.signal.aborted) return;
         setOperators(ops);
         setUnitGroups(groups);
         setAvlModels(models);
       } catch (error) {
-        console.error("Error cargando catálogos", error);
+        if (controller.signal.aborted) return;
+        handleError(error, "Error al cargar catálogos del formulario");
       } finally {
-        setLoadingCatalogs(false);
+        if (!controller.signal.aborted) setLoadingCatalogs(false);
       }
     };
+
     loadCatalogs();
+
+    return () => controller.abort();
   }, [open, idEmpresa]);
 
   const validateField = (
@@ -126,6 +138,13 @@ export const NewUnitModal = ({
       }
     });
     setErrors(newErrors);
+    // Marcar todos los campos obligatorios como tocados para que
+    // los errores sean visibles aunque el usuario no haya interactuado
+    const allTouched = REQUIRED_FIELDS.reduce<Record<string, boolean>>(
+      (acc, field) => ({ ...acc, [field]: true }),
+      {}
+    );
+    setTouched(allTouched);
     return isValid;
   };
 

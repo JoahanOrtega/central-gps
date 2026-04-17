@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { Building2, Check, Search, X } from "lucide-react";
+import { handleError } from "@/lib/handle-error";
 import {
     Dialog,
     DialogContent,
@@ -72,7 +73,7 @@ export const SwitchCompanyModal = ({
             onOpenChange(false);
             // Recarga para aplicar la nueva empresa en toda la app
         } catch (error) {
-            console.error("Error al cambiar de empresa", error);
+            handleError(error, "No fue posible cambiar de empresa");
         } finally {
             setIsSubmitting(false);
         }

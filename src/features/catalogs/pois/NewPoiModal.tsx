@@ -18,6 +18,7 @@ import {
 
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { notify } from "@/stores/notificationStore"
+import { useEmpresaActiva } from "@/hooks/useEmpresaActiva"
 
 
 interface NewPoiModalProps {
@@ -64,25 +65,31 @@ export const NewPoiModal = ({
   const [activeTab, setActiveTab] = useState<"general" | "address">("general")
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false)
 
+  const { idEmpresa } = useEmpresaActiva()
   const geometryEditorRef = useRef<PoiGeometryEditorHandle | null>(null)
 
   useEffect(() => {
-    if (!open) return
+    if (!open || !idEmpresa) return
+
+    const controller = new AbortController()
 
     const loadCatalogs = async () => {
       try {
         setIsLoadingCatalogs(true)
-        const groupsData = await poiService.getPoiGroups()
+        const groupsData = await poiService.getPoiGroups("", idEmpresa)
+        if (controller.signal.aborted) return
         setGroups(groupsData)
       } catch {
+        if (controller.signal.aborted) return
         setGroups([])
       } finally {
-        setIsLoadingCatalogs(false)
+        if (!controller.signal.aborted) setIsLoadingCatalogs(false)
       }
     }
 
     loadCatalogs()
-  }, [open])
+    return () => controller.abort()
+  }, [open, idEmpresa])
 
   const handleInputChange = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,

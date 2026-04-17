@@ -36,6 +36,7 @@ export default defineConfig(({ mode }) => {
   //
   // En producción replicar estos headers en nginx:
   //   add_header Content-Security-Policy "...";
+  //   add_header Content-Security-Policy "... font-src 'self' fonts.gstatic.com data: ...";
   //   add_header X-Content-Type-Options "nosniff";
   //   add_header X-Frame-Options "DENY";
   //   add_header Referrer-Policy "strict-origin-when-cross-origin";
@@ -45,6 +46,10 @@ export default defineConfig(({ mode }) => {
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' maps.googleapis.com maps.gstatic.com",
     "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
+    // Google Maps carga fuentes desde fonts.gstatic.com — sin esta directiva
+    // el navegador cae al default-src 'self' y bloquea las fuentes del mapa
+    
+    "font-src 'self' fonts.gstatic.com data:",
     "img-src 'self' data: blob: *.googleapis.com *.gstatic.com",
     `connect-src 'self' ${apiUrl} https://maps.googleapis.com`,
     "frame-src 'none'",

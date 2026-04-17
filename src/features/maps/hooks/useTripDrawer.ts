@@ -80,7 +80,6 @@ export const useTripDrawer = ({
 
     // Cargar unidades al abrir
     useEffect(() => {
-        console.log('🚀 useTripDrawer montado - cargando unidades');
         tripMonitor.loadUnits();
         setMode('unit_select');
     }, [tripMonitor.loadUnits]);
