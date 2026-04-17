@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 import { cn } from "@/lib/utils";
 import { CustomLogo } from "@/components/shared/CustomLogo";
 import { LoginForm } from "../components/LoginForm";
 import type { LoginFormValues } from "../types/auth.types";
 import { authService } from "../services/authService";
+import type { LoginLocationState } from "@/router/PrivateRoute";
 
 // Imagen de fondo del login — se referencia desde /public para evitar
 // que Vite la incluya en el bundle principal (mejora el tiempo de carga inicial).
@@ -15,13 +16,20 @@ interface LoginPageProps extends React.ComponentProps<"div"> { }
 
 export const LoginPage = ({ className }: LoginPageProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { token, setToken, user } = useAuthStore();
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const hasRedirected = useRef(false);
 
+  // Leer el motivo del redireccionamiento desde el state de navegación.
+  // PrivateRoute pasa reason: "expired" cuando el token venció —
+  // así el usuario sabe por qué fue enviado al login en lugar de
+  // llegar a la pantalla sin ninguna explicación.
+  const locationState = location.state as LoginLocationState | null;
+  const sessionExpired = locationState?.reason === "expired";
+
   // Si ya hay sesión activa al cargar, redirigir a /home.
-  // El sudo_erp accede al panel ERP desde el botón en el navbar.
   useEffect(() => {
     if (token && !hasRedirected.current) {
       hasRedirected.current = true;
@@ -56,6 +64,7 @@ export const LoginPage = ({ className }: LoginPageProps) => {
       style={{ backgroundImage: `url(${BG_IMAGE_URL})` }}
     >
       <div className="absolute inset-0 bg-white/35 backdrop-blur-[1px]" />
+
       <div className="relative z-10 flex w-full max-w-md flex-col items-center px-6">
         <div className="mb-8 flex flex-col items-center">
           <div className="w-64 md:w-80">
@@ -65,6 +74,21 @@ export const LoginPage = ({ className }: LoginPageProps) => {
             Acceder al sistema
           </h2>
         </div>
+
+        {/* ── Aviso de sesión expirada ────────────────────────────────────
+            Solo visible cuando PrivateRoute redirigió con reason: "expired".
+            role="status" anuncia el mensaje a lectores de pantalla sin
+            interrumpir — es informativo, no un error crítico. */}
+        {sessionExpired && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mb-5 w-full rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-700"
+          >
+            Tu sesión expiró. Inicia sesión nuevamente para continuar.
+          </div>
+        )}
+
         <LoginForm onSubmit={handleLogin} isLoading={isLoading} error={error} />
       </div>
     </div>
