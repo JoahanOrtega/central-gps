@@ -8,7 +8,7 @@ import type {
   RoutePoint,
   TripUnitSummary,
 } from "../types/map.types";
-import { notify } from '@/stores/notificationStore';
+import { notify } from "@/stores/notificationStore";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 
 /**
