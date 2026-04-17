@@ -12,31 +12,42 @@ export type RouteMode =
   | "yesterday"
   | "day_before_yesterday";
 
+// ── Helper para construir query params con idEmpresa ──────────
+// Centraliza el patrón repetido en todos los métodos del service.
+const buildParams = (
+  base: Record<string, string>,
+  idEmpresa?: number | null,
+): string => {
+  const params = new URLSearchParams(base);
+  if (idEmpresa) params.set("id_empresa", String(idEmpresa));
+  return params.toString() ? `?${params.toString()}` : "";
+};
+
 /**
  * Servicio de telemetría.
  * Centraliza las consultas de recorridos y resumen de unidad.
+ * idEmpresa es requerido para sudo_erp — su JWT tiene id_empresa=null.
  */
 export const telemetryService = {
   /**
    * Obtiene el resumen de una unidad a partir de su IMEI.
    */
-  getUnitSummary(imei: string): Promise<TripUnitSummary> {
+  getUnitSummary(imei: string, idEmpresa?: number | null): Promise<TripUnitSummary> {
+    const qs = buildParams({}, idEmpresa);
     return apiFetch<TripUnitSummary>(
-      `/monitor/unit-summary/${encodeURIComponent(imei)}`,
+      `/monitor/unit-summary/${encodeURIComponent(imei)}${qs}`,
       { method: "GET" },
     );
   },
 
   /**
    * Obtiene el recorrido por modo:
-   * - latest
-   * - today
-   * - yesterday
-   * - day_before_yesterday
+   * - latest, today, yesterday, day_before_yesterday
    */
-  getRouteByMode(imei: string, mode: RouteMode): Promise<RoutePoint[]> {
+  getRouteByMode(imei: string, mode: RouteMode, idEmpresa?: number | null): Promise<RoutePoint[]> {
+    const qs = buildParams({ mode }, idEmpresa);
     return apiFetch<RoutePoint[]>(
-      `/telemetry/route/${encodeURIComponent(imei)}?mode=${encodeURIComponent(mode)}`,
+      `/telemetry/route/${encodeURIComponent(imei)}${qs}`,
       { method: "GET" },
     );
   },
@@ -44,9 +55,10 @@ export const telemetryService = {
   /**
    * Obtiene la lista de recorridos recientes de una unidad.
    */
-  getRecentTrips(imei: string): Promise<RecentTripItem[]> {
+  getRecentTrips(imei: string, idEmpresa?: number | null): Promise<RecentTripItem[]> {
+    const qs = buildParams({}, idEmpresa);
     return apiFetch<RecentTripItem[]>(
-      `/telemetry/recent-trips/${encodeURIComponent(imei)}`,
+      `/telemetry/recent-trips/${encodeURIComponent(imei)}${qs}`,
       { method: "GET" },
     );
   },
@@ -54,39 +66,33 @@ export const telemetryService = {
   /**
    * Obtiene el detalle completo de un recorrido específico.
    */
-  getTripById(imei: string, tripId: string): Promise<RoutePoint[]> {
+  getTripById(imei: string, tripId: string, idEmpresa?: number | null): Promise<RoutePoint[]> {
+    const qs = buildParams({}, idEmpresa);
     return apiFetch<RoutePoint[]>(
-      `/telemetry/trip/${encodeURIComponent(imei)}/${encodeURIComponent(tripId)}`,
+      `/telemetry/trip/${encodeURIComponent(imei)}/${encodeURIComponent(tripId)}${qs}`,
       { method: "GET" },
     );
   },
 
   /**
-   * Obtiene recorrido por rango personalizado.
+   * Obtiene el recorrido en un rango de fechas personalizado.
    */
   getRouteByCustomRange(
     imei: string,
-    params: CustomRangeParams
+    params: CustomRangeParams,
+    idEmpresa?: number | null,
   ): Promise<RoutePoint[]> {
-    const queryParams = new URLSearchParams();
-    queryParams.append('start_date', params.startDate);
-    if (params.startTime) queryParams.append('start_time', params.startTime);
-    queryParams.append('end_date', params.endDate);
-    if (params.endTime) queryParams.append('end_time', params.endTime);
+    const urlParams = new URLSearchParams({
+      start_date: params.startDate,
+      end_date: params.endDate,
+    });
+    if (params.startTime) urlParams.set("start_time", params.startTime);
+    if (params.endTime) urlParams.set("end_time", params.endTime);
+    if (idEmpresa) urlParams.set("id_empresa", String(idEmpresa));
 
     return apiFetch<RoutePoint[]>(
-      `/telemetry/route-custom/${encodeURIComponent(imei)}?${queryParams.toString()}`,
-      { method: 'GET' }
+      `/telemetry/route-custom/${encodeURIComponent(imei)}?${urlParams.toString()}`,
+      { method: "GET" },
     );
-  },
-
-  /**
-   * Archiva un recorrido (guardar para consulta posterior).
-   */
-  archiveTrip(imei: string, tripData: { start: string; end: string; label?: string }): Promise<{ success: boolean }> {
-    return apiFetch('/telemetry/archive-trip', {
-      method: 'POST',
-      body: { imei, ...tripData },
-    });
   },
 };

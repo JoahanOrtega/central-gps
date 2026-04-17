@@ -96,7 +96,7 @@ export const useTripMonitor = () => {
       try {
         setError("");
 
-        const summary = await telemetryService.getUnitSummary(imei);
+        const summary = await telemetryService.getUnitSummary(imei, idEmpresa);
         setUnitSummary(summary);
 
         if (!summary.hasTelemetry) {
@@ -104,7 +104,7 @@ export const useTripMonitor = () => {
           return;
         }
 
-        const trips = await telemetryService.getRecentTrips(imei);
+        const trips = await telemetryService.getRecentTrips(imei, idEmpresa);
         setRecentTrips(trips);
       } catch (error) {
         const message =
@@ -115,7 +115,7 @@ export const useTripMonitor = () => {
         setError(message);
       }
     },
-    [resetRouteState],
+    [resetRouteState, idEmpresa],
   );
 
   /**
@@ -134,6 +134,7 @@ export const useTripMonitor = () => {
         const points = await telemetryService.getRouteByMode(
           selectedUnitImei,
           mode,
+          idEmpresa,
         );
 
         if (!points.length) {
@@ -157,7 +158,7 @@ export const useTripMonitor = () => {
         setIsLoadingRoute(false);
       }
     },
-    [selectedUnitImei],
+    [selectedUnitImei, idEmpresa],
   );
 
   /**
@@ -180,6 +181,7 @@ export const useTripMonitor = () => {
         const points = await telemetryService.getTripById(
           selectedUnitImei,
           tripId,
+          idEmpresa,
         );
 
         if (!points.length) {
@@ -203,7 +205,7 @@ export const useTripMonitor = () => {
         setIsLoadingRoute(false);
       }
     },
-    [selectedUnitImei],
+    [selectedUnitImei, idEmpresa],
   );
 
   /**
