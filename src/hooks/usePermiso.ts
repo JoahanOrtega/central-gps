@@ -14,7 +14,7 @@
 import { useMemo } from "react";
 import { useAuthStore } from "@/stores/authStore";
 
-// ── Verificación de un solo permiso ──────────────────────
+// ── Verificación de un solo permiso ───────────────────────────────────────────
 export const usePermiso = (clave: string | null): boolean => {
     const user = useAuthStore((state) => state.user);
 
@@ -31,10 +31,10 @@ export const usePermiso = (clave: string | null): boolean => {
         // admin_empresa tiene acceso total dentro de su empresa
         if (user.rol === "admin_empresa" || user.es_admin_empresa) return true;
 
-        // Usuario normal: verificar en el campo permisos del JWT
-        // Soporta formato legacy ("on,cund1,cund2") y wildcard ("*")
-        const permisosRaw =
-            (user as unknown as { permisos?: string }).permisos ?? "";
+        // Usuario normal: verificar contra el campo 'permisos' del JWT.
+        // El campo está declarado en JwtPayload (authStore.ts) como permisos?: string.
+        // Soporta formato lista ("on,cund1,cpoi1") y wildcard ("*").
+        const permisosRaw = user.permisos ?? "";
 
         if (permisosRaw === "*") return true;
 
@@ -46,21 +46,22 @@ export const usePermiso = (clave: string | null): boolean => {
 };
 
 
-// ── Verificación de múltiples permisos a la vez ───────────
+// ── Verificación de múltiples permisos a la vez ───────────────────────────────
 // Evita llamar usePermiso en un loop (viola las reglas de hooks).
+// Construye el mapa completo en un solo useMemo para máxima eficiencia.
 //
 // Uso:
 //   const permisos = usePermisos(["cund1", "cclt1", "cpoi1"]);
 //   permisos["cund1"] → true | false
-
 export const usePermisos = (claves: (string | null)[]): Record<string, boolean> => {
     const user = useAuthStore((state) => state.user);
 
     return useMemo(() => {
-        // Construir el mapa de permisos de una sola vez
+        // Calcular flags y lista una sola vez fuera del reduce —
+        // evita recalcular en cada iteración de las claves
         const esSudoErp = user?.rol === "sudo_erp";
         const esAdminEmpresa = user?.rol === "admin_empresa" || user?.es_admin_empresa;
-        const permisosRaw = (user as unknown as { permisos?: string })?.permisos ?? "";
+        const permisosRaw = user?.permisos ?? "";
         const esWildcard = permisosRaw === "*";
         const lista = permisosRaw.split(",").map((p) => p.trim());
 
