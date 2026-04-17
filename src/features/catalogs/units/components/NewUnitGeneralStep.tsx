@@ -63,10 +63,10 @@ export const NewUnitGeneralStep = ({
             <input name="marca" value={form.marca} onChange={onChange} onBlur={onBlur} className={inputClass} />
           </Field>
           <Field label="Modelo">
-            <input name="modelo" value={form.modelo} onChange={onChange} className={inputClass} />
+            <input name="modelo" value={form.modelo ?? ""} onChange={onChange} className={inputClass} />
           </Field>
           <Field label="Año">
-            <input name="anio" value={form.anio} onChange={onChange} className={inputClass} />
+            <input name="anio" value={form.anio ?? ""} onChange={onChange} className={inputClass} />
           </Field>
         </div>
 
@@ -75,7 +75,7 @@ export const NewUnitGeneralStep = ({
             <input name="no_serie" value={form.no_serie ?? ""} onChange={onChange} className={inputClass} />
           </Field>
           <Field label="Matrícula">
-            <input name="matricula" value={form.matricula} onChange={onChange} className={inputClass} />
+            <input name="matricula" value={form.matricula ?? ""} onChange={onChange} className={inputClass} />
           </Field>
           <Field label="Tipo *" error={errors.tipo} touched={touched.tipo}>
             <select name="tipo" value={form.tipo} onChange={onChange} onBlur={onBlur} className={inputClass}>
