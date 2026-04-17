@@ -91,3 +91,27 @@ export const SkeletonGrid = ({ count = 6, variant }: SkeletonGridProps) => (
         ))}
     </div>
 );
+
+// ── Skeleton para items de lista en drawers del mapa ──────────
+// Los drawers tienen una estructura más compacta que los catálogos:
+// una fila por unidad/POI con ícono + texto a la derecha.
+// Este skeleton replica esa estructura sin usar el grid de 2 columnas.
+export const DrawerItemSkeleton = () => (
+    <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
+        <SkeletonPulse className="h-4 w-4 shrink-0 rounded" />
+        <SkeletonPulse className="h-3 w-3 shrink-0 rounded-full" />
+        <div className="flex-1 space-y-2">
+            <SkeletonPulse className="h-4 w-16" />
+            <SkeletonPulse className="h-3 w-32" />
+        </div>
+    </div>
+);
+
+// Renderiza N DrawerItemSkeleton apilados verticalmente
+export const DrawerSkeletonList = ({ count = 8 }: { count?: number }) => (
+    <div>
+        {Array.from({ length: count }).map((_, index) => (
+            <DrawerItemSkeleton key={index} />
+        ))}
+    </div>
+);

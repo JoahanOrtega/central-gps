@@ -3,6 +3,7 @@ import { useEffect } from "react";
 
 import type { MapPoiItem } from "../../types/map.types";
 import { usePoisDrawer } from "../../hooks/usePoisDrawer";
+import { DrawerSkeletonList } from "@/components/shared/SkeletonCard";
 
 interface PoisDrawerProps {
   onClose: () => void;
@@ -117,14 +118,19 @@ export const PoisDrawer = ({
 
         {/* Contenido */}
         <div className="flex-1 overflow-y-auto">
-          {isLoading && (
-            <div className="px-4 py-6 text-sm text-slate-500">
-              Cargando POIs...
-            </div>
-          )}
+          {isLoading && <DrawerSkeletonList count={8} />}
 
           {error && (
-            <div className="px-4 py-6 text-sm text-rose-500">{error}</div>
+            <div className="px-4 py-6">
+              <p className="text-sm text-rose-500">{error}</p>
+              <button
+                type="button"
+                onClick={() => loadPois()}
+                className="mt-3 text-sm text-sky-600 hover:underline"
+              >
+                Reintentar
+              </button>
+            </div>
           )}
 
           {!isLoading && !error && filteredPois.length === 0 && (

@@ -159,7 +159,13 @@ export const UnitsCatalogView = () => {
           {showSkeleton && <SkeletonGrid variant="unit" count={6} />}
 
           {error && (
-            <div className="py-10 text-center text-red-500">{error}</div>
+            <EmptyState
+              icon={BusFront}
+              title="No se pudieron cargar las unidades"
+              description={error}
+              actionLabel="Reintentar"
+              onAction={() => loadUnits(search)}
+            />
           )}
 
           {!showSkeleton && !error && units.length === 0 && (

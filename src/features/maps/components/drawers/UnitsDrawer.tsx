@@ -3,6 +3,7 @@ import { useUnitsLive } from '../../hooks/useUnitsLive';
 import { formatElapsedTimeFromApiDate, formatAppDateTime } from '@/lib/date-time';
 import { getTelemetryStatusLabel } from '../../lib/telemetry-status';
 import { getUnitStatusDotClass } from '../../lib/units-drawer.helpers';
+import { DrawerSkeletonList } from '@/components/shared/SkeletonCard';
 import type { MapUnitItem } from '../../types/map.types';
 
 interface UnitsDrawerProps {
@@ -80,10 +81,21 @@ export const UnitsDrawer = ({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3 md:p-4">
-        {isLoading && <p className="text-sm text-slate-500">Cargando unidades...</p>}
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {isLoading && <DrawerSkeletonList count={8} />}
+        {error && (
+          <div className="px-4 py-6">
+            <p className="text-sm text-red-500">{error}</p>
+            <button
+              type="button"
+              onClick={() => loadUnits(search)}
+              className="mt-3 text-sm text-sky-600 hover:underline"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
         {!isLoading && !error && units.length === 0 && (
-          <p className="text-sm text-slate-500">No se encontraron unidades.</p>
+          <p className="px-4 py-6 text-sm text-slate-500">No se encontraron unidades.</p>
         )}
 
         <div className="space-y-3">

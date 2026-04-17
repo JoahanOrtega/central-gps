@@ -98,7 +98,13 @@ export const PointsOfInterestView = () => {
           {showSkeleton && <SkeletonGrid variant="poi" count={6} />}
 
           {error && (
-            <div className="py-10 text-center text-red-500">{error}</div>
+            <EmptyState
+              icon={MapPinned}
+              title="No se pudieron cargar los puntos de interés"
+              description={error}
+              actionLabel="Reintentar"
+              onAction={() => loadPois(search)}
+            />
           )}
 
           {!showSkeleton && !error && pois.length === 0 && (

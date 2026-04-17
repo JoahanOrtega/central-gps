@@ -36,7 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "gas-stations", label: "Gasolineras", path: "/home/catalogs/gas-stations", grupo: "catalogs", permiso: "cgas1", disponible: false },
   { id: "users", label: "Usuarios", path: "/home/catalogs/users", grupo: "catalogs", permiso: null, disponible: false },
   { id: "monitor", label: "Monitor de flota", path: "/home/operation/monitor", grupo: "operation", permiso: "on", disponible: true },
-  { id: "fuel-general", label: "General", path: "/home/fuel/general", grupo: "fuel", permiso: "cfuel1", disponible: true },
+  { id: "fuel-general", label: "General", path: "/home/fuel/general", grupo: "fuel", permiso: "cfuel1", disponible: false },
 ];
 
 const TODAS_LAS_CLAVES: string[] = [
