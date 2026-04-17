@@ -6,7 +6,11 @@ import type {
 } from "../types/unit.types";
 
 export const unitService = {
-  getUnits(search = "", idEmpresa?: number | null): Promise<UnitItem[]> {
+  getUnits(
+    search = "",
+    idEmpresa?: number | null,
+    signal?: AbortSignal,
+  ): Promise<UnitItem[]> {
     const params = new URLSearchParams();
     if (search.trim()) params.set("search", search.trim());
     if (idEmpresa) params.set("id_empresa", String(idEmpresa));
@@ -15,6 +19,7 @@ export const unitService = {
 
     return apiFetch<UnitItem[]>(query, {
       method: "GET",
+      signal,
     });
   },
 

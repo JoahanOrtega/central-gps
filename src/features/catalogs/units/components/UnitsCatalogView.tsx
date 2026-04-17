@@ -16,6 +16,8 @@ import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { SkeletonGrid } from "@/components/shared/SkeletonCard";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { useAbortController } from "@/hooks/useAbortController";
+import { handleError } from "@/lib/handle-error";
 
 export const UnitsCatalogView = () => {
   const [units, setUnits] = useState<UnitItem[]>([]);
@@ -30,17 +32,17 @@ export const UnitsCatalogView = () => {
   // Escuchar el id de la empresa activa — cuando cambie, el useEffect
   // de abajo se re-ejecuta y recarga los datos automáticamente
   const { idEmpresa } = useEmpresaActiva();
+  const { getSignal, abort } = useAbortController();
 
   const loadUnits = async (searchValue = "") => {
+    const signal = getSignal();
     try {
       setIsLoading(true);
       setError("");
-      const data = await unitService.getUnits(searchValue, idEmpresa);
+      const data = await unitService.getUnits(searchValue, idEmpresa, signal);
       setUnits(data);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Error al cargar unidades";
-      setError(message);
+      handleError(error, "Error al cargar unidades", setError);
     } finally {
       setIsLoading(false);
     }
@@ -49,8 +51,10 @@ export const UnitsCatalogView = () => {
   // Recargar cuando cambia la empresa activa.
   // La guarda !idEmpresa evita disparar la petición antes de que
   // companyStore haya terminado de cargar la empresa activa.
+  // abort() cancela cualquier petición en vuelo antes de iniciar una nueva.
   useEffect(() => {
     if (!idEmpresa) return;
+    abort();
     setUnits([]);
     setSearch("");
     loadUnits();
