@@ -73,7 +73,10 @@ export const NewUnitModal = ({
     loadCatalogs();
   }, [open, idEmpresa]);
 
-  const validateField = (name: keyof CreateUnitPayload, value: any): FieldError => {
+  const validateField = (
+    name: keyof CreateUnitPayload,
+    value: CreateUnitPayload[keyof CreateUnitPayload],
+  ): FieldError => {
     if (!REQUIRED_FIELDS.includes(name)) return undefined;
     if (!value || (typeof value === "string" && !value.trim())) {
       return "Este campo es obligatorio";
@@ -205,7 +208,7 @@ export const NewUnitModal = ({
       const payload = normalizePayload(form);
       // Incluir id_empresa en el body para que el backend lo reciba
       // correctamente cuando el usuario es sudo_erp (id_empresa null en JWT)
-      await unitService.createUnit({ ...payload, id_empresa: idEmpresa } as any);
+      await unitService.createUnit({ ...payload, id_empresa: idEmpresa });
       notify.success("Unidad creada correctamente");
       onCreated();
       resetFormState();

@@ -22,18 +22,21 @@ interface NavItem {
   path: string;
   grupo: string;
   permiso: string | null;
+  // false = ruta aún no implementada — se muestra deshabilitada
+  // en lugar de navegar a una página en blanco
+  disponible?: boolean;
 }
 
 // ── Catálogo de items del navbar ──────────────────────────
 const NAV_ITEMS: NavItem[] = [
-  { id: "units", label: "Unidades", path: "/home/catalogs/units", grupo: "catalogs", permiso: "cund1" },
-  { id: "clients", label: "Clientes", path: "/home/catalogs/clients", grupo: "catalogs", permiso: "cclt1" },
-  { id: "operators", label: "Operadores", path: "/home/catalogs/operators", grupo: "catalogs", permiso: "cop1" },
-  { id: "points-of-interest", label: "Puntos de Interés", path: "/home/catalogs/points-of-interest", grupo: "catalogs", permiso: "cpoi1" },
-  { id: "gas-stations", label: "Gasolineras", path: "/home/catalogs/gas-stations", grupo: "catalogs", permiso: "cgas1" },
-  { id: "users", label: "Usuarios", path: "/home/catalogs/users", grupo: "catalogs", permiso: null },
-  { id: "monitor", label: "Monitor de flota", path: "/home/operation/monitor", grupo: "operation", permiso: "on" },
-  { id: "fuel-general", label: "General", path: "/home/fuel/general", grupo: "fuel", permiso: "cfuel1" },
+  { id: "units", label: "Unidades", path: "/home/catalogs/units", grupo: "catalogs", permiso: "cund1", disponible: true },
+  { id: "clients", label: "Clientes", path: "/home/catalogs/clients", grupo: "catalogs", permiso: "cclt1", disponible: false },
+  { id: "operators", label: "Operadores", path: "/home/catalogs/operators", grupo: "catalogs", permiso: "cop1", disponible: false },
+  { id: "points-of-interest", label: "Puntos de Interés", path: "/home/catalogs/points-of-interest", grupo: "catalogs", permiso: "cpoi1", disponible: true },
+  { id: "gas-stations", label: "Gasolineras", path: "/home/catalogs/gas-stations", grupo: "catalogs", permiso: "cgas1", disponible: false },
+  { id: "users", label: "Usuarios", path: "/home/catalogs/users", grupo: "catalogs", permiso: null, disponible: false },
+  { id: "monitor", label: "Monitor de flota", path: "/home/operation/monitor", grupo: "operation", permiso: "on", disponible: true },
+  { id: "fuel-general", label: "General", path: "/home/fuel/general", grupo: "fuel", permiso: "cfuel1", disponible: true },
 ];
 
 const TODAS_LAS_CLAVES: string[] = [
@@ -148,15 +151,22 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
                     {items.map((item) => (
                       <DropdownMenuItem
                         key={item.id}
-                        onClick={() => navigate(item.path)}
+                        onClick={() => item.disponible !== false && navigate(item.path)}
+                        disabled={item.disponible === false}
                         className={cn(
-                          "cursor-pointer rounded-md px-3 py-2",
-                          location.pathname === item.path && "bg-[#f7f4e8] text-sky-600"
+                          "rounded-md px-3 py-2",
+                          item.disponible === false
+                            ? "cursor-not-allowed opacity-50"
+                            : "cursor-pointer",
+                          item.disponible !== false && location.pathname === item.path && "bg-[#f7f4e8] text-sky-600"
                         )}
                       >
                         <div className="flex items-center gap-3">
                           <Package className="h-4 w-4 shrink-0" />
                           <span className="truncate">{item.label}</span>
+                          {item.disponible === false && (
+                            <span className="ml-auto text-[10px] text-slate-400">pronto</span>
+                          )}
                         </div>
                       </DropdownMenuItem>
                     ))}

@@ -23,11 +23,11 @@ export interface CreateUnitPayload {
   imei: string;
   chip: string;
 
-  // Opcionales
-  modelo?: string;
-  anio?: string;
+  // Opcionales — pueden ser null cuando el usuario los deja vacíos
+  modelo?: string | null;
+  anio?: string | null;
   no_serie?: string | null;
-  matricula?: string;
+  matricula?: string | null;
   id_operador?: number | null;
   fecha_asignacion_operador?: string | null;
   id_grupo_unidades?: number[];
@@ -45,6 +45,10 @@ export interface CreateUnitPayload {
   vigencia_poliza_seguro?: string | null;
   vigencia_verificacion_vehicular?: string | null;
   imagen?: string | null;
+
+  // Campo para soporte de sudo_erp — el backend lo usa cuando
+  // id_empresa del JWT es null (el usuario opera en modo multi-empresa)
+  id_empresa?: number | null;
 }
 
 export interface CreateUnitResponse {
