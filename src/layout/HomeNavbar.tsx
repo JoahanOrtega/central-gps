@@ -109,6 +109,7 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
           <button
             type="button"
             onClick={onOpenMobileMenu}
+            aria-label="Abrir menú de navegación"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 md:hidden"
           >
             <Menu className="h-5 w-5" />

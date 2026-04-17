@@ -42,6 +42,7 @@ const NotificationItem = ({ notification }: { notification: Notification }) => {
       <button
         type="button"
         onClick={handleClose}
+        aria-label="Cerrar notificación"
         className="shrink-0 rounded-md p-1 hover:bg-black/5"
       >
         <X className="h-4 w-4" />
@@ -53,13 +54,33 @@ const NotificationItem = ({ notification }: { notification: Notification }) => {
 export const NotificationToast = () => {
   const notifications = useNotificationStore((state) => state.notifications);
 
-  if (notifications.length === 0) return null;
-
   return (
-    <div className="pointer-events-none fixed right-4 top-4 z-50 flex flex-col gap-2">
-      {notifications.map((notification) => (
-        <NotificationItem key={notification.id} notification={notification} />
-      ))}
-    </div>
+    <>
+      {/* Región polite — anuncia éxito, info y advertencias sin interrumpir */}
+      <div
+        aria-live="polite"
+        aria-atomic="false"
+        className="pointer-events-none fixed right-4 top-4 z-50 flex flex-col gap-2"
+      >
+        {notifications
+          .filter((n) => n.type !== 'error')
+          .map((notification) => (
+            <NotificationItem key={notification.id} notification={notification} />
+          ))}
+      </div>
+
+      {/* Región assertive — anuncia errores inmediatamente interrumpiendo */}
+      <div
+        aria-live="assertive"
+        aria-atomic="false"
+        className="pointer-events-none fixed right-4 top-4 z-50 flex flex-col gap-2"
+      >
+        {notifications
+          .filter((n) => n.type === 'error')
+          .map((notification) => (
+            <NotificationItem key={notification.id} notification={notification} />
+          ))}
+      </div>
+    </>
   );
 };

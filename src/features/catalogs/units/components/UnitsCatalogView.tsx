@@ -95,6 +95,7 @@ export const UnitsCatalogView = () => {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="buscar..."
+                  aria-label="Buscar unidades"
                   className="h-10 w-full min-w-0 rounded-r-lg px-3 text-sm outline-none sm:w-56"
                 />
               </div>

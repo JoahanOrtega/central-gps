@@ -17,6 +17,7 @@ import {
 } from "./PoiGeometryEditor"
 
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
+import { notify } from "@/stores/notificationStore"
 
 
 interface NewPoiModalProps {
@@ -154,6 +155,7 @@ export const NewPoiModal = ({
       }
 
       await poiService.createPoi(form)
+      notify.success("Punto de interés creado correctamente")
       onCreated()
       handleReset()
       onOpenChange(false)

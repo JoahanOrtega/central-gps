@@ -86,6 +86,7 @@ export const PointsOfInterestView = () => {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="buscar..."
+                  aria-label="Buscar puntos de interés"
                   className="h-10 w-full min-w-0 rounded-r-lg px-3 text-sm outline-none sm:w-56"
                 />
               </div>

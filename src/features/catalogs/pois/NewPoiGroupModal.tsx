@@ -11,6 +11,7 @@ import {
 import { poiService } from "./poiService"
 import type { CreatePoiGroupPayload, ClientOption } from "./poi.types"
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva"
+import { notify } from "@/stores/notificationStore"
 
 interface NewPoiGroupModalProps {
   open: boolean
@@ -104,6 +105,7 @@ export const NewPoiGroupModal = ({
       }
 
       await poiService.createPoiGroup(form)
+      notify.success("Grupo de POI creado correctamente")
       onCreated()
       handleReset()
       onOpenChange(false)

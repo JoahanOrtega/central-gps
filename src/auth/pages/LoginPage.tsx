@@ -62,7 +62,7 @@ export const LoginPage = ({ className }: LoginPageProps) => {
             <CustomLogo />
           </div>
           <h2 className="mt-4 text-lg font-medium text-gray-700">
-            Accesar al sistema
+            Acceder al sistema
           </h2>
         </div>
         <LoginForm onSubmit={handleLogin} isLoading={isLoading} error={error} />

@@ -19,6 +19,7 @@ import type { NewUnitModalProps, FieldError } from "./new-unit-form.types";
 import type { CreateUnitPayload } from "../types/unit.types";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
+import { notify } from "@/stores/notificationStore";
 
 const REQUIRED_FIELDS: (keyof CreateUnitPayload)[] = [
   "numero",
@@ -205,6 +206,7 @@ export const NewUnitModal = ({
       // Incluir id_empresa en el body para que el backend lo reciba
       // correctamente cuando el usuario es sudo_erp (id_empresa null en JWT)
       await unitService.createUnit({ ...payload, id_empresa: idEmpresa } as any);
+      notify.success("Unidad creada correctamente");
       onCreated();
       resetFormState();
       onOpenChange(false);
