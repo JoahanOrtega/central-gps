@@ -10,6 +10,7 @@ import {
 
 import { poiService } from "./poiService"
 import type { CreatePoiGroupPayload, ClientOption } from "./poi.types"
+import { useEmpresaActiva } from "@/hooks/useEmpresaActiva"
 
 interface NewPoiGroupModalProps {
   open: boolean
@@ -35,13 +36,15 @@ export const NewPoiGroupModal = ({
   const [isLoadingClients, setIsLoadingClients] = useState(false)
   const [error, setError] = useState("")
 
+  const { idEmpresa } = useEmpresaActiva()
+
   useEffect(() => {
-    if (!open) return
+    if (!open || !idEmpresa) return
 
     const loadClients = async () => {
       try {
         setIsLoadingClients(true)
-        const data = await poiService.getClients()
+        const data = await poiService.getClients(idEmpresa)
         setClients(data)
       } catch {
         setClients([])
@@ -51,7 +54,7 @@ export const NewPoiGroupModal = ({
     }
 
     loadClients()
-  }, [open])
+  }, [open, idEmpresa])
 
   const handleChange = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,

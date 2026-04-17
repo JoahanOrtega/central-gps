@@ -26,7 +26,7 @@ export const PointsOfInterestView = () => {
     try {
       setIsLoading(true);
       setError("");
-      const data = await poiService.getPois(searchValue);
+      const data = await poiService.getPois(searchValue, idEmpresa);
       setPois(data);
     } catch (error) {
       const message =

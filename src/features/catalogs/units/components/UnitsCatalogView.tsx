@@ -100,26 +100,30 @@ export const UnitsCatalogView = () => {
               </div>
 
               <div className="flex items-center justify-end gap-2 sm:justify-start">
+                {/* Botones pendientes de implementación — deshabilitados hasta tener funcionalidad real */}
                 <button
                   type="button"
-                  className="rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
-                  title="Descargar"
+                  disabled
+                  className="rounded-lg p-2 text-slate-300 cursor-not-allowed"
+                  title="Descargar (próximamente)"
                 >
                   <Download className="h-5 w-5" />
                 </button>
 
                 <button
                   type="button"
-                  className="rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-amber-500"
-                  title="Alertas"
+                  disabled
+                  className="rounded-lg p-2 text-slate-300 cursor-not-allowed"
+                  title="Alertas (próximamente)"
                 >
                   <TriangleAlert className="h-5 w-5" />
                 </button>
 
                 <button
                   type="button"
-                  className="rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
-                  title="Cerrar"
+                  disabled
+                  className="rounded-lg p-2 text-slate-300 cursor-not-allowed"
+                  title="Cerrar (próximamente)"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -169,7 +173,7 @@ export const UnitsCatalogView = () => {
                 <EmptyState
                   icon={BusFront}
                   title="No hay unidades registradas"
-                  description="Agrega la primera unidad para comenzar monitorear."
+                  description="Agrega la primera unidad para comenzar a gestionar tu flota."
                   actionLabel="+ Agregar unidad"
                   onAction={() => setIsCreateModalOpen(true)}
                 />

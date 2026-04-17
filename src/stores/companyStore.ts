@@ -69,8 +69,10 @@ export const useCompanyStore = create<CompanyStore>((set, get) => ({
             });
 
             // 1. Actualizar el JWT en authStore con el nuevo token.
-            //    Esto actualiza user.id_empresa, es_admin_empresa, etc.
-            useAuthStore.getState().setToken(response.token);
+            //    Preservar el flag remember para que la preferencia de
+            //    persistencia no se pierda al cambiar de empresa.
+            const remember = useAuthStore.getState().remember;
+            useAuthStore.getState().setToken(response.token, remember);
 
             // 2. Actualizar la empresa activa en el store sin recargar la página.
             const newCurrent =
