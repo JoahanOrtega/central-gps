@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { MapPinned, RotateCcw, X } from "lucide-react"
 
 import {
@@ -19,6 +19,12 @@ import {
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { notify } from "@/stores/notificationStore"
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva"
+
+// ── TanStack Query — catálogos del formulario ─────────────────────────────────
+// usePoiGroups usa el caché de 5 minutos — abrir este modal varias veces
+// seguidas solo hace 1 petición real al backend.
+import { useQuery } from "@tanstack/react-query"
+import { queryKeys } from "@/lib/query-keys"
 
 
 interface NewPoiModalProps {
@@ -58,8 +64,6 @@ export const NewPoiModal = ({
   onCreated,
 }: NewPoiModalProps) => {
   const [form, setForm] = useState<CreatePoiPayload>(defaultForm)
-  const [groups, setGroups] = useState<PoiGroupItem[]>([])
-  const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [activeTab, setActiveTab] = useState<"general" | "address">("general")
@@ -68,28 +72,16 @@ export const NewPoiModal = ({
   const { idEmpresa } = useEmpresaActiva()
   const geometryEditorRef = useRef<PoiGeometryEditorHandle | null>(null)
 
-  useEffect(() => {
-    if (!open || !idEmpresa) return
-
-    const controller = new AbortController()
-
-    const loadCatalogs = async () => {
-      try {
-        setIsLoadingCatalogs(true)
-        const groupsData = await poiService.getPoiGroups("", idEmpresa)
-        if (controller.signal.aborted) return
-        setGroups(groupsData)
-      } catch {
-        if (controller.signal.aborted) return
-        setGroups([])
-      } finally {
-        if (!controller.signal.aborted) setIsLoadingCatalogs(false)
-      }
-    }
-
-    loadCatalogs()
-    return () => controller.abort()
-  }, [open, idEmpresa])
+  // ── Grupos de POI con TanStack Query ───────────────────────────────────────
+  // Reemplaza el useEffect+AbortController anterior.
+  // Los grupos se cachean 5 minutos — abrir el modal varias veces no genera
+  // peticiones repetidas al backend.
+  const { data: groups = [], isLoading: isLoadingCatalogs } = useQuery({
+    queryKey: queryKeys.pois.groups(idEmpresa),
+    queryFn: () => poiService.getPoiGroups("", idEmpresa),
+    enabled: !!idEmpresa,
+    staleTime: 5 * 60 * 1000,
+  })
 
   const handleInputChange = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,

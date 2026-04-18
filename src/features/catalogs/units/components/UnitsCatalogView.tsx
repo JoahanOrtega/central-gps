@@ -1,13 +1,6 @@
-import { useEffect, useState } from "react";
-import {
-  BusFront,
-  Plus,
-  Search,
-  Download,
-  TriangleAlert,
-  X,
-} from "lucide-react";
-
+import { useState } from "react";
+import { BusFront, Plus, Search, Download, TriangleAlert, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { unitService } from "../services/unitService";
 import type { UnitItem } from "../types/unit.types";
 import { UnitCard } from "./UnitCard";
@@ -16,56 +9,31 @@ import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { SkeletonGrid } from "@/components/shared/SkeletonCard";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { useAbortController } from "@/hooks/useAbortController";
-import { handleError } from "@/lib/handle-error";
+import { queryKeys } from "@/lib/query-keys";
 
 export const UnitsCatalogView = () => {
-  const [units, setUnits] = useState<UnitItem[]>([]);
   const [search, setSearch] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-
-  // Delay de 150ms al apagar el skeleton para evitar parpadeo visual
-  const showSkeleton = useDelayedLoading(isLoading);
-
-  // Escuchar el id de la empresa activa — cuando cambie, el useEffect
-  // de abajo se re-ejecuta y recarga los datos automáticamente
   const { idEmpresa } = useEmpresaActiva();
-  const { getSignal, abort } = useAbortController();
 
-  const loadUnits = async (searchValue = "") => {
-    const signal = getSignal();
-    try {
-      setIsLoading(true);
-      setError("");
-      const data = await unitService.getUnits(searchValue, idEmpresa, signal);
-      setUnits(data);
-    } catch (error) {
-      handleError(error, "Error al cargar unidades", setError);
-    } finally {
-      setIsLoading(false);
-    }
+  // Debounce de 350ms — actualiza la queryKey solo después de que el usuario
+  // deja de escribir, evitando una petición por cada tecla presionada
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    clearTimeout((handleSearchChange as unknown as { _t: ReturnType<typeof setTimeout> })._t);
+    (handleSearchChange as unknown as { _t: ReturnType<typeof setTimeout> })._t =
+      setTimeout(() => setDebouncedSearch(value), 350);
   };
 
-  // Recargar cuando cambia la empresa activa.
-  // La guarda !idEmpresa evita disparar la petición antes de que
-  // companyStore haya terminado de cargar la empresa activa.
-  // abort() cancela cualquier petición en vuelo antes de iniciar una nueva.
-  useEffect(() => {
-    if (!idEmpresa) return;
-    abort();
-    setUnits([]);
-    setSearch("");
-    loadUnits();
-  }, [idEmpresa]);
+  const { data: units = [], isLoading, error, refetch } = useQuery<UnitItem[]>({
+    queryKey: queryKeys.units.list(idEmpresa, debouncedSearch),
+    queryFn: () => unitService.getUnits(debouncedSearch, idEmpresa),
+    enabled: !!idEmpresa,
+  });
 
-  // Recargar cuando cambia el buscador (con debounce de 350ms)
-  useEffect(() => {
-    if (!idEmpresa) return;
-    const timeout = setTimeout(() => loadUnits(search), 350);
-    return () => clearTimeout(timeout);
-  }, [search, idEmpresa]);
+  const showSkeleton = useDelayedLoading(isLoading);
+  const errorMessage = error instanceof Error ? error.message : null;
 
   return (
     <main className="h-full overflow-auto bg-[#f5f6f8] p-3 md:p-6">
@@ -74,64 +42,22 @@ export const UnitsCatalogView = () => {
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex items-center gap-3">
               <BusFront className="h-5 w-5 text-slate-500" />
-              <h1 className="text-xl font-semibold text-slate-800 md:text-2xl">
-                Catálogo de Unidades
-              </h1>
+              <h1 className="text-xl font-semibold text-slate-800 md:text-2xl">Catálogo de Unidades</h1>
             </div>
-
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center xl:flex-nowrap">
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(true)}
-                className="flex h-10 w-full items-center justify-center rounded-lg border border-emerald-400 bg-white text-emerald-500 hover:bg-emerald-50 sm:w-12"
-                title="Agregar unidad"
-              >
+              <button type="button" onClick={() => setIsCreateModalOpen(true)} className="flex h-10 w-full items-center justify-center rounded-lg border border-emerald-400 bg-white text-emerald-500 hover:bg-emerald-50 sm:w-12" title="Agregar unidad">
                 <Plus className="h-4 w-4" />
               </button>
-
               <div className="flex w-full items-center rounded-lg border border-slate-300 bg-white sm:w-auto">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center border-r border-slate-300 text-emerald-500">
                   <Search className="h-4 w-4" />
                 </div>
-
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="buscar..."
-                  aria-label="Buscar unidades"
-                  className="h-10 w-full min-w-0 rounded-r-lg px-3 text-sm outline-none sm:w-56"
-                />
+                <input type="text" value={search} onChange={(e) => handleSearchChange(e.target.value)} placeholder="buscar..." aria-label="Buscar unidades" className="h-10 w-full min-w-0 rounded-r-lg px-3 text-sm outline-none sm:w-56" />
               </div>
-
               <div className="flex items-center justify-end gap-2 sm:justify-start">
-                {/* Botones pendientes de implementación — deshabilitados hasta tener funcionalidad real */}
-                <button
-                  type="button"
-                  disabled
-                  className="rounded-lg p-2 text-slate-300 cursor-not-allowed"
-                  title="Descargar (próximamente)"
-                >
-                  <Download className="h-5 w-5" />
-                </button>
-
-                <button
-                  type="button"
-                  disabled
-                  className="rounded-lg p-2 text-slate-300 cursor-not-allowed"
-                  title="Alertas (próximamente)"
-                >
-                  <TriangleAlert className="h-5 w-5" />
-                </button>
-
-                <button
-                  type="button"
-                  disabled
-                  className="rounded-lg p-2 text-slate-300 cursor-not-allowed"
-                  title="Cerrar (próximamente)"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                <button type="button" disabled className="rounded-lg p-2 text-slate-300 cursor-not-allowed" title="Descargar (próximamente)"><Download className="h-5 w-5" /></button>
+                <button type="button" disabled className="rounded-lg p-2 text-slate-300 cursor-not-allowed" title="Alertas (próximamente)"><TriangleAlert className="h-5 w-5" /></button>
+                <button type="button" disabled className="rounded-lg p-2 text-slate-300 cursor-not-allowed" title="Cerrar (próximamente)"><X className="h-5 w-5" /></button>
               </div>
             </div>
           </div>
@@ -139,17 +65,10 @@ export const UnitsCatalogView = () => {
 
         <div className="border-b border-slate-200 px-4 py-4 md:px-6">
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            <button
-              type="button"
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-700"
-            >
+            <button type="button" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-700">
               Todas <span className="ml-1 text-slate-400">{units.length}</span>
             </button>
-
-            <button
-              type="button"
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-700"
-            >
+            <button type="button" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-700">
               Sin Grupo <span className="ml-1 text-slate-400">{units.length}</span>
             </button>
           </div>
@@ -158,54 +77,27 @@ export const UnitsCatalogView = () => {
         <div className="p-4 md:p-6">
           {showSkeleton && <SkeletonGrid variant="unit" count={6} />}
 
-          {error && (
-            <EmptyState
-              icon={BusFront}
-              title="No se pudieron cargar las unidades"
-              description={error}
-              actionLabel="Reintentar"
-              onAction={() => loadUnits(search)}
-            />
+          {errorMessage && (
+            <EmptyState icon={BusFront} title="No se pudieron cargar las unidades" description={errorMessage} actionLabel="Reintentar" onAction={() => refetch()} />
           )}
 
-          {!showSkeleton && !error && units.length === 0 && (
-            search
-              ? (
-                // Búsqueda sin resultados — invitar a limpiar el filtro
-                <EmptyState
-                  icon={BusFront}
-                  title="Sin resultados"
-                  description={`No se encontraron unidades que coincidan con "${search}".`}
-                  actionLabel="Limpiar búsqueda"
-                  onAction={() => setSearch("")}
-                />
-              ) : (
-                // Lista genuinamente vacía — invitar a crear la primera unidad
-                <EmptyState
-                  icon={BusFront}
-                  title="No hay unidades registradas"
-                  description="Agrega la primera unidad para comenzar a gestionar tu flota."
-                  actionLabel="+ Agregar unidad"
-                  onAction={() => setIsCreateModalOpen(true)}
-                />
-              )
+          {!showSkeleton && !errorMessage && units.length === 0 && (
+            debouncedSearch ? (
+              <EmptyState icon={BusFront} title="Sin resultados" description={`No se encontraron unidades que coincidan con "${debouncedSearch}".`} actionLabel="Limpiar búsqueda" onAction={() => { setSearch(""); setDebouncedSearch(""); }} />
+            ) : (
+              <EmptyState icon={BusFront} title="No hay unidades registradas" description="Agrega la primera unidad para comenzar a gestionar tu flota." actionLabel="+ Agregar unidad" onAction={() => setIsCreateModalOpen(true)} />
+            )
           )}
 
-          {!showSkeleton && !error && units.length > 0 && (
+          {!showSkeleton && !errorMessage && units.length > 0 && (
             <div className="grid grid-cols-1 gap-4 md:gap-6 2xl:grid-cols-2">
-              {units.map((unit) => (
-                <UnitCard key={unit.id} unit={unit} />
-              ))}
+              {units.map((unit) => <UnitCard key={unit.id} unit={unit} />)}
             </div>
           )}
         </div>
       </section>
 
-      <NewUnitModal
-        open={isCreateModalOpen}
-        onOpenChange={setIsCreateModalOpen}
-        onCreated={() => loadUnits(search)}
-      />
+      <NewUnitModal open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen} onCreated={() => refetch()} />
     </main>
   );
 };

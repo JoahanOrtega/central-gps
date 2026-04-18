@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { BusFront, RotateCcw, X } from "lucide-react";
 
 import {
@@ -10,8 +10,6 @@ import {
 } from "@/components/ui/dialog";
 
 import { unitService } from "../services/unitService";
-import { catalogService } from "../services/catalogServices";
-import type { OperatorOption, UnitGroupOption, AvlModelOption } from "../services/catalogServices";
 import { defaultNewUnitForm } from "./new-unit-form.constants";
 import { NewUnitGeneralStep } from "./NewUnitGeneralStep";
 import { NewUnitAdditionalStep } from "./NewUnitAdditionalStep";
@@ -20,7 +18,18 @@ import type { CreateUnitPayload } from "../types/unit.types";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { notify } from "@/stores/notificationStore";
-import { handleError } from "@/lib/handle-error";
+
+// ── TanStack Query — catálogos del formulario ─────────────────────────────────
+// Antes: useEffect + AbortController + useState por cada catálogo.
+// Ahora: 3 líneas con caché automática de 5 minutos.
+//
+// Beneficio principal: abrir este modal 5 veces seguidas solo hace
+// 1 petición por catálogo — el resto usa el caché en memoria.
+import {
+  useOperators,
+  useUnitGroups,
+  useAvlModels,
+} from "@/hooks/useCatalogQueries";
 
 const REQUIRED_FIELDS: (keyof CreateUnitPayload)[] = [
   "numero",
@@ -45,63 +54,34 @@ export const NewUnitModal = ({
   const [error, setError] = useState("");
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
-  const [operators, setOperators] = useState<OperatorOption[]>([]);
-  const [unitGroups, setUnitGroups] = useState<UnitGroupOption[]>([]);
-  const [avlModels, setAvlModels] = useState<AvlModelOption[]>([]);
-  const [loadingCatalogs, setLoadingCatalogs] = useState(false);
 
   const { idEmpresa } = useEmpresaActiva();
 
-  useEffect(() => {
-    if (!open || !idEmpresa) return;
+  // ── Catálogos con TanStack Query ──────────────────────────────────────────
+  // enabled: !!idEmpresa evita peticiones sin empresa activa.
+  // data ?? [] garantiza que siempre tenemos un array aunque los datos
+  // estén cargando o haya error — el formulario nunca queda bloqueado.
+  const { data: operators = [], isLoading: loadingOperators } = useOperators(idEmpresa);
+  const { data: unitGroups = [], isLoading: loadingGroups } = useUnitGroups(idEmpresa);
+  const { data: avlModels = [], isLoading: loadingModels } = useAvlModels();
 
-    // AbortController cancela las peticiones si el efecto se re-ejecuta
-    // antes de que terminen (React StrictMode monta dos veces en desarrollo,
-    // lo que sin este cancelador agota el pool de conexiones del backend)
-    const controller = new AbortController();
-
-    const loadCatalogs = async () => {
-      setLoadingCatalogs(true);
-      try {
-        const [ops, groups, models] = await Promise.all([
-          catalogService.getOperators(undefined, idEmpresa),
-          catalogService.getUnitGroups(undefined, idEmpresa),
-          catalogService.getAvlModels(),
-        ]);
-        if (controller.signal.aborted) return;
-        setOperators(ops);
-        setUnitGroups(groups);
-        setAvlModels(models);
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        handleError(error, "Error al cargar catálogos del formulario");
-      } finally {
-        if (!controller.signal.aborted) setLoadingCatalogs(false);
-      }
-    };
-
-    loadCatalogs();
-
-    return () => controller.abort();
-  }, [open, idEmpresa]);
+  // El formulario muestra un indicador de carga mientras cualquier catálogo esté cargando
+  const loadingCatalogs = loadingOperators || loadingGroups || loadingModels;
 
   const validateField = (
     name: keyof CreateUnitPayload,
     value: CreateUnitPayload[keyof CreateUnitPayload],
   ): FieldError => {
-    // Primero validar presencia en campos obligatorios
     if (REQUIRED_FIELDS.includes(name)) {
       if (!value || (typeof value === "string" && !value.trim())) {
         return "Este campo es obligatorio";
       }
     }
 
-    // Luego validar calidad del valor ingresado
     const strValue = String(value ?? "").trim();
 
     switch (name) {
       case "imei":
-        // IMEI estándar: exactamente 15 dígitos numéricos
         if (strValue && !/^\d{15}$/.test(strValue)) {
           return "El IMEI debe tener exactamente 15 dígitos numéricos";
         }
@@ -116,7 +96,6 @@ export const NewUnitModal = ({
       }
 
       case "fecha_instalacion":
-        // La fecha de instalación no puede ser futura
         if (strValue && strValue > new Date().toISOString().split("T")[0]) {
           return "La fecha de instalación no puede ser futura";
         }
@@ -131,15 +110,13 @@ export const NewUnitModal = ({
     let isValid = true;
     REQUIRED_FIELDS.forEach((field) => {
       const value = form[field];
-      const error = validateField(field, value);
-      if (error) {
-        newErrors[field] = error;
+      const fieldError = validateField(field, value);
+      if (fieldError) {
+        newErrors[field] = fieldError;
         isValid = false;
       }
     });
     setErrors(newErrors);
-    // Marcar todos los campos obligatorios como tocados para que
-    // los errores sean visibles aunque el usuario no haya interactuado
     const allTouched = REQUIRED_FIELDS.reduce<Record<string, boolean>>(
       (acc, field) => ({ ...acc, [field]: true }),
       {}
@@ -153,24 +130,24 @@ export const NewUnitModal = ({
   ) => {
     const { name, value } = event.target;
     if (name === "id_grupo_unidades") return;
-
     setForm((prev) => ({ ...prev, [name]: value }));
-
-    const error = validateField(name as keyof CreateUnitPayload, value);
-    setErrors((prev) => ({ ...prev, [name]: error }));
+    const fieldError = validateField(name as keyof CreateUnitPayload, value);
+    setErrors((prev) => ({ ...prev, [name]: fieldError }));
   };
 
   const handleBlur = (event: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name } = event.target;
     setTouched((prev) => ({ ...prev, [name]: true }));
-    const error = validateField(name as keyof CreateUnitPayload, form[name as keyof CreateUnitPayload]);
-    setErrors((prev) => ({ ...prev, [name]: error }));
+    const fieldError = validateField(
+      name as keyof CreateUnitPayload,
+      form[name as keyof CreateUnitPayload]
+    );
+    setErrors((prev) => ({ ...prev, [name]: fieldError }));
   };
 
   const handleGroupSelectionChange = (newSelection: number[]) => {
     setForm((prev) => ({ ...prev, id_grupo_unidades: newSelection }));
   };
-
 
   const resetFormState = () => {
     setForm(defaultNewUnitForm);
@@ -195,7 +172,6 @@ export const NewUnitModal = ({
     setForm((prev) => ({ ...prev, imagen: imageBase64 }));
   };
 
-
   const generalStepValid = useMemo(() => {
     return REQUIRED_FIELDS.every((field) => {
       const value = form[field];
@@ -203,7 +179,6 @@ export const NewUnitModal = ({
     });
   }, [form]);
 
-  // Función auxiliar: analiza números de forma segura; devuelve null si la cadena está vacía
   const parseNumberOrNull = (value: string | number): number | null => {
     if (typeof value === "number") return value;
     if (value === "" || value === null || value === undefined) return null;
@@ -211,45 +186,40 @@ export const NewUnitModal = ({
     return isNaN(num) ? null : num;
   };
 
-  // Normalización payload (sin lanzar excepciones, solo convierte tipos)
-  const normalizePayload = (data: CreateUnitPayload) => {
-    return {
-      numero: data.numero.trim(),
-      marca: data.marca.trim(),
-      tipo: data.tipo,
-      odometro_inicial: parseNumberOrNull(data.odometro_inicial) ?? 0,
-      fecha_instalacion: data.fecha_instalacion,
-      imei: data.imei.trim(),
-      chip: data.chip.trim(),
-      // Opcionales con posible vacío → null
-      modelo: data.modelo?.trim() || null,
-      anio: data.anio?.trim() || null,
-      no_serie: data.no_serie?.trim() || null,
-      matricula: data.matricula?.trim() || null,
-      id_operador: data.id_operador ? Number(data.id_operador) : null,
-      fecha_asignacion_operador: data.fecha_asignacion_operador?.trim() || null,
-      id_grupo_unidades: data.id_grupo_unidades,
-      id_modelo_avl: data.id_modelo_avl ? Number(data.id_modelo_avl) : null,
-      input1: String(data.input1 ?? "0"),
-      input2: String(data.input2 ?? "0"),
-      output1: String(data.output1 ?? "0"),
-      output2: String(data.output2 ?? "0"),
-      tipo_combustible: data.tipo_combustible?.trim() || null,
-      capacidad_tanque: parseNumberOrNull(data.capacidad_tanque ?? ""),
-      rendimiento_establecido: parseNumberOrNull(data.rendimiento_establecido ?? ""),
-      nombre_aseguradora: data.nombre_aseguradora?.trim() || null,
-      telefono_aseguradora: data.telefono_aseguradora?.trim() || null,
-      no_poliza_seguro: data.no_poliza_seguro?.trim() || null,
-      vigencia_poliza_seguro: data.vigencia_poliza_seguro?.trim() || null,
-      vigencia_verificacion_vehicular: data.vigencia_verificacion_vehicular?.trim() || null,
-      imagen: data.imagen?.trim() || null,
-    };
-  };
+  const normalizePayload = (data: CreateUnitPayload) => ({
+    numero: data.numero.trim(),
+    marca: data.marca.trim(),
+    tipo: data.tipo,
+    odometro_inicial: parseNumberOrNull(data.odometro_inicial) ?? 0,
+    fecha_instalacion: data.fecha_instalacion,
+    imei: data.imei.trim(),
+    chip: data.chip.trim(),
+    modelo: data.modelo?.trim() || null,
+    anio: data.anio?.trim() || null,
+    no_serie: data.no_serie?.trim() || null,
+    matricula: data.matricula?.trim() || null,
+    id_operador: data.id_operador ? Number(data.id_operador) : null,
+    fecha_asignacion_operador: data.fecha_asignacion_operador?.trim() || null,
+    id_grupo_unidades: data.id_grupo_unidades,
+    id_modelo_avl: data.id_modelo_avl ? Number(data.id_modelo_avl) : null,
+    input1: String(data.input1 ?? "0"),
+    input2: String(data.input2 ?? "0"),
+    output1: String(data.output1 ?? "0"),
+    output2: String(data.output2 ?? "0"),
+    tipo_combustible: data.tipo_combustible?.trim() || null,
+    capacidad_tanque: parseNumberOrNull(data.capacidad_tanque ?? ""),
+    rendimiento_establecido: parseNumberOrNull(data.rendimiento_establecido ?? ""),
+    nombre_aseguradora: data.nombre_aseguradora?.trim() || null,
+    telefono_aseguradora: data.telefono_aseguradora?.trim() || null,
+    no_poliza_seguro: data.no_poliza_seguro?.trim() || null,
+    vigencia_poliza_seguro: data.vigencia_poliza_seguro?.trim() || null,
+    vigencia_verificacion_vehicular: data.vigencia_verificacion_vehicular?.trim() || null,
+    imagen: data.imagen?.trim() || null,
+  });
 
   const handleSubmit = async () => {
     if (!validateForm()) {
       setStep(1);
-      // Dar tiempo a React para re-renderizar el paso antes de buscar el campo
       setTimeout(() => {
         const firstError = document.querySelector<HTMLElement>(
           "[aria-invalid='true'], .border-rose-400"
@@ -262,15 +232,13 @@ export const NewUnitModal = ({
       setIsLoading(true);
       setError("");
       const payload = normalizePayload(form);
-      // Incluir id_empresa en el body para que el backend lo reciba
-      // correctamente cuando el usuario es sudo_erp (id_empresa null en JWT)
       await unitService.createUnit({ ...payload, id_empresa: idEmpresa });
       notify.success("Unidad creada correctamente");
       onCreated();
       resetFormState();
       onOpenChange(false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "No fue posible crear la unidad";
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No fue posible crear la unidad";
       setError(message);
     } finally {
       setIsLoading(false);
