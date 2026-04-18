@@ -7,6 +7,7 @@ import { LoginForm } from "../components/LoginForm";
 import type { LoginFormValues } from "../types/auth.types";
 import { authService } from "../services/authService";
 import type { LoginLocationState } from "@/router/PrivateRoute";
+import { markSessionStarted } from "@/router/PrivateRoute";
 
 // Imagen de fondo del login — se referencia desde /public para evitar
 // que Vite la incluya en el bundle principal (mejora el tiempo de carga inicial).
@@ -45,8 +46,8 @@ export const LoginPage = ({ className }: LoginPageProps) => {
         username: values.username,
         password: values.password,
       });
-      // Pasar `remember` al store para que elija localStorage o sessionStorage
-      setToken(response.token, values.remember);
+      setToken(response.token);
+      markSessionStarted();   // Activa la marca para mostrar "sesión expirada" al vencer
       navigate("/home", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al iniciar sesión");
