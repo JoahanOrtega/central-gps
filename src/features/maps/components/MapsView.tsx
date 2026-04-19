@@ -9,7 +9,7 @@ import { UnitsDrawer } from "./drawers/UnitsDrawer";
 import { TripDrawer } from "./drawers/TripDrawer";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 
-import type { MapPoiItem, MapUnitItem, RoutePoint } from "../types/map.types";
+import type { MapPoiItem, MapUnitItem, RoutePoint, RouteDisplayOptions } from "../types/map.types";
 
 type ActiveDrawer = "pois" | "units" | "trips" | null;
 
@@ -105,6 +105,13 @@ export const MapsView = () => {
   /** Muestra u oculta las flechas por registro del recorrido. */
   const handleDirectionVisibilityChange = useCallback((v: boolean) => mapCanvasRef.current?.setRouteDirectionVisible(v), []);
 
+  /** Muestra u oculta una capa específica del recorrido (stops, speed, engine, etc.). */
+  const handleLayerVisibilityChange = useCallback(
+    (layer: keyof RouteDisplayOptions, visible: boolean) =>
+      mapCanvasRef.current?.setLayerVisible(layer, visible),
+    [],
+  );
+
   return (
     <main className="h-full overflow-hidden bg-[#f5f6f8] p-3 md:p-6">
       <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -154,6 +161,7 @@ export const MapsView = () => {
               onRouteVisibilityChange={handleRouteVisibilityChange}
               onStartEndVisibilityChange={handleStartEndVisibilityChange}
               onDirectionVisibilityChange={handleDirectionVisibilityChange}
+              onLayerChange={handleLayerVisibilityChange}
             />
           )}
         </div>

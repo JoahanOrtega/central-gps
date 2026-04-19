@@ -29,6 +29,8 @@ export interface MapCanvasHandle {
   setRouteVisible: (visible: boolean) => void;
   setRouteStartEndVisible: (visible: boolean) => void;
   setRouteDirectionVisible: (visible: boolean) => void;
+  // Controla una capa individual (stops, speed, engine, doors, rfid, alerts, arrows, flags)
+  setLayerVisible: (layer: string, visible: boolean) => void;
 }
 
 /**
@@ -77,6 +79,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     setRouteVisible,
     setRouteStartEndVisible,
     setRouteDirectionVisible,
+    setLayerVisible,
   } = useMapRoute({ mapRef, infoWindowRef });
 
   // ── API imperativa hacia MapsView ─────────────────────────────
@@ -106,6 +109,8 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     setRouteVisible,
     setRouteStartEndVisible,
     setRouteDirectionVisible,
+    setLayerVisible: (layer: string, visible: boolean) =>
+      setLayerVisible(layer as keyof import('../types/map.types').RouteDisplayOptions, visible),
   }));
 
   // ── Render ────────────────────────────────────────────────────
