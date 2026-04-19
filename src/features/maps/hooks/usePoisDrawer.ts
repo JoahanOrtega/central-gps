@@ -27,7 +27,9 @@ export const usePoisDrawer = () => {
     try {
       setIsLoading(true);
       setError("");
-      const data = await poiService.getPois();
+      // idEmpresa es necesario para que el backend filtre por empresa.
+      // Sin él, sudo_erp no tiene empresa en el JWT y la petición falla.
+      const data = await poiService.getPois("", idEmpresa);
       setPois(data.map(toMapPoiItem));
       setSelectedPoiIds([]);
     } catch (error) {
@@ -39,7 +41,9 @@ export const usePoisDrawer = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+    // idEmpresa como dependencia — garantiza que al cambiar empresa
+    // loadPois use el id correcto y no el del closure anterior
+  }, [idEmpresa]);
 
   // Recargar y limpiar selección cuando cambia la empresa activa
   useEffect(() => {

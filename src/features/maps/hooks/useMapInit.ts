@@ -27,23 +27,50 @@ export interface UseMapInitReturn {
     toggleFullscreen: () => void;
 }
 
-// ── Obtiene la ubicación del navegador como promesa ───────────
-const getBrowserLocation = (): Promise<{ lat: number; lng: number }> =>
-    new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-            reject(new Error("La geolocalización no está disponible"));
-            return;
-        }
+// ── Clave de caché de ubicación en localStorage ───────────────
+// Persiste la última ubicación conocida del usuario entre sesiones.
+// Soluciona dos problemas:
+//   1. Firefox no persiste permisos de geolocalización en localhost (HTTP).
+//      Al guardar la última posición, el mapa se centra inmediatamente
+//      en la recarga aunque el usuario aún no haya respondido el banner.
+//   2. La primera vez que se muestra el mapa hay un salto visual de
+//      México → ubicación del usuario. Con el caché el mapa arranca
+//      directamente en la última posición conocida.
+const GEO_CACHE_KEY = "cgps_last_location";
 
-        navigator.geolocation.getCurrentPosition(
-            (position) => resolve({
-                lat: position.coords.latitude,
-                lng: position.coords.longitude,
-            }),
-            (error) => reject(error),
-            { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
-        );
-    });
+interface CachedLocation {
+    lat: number;
+    lng: number;
+    ts: number; // timestamp para invalidar si es muy antigua
+}
+
+const getCachedLocation = (): CachedLocation | null => {
+    try {
+        const raw = localStorage.getItem(GEO_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as CachedLocation;
+        // Invalidar si tiene más de 24 horas
+        if (Date.now() - parsed.ts > 24 * 60 * 60 * 1000) {
+            localStorage.removeItem(GEO_CACHE_KEY);
+            return null;
+        }
+        return parsed;
+    } catch {
+        return null;
+    }
+};
+
+const setCachedLocation = (lat: number, lng: number) => {
+    try {
+        const payload: CachedLocation = { lat, lng, ts: Date.now() };
+        localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(payload));
+    } catch {
+        // localStorage puede estar bloqueado en modo privado — ignorar silenciosamente
+    }
+};
+
+
+
 
 // ── Hook principal ────────────────────────────────────────────
 export const useMapInit = (): UseMapInitReturn => {
@@ -59,29 +86,21 @@ export const useMapInit = (): UseMapInitReturn => {
     // ── Inicialización del mapa al montar el componente ──────────
     useEffect(() => {
         let isMounted = true;
+        let watchId: number | null = null;
 
         const initializeMap = async () => {
             await loadGoogleMaps();
 
             if (!containerRef.current || !window.google?.maps || !isMounted) return;
 
-            // Intentar centrar en la ubicación del usuario.
-            // Si falla (permiso denegado, timeout, etc.) usar el centro de México.
-            let initialCenter = DEFAULT_CENTER;
-            let initialZoom = DEFAULT_ZOOM;
-            let hasUserLocation = false;
-
-            try {
-                const userLocation = await getBrowserLocation();
-                initialCenter = userLocation;
-                initialZoom = USER_LOCATION_ZOOM;
-                hasUserLocation = true;
-            } catch {
-                initialCenter = DEFAULT_CENTER;
-                initialZoom = DEFAULT_ZOOM;
-            }
-
-            if (!isMounted) return;
+            // Si hay una ubicación cacheada (de una sesión anterior), usarla
+            // como centro inicial — el mapa aparece en la posición correcta
+            // desde el primer frame sin esperar al banner de permisos.
+            const cached = getCachedLocation();
+            const initialCenter = cached
+                ? { lat: cached.lat, lng: cached.lng }
+                : DEFAULT_CENTER;
+            const initialZoom = cached ? USER_LOCATION_ZOOM : DEFAULT_ZOOM;
 
             const map = new window.google.maps.Map(containerRef.current, {
                 center: initialCenter,
@@ -103,28 +122,79 @@ export const useMapInit = (): UseMapInitReturn => {
             trafficLayerRef.current = new window.google.maps.TrafficLayer();
             infoWindowRef.current = new window.google.maps.InfoWindow();
 
-            // Marker azul en la posición del usuario si se obtuvo la ubicación
-            if (hasUserLocation) {
-                const userMarkerContent = document.createElement("div");
-                userMarkerContent.style.width = "18px";
-                userMarkerContent.style.height = "18px";
-                userMarkerContent.style.borderRadius = "9999px";
-                userMarkerContent.style.background = "#2563eb";
-                userMarkerContent.style.border = "3px solid white";
-                userMarkerContent.style.boxShadow = "0 2px 8px rgba(0,0,0,0.25)";
+            // Marker de ubicación — se crea una vez y se reposiciona
+            let userMarker: google.maps.marker.AdvancedMarkerElement | null = null;
 
-                new window.google.maps.marker.AdvancedMarkerElement({
-                    map,
-                    position: initialCenter,
-                    title: "Mi ubicación",
-                    content: userMarkerContent,
-                });
+            const createOrMoveUserMarker = (position: { lat: number; lng: number }) => {
+                if (!mapRef.current) return;
+
+                if (!userMarker) {
+                    const dot = document.createElement("div");
+                    dot.style.width = "18px";
+                    dot.style.height = "18px";
+                    dot.style.borderRadius = "9999px";
+                    dot.style.background = "#2563eb";
+                    dot.style.border = "3px solid white";
+                    dot.style.boxShadow = "0 2px 8px rgba(0,0,0,0.25)";
+
+                    userMarker = new window.google.maps.marker.AdvancedMarkerElement({
+                        map: mapRef.current,
+                        position,
+                        title: "Mi ubicación",
+                        content: dot,
+                    });
+                } else {
+                    // Reposicionar el marker existente sin recrearlo
+                    userMarker.position = position;
+                }
+            };
+
+            // Solicitar ubicación en segundo plano — no bloquea el render del mapa.
+            // watchPosition actualiza la posición continuamente, lo que resuelve
+            // el problema de "no actualiza al instante": en cuanto el navegador
+            // tiene la ubicación (aunque tarde 1-2s), el mapa se mueve solo.
+            if (navigator.geolocation) {
+                watchId = navigator.geolocation.watchPosition(
+                    (position) => {
+                        if (!isMounted || !mapRef.current) return;
+
+                        const location = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                        };
+
+                        // Guardar en caché para la próxima carga — resuelve el
+                        // problema de Firefox pidiendo permisos en cada recarga
+                        setCachedLocation(location.lat, location.lng);
+
+                        // Solo mover el mapa si el usuario no lo ha movido manualmente.
+                        // Si el zoom es el de ciudad (≥ 14) y no hay cached previa,
+                        // es la primera ubicación — centrar el mapa.
+                        if (!cached) {
+                            mapRef.current.panTo(location);
+                            mapRef.current.setZoom(USER_LOCATION_ZOOM);
+                        }
+
+                        createOrMoveUserMarker(location);
+                    },
+                    () => {
+                        // Permiso denegado — el mapa ya está visible,
+                        // no hay nada que hacer.
+                    },
+                    { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 },
+                );
             }
         };
 
         void initializeMap();
 
-        return () => { isMounted = false; };
+        return () => {
+            isMounted = false;
+            // Cancelar el watcher al desmontar para evitar memory leaks
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+            }
+        };
     }, []);
 
     // ── Acciones públicas ─────────────────────────────────────────
