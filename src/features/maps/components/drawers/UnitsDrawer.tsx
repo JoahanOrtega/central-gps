@@ -106,7 +106,7 @@ const UnitCard = ({
     unit.telemetry?.segundos,
   );
   const elapsed = formatElapsedTimeFromApiDate(unit.telemetry?.fecha_hora_gps);
-  const numero = (unit.numero ?? '').replace(/^U/i, '');
+  const numero = unit.numero ?? '';
 
   return (
     <div

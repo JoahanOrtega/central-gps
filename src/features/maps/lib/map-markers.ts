@@ -46,8 +46,7 @@ export const buildUnitMarkerContent = (unit: MapUnitItem): HTMLElement => {
     // En movimiento → flecha; detenida/apagada → círculo
     const enMovimiento = ignicion === 1 && Math.round(velocidad) >= 1;
 
-    // Número sin prefijo "U" — más corto para el marcador
-    const numero = (unit.numero ?? "").replace(/^U/i, "");
+    const numero = unit.numero ?? "";
     const fontSize = numero.length >= 5 ? "9px" : numero.length >= 4 ? "10px" : "12px";
 
     const wrapper = document.createElement("div");
