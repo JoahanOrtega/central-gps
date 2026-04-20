@@ -43,10 +43,9 @@ export const EmpresaLabel = ({ nombre, className }: EmpresaLabelProps) => {
                 aria-hidden="true"
             />
             <div className="flex items-center gap-1.5 text-sm">
-                <span className="font-medium text-slate-500">Empresa:</span>
                 <span
                     className="max-w-[140px] truncate font-semibold text-slate-700 sm:max-w-[200px] lg:max-w-[260px]"
-                    title={texto}  // full name en tooltip si el truncate lo recorta
+                    title={texto} 
                 >
                     {texto}
                 </span>

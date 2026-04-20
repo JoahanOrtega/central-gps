@@ -9,6 +9,7 @@ import type {
     RouteDisplayOptions
 } from '../types/map.types';
 import { haversineKm } from '../lib/map-geometry';
+import { formatDurationHms } from '@/lib/date-time';
 
 type DrawerMode = 'unit_select' | 'predefined' | 'custom' | 'summary';
 
@@ -222,15 +223,12 @@ export const useTripDrawer = ({
         onClose();
     }, [onRouteHidden, onClose]);
 
-    // Helper para formatear duración (se puede importar de lib)
-    const formatDuration = (seconds: number) => {
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = seconds % 60;
-        if (h > 0) return `${h}h ${m}m ${s}s`;
-        if (m > 0) return `${m}m ${s}s`;
-        return `${s}s`;
-    };
+    // Expone el formateador de duraciones de ruta al drawer.
+    // Se usa el helper global formatDurationHms (HH:MM:SS siempre) en vez
+    // del formateo local que se tenía antes (h/m/s legible pero sin segundos
+    // cuando había horas). La variable se sigue llamando `formatDuration`
+    // por contrato con TripDrawer — es un simple alias interno.
+    const formatDuration = formatDurationHms;
 
     return {
         // Datos del monitor

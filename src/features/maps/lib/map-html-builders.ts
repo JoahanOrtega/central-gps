@@ -6,7 +6,9 @@ import {
 } from "./telemetry-status";
 import {
   formatAppDateTimeShort,
+  formatCalendar,
   formatDuration,
+  formatDurationHms,
   formatElapsedTimeFromApiDate,
 } from "@/lib/date-time";
 
@@ -160,7 +162,12 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
     const inicio = viajeInicio ? new Date(viajeInicio).getTime() : null;
     const fin = viajeFin ? new Date(viajeFin).getTime() : null;
     if (!inicio || !fin || fin <= inicio) return null;
-    return formatDuration(Math.floor((fin - inicio) / 1000));
+    // formatDurationHms → "HH:MM:SS" con zero-padding. Coherente con la
+    // duración que se muestra en el TripDrawer y en los InfoWindows de la
+    // polilínea del recorrido. Aquí SÍ queremos precisión de segundos:
+    // un "último viaje" puede ser corto (3 minutos) y redondear ocultaría
+    // información útil.
+    return formatDurationHms(Math.floor((fin - inicio) / 1000));
   })();
 
   const viajeKm = (() => {
@@ -350,10 +357,18 @@ export const buildRouteArrowInfoWindowContent = (
   const speed = data.point.velocidad ?? 0;
   // Verde normal · amarillo cerca del límite · rojo exceso (mismo criterio del polyline)
   const speedColor = speed >= 80 ? "#dc2626" : speed >= 60 ? "#d97706" : "#16a34a";
-  // Hora limpia en UTC-6: tomar los primeros 16 chars del ISO con offset
-  const horaStr = data.point.fecha_hora_gps
-    ? data.point.fecha_hora_gps.replace("T", " ").slice(0, 16)
-    : "";
+  // Usar formatCalendar en lugar de slicing manual del ISO.
+  // Razones:
+  //   1. Respeta la zona horaria APP_TIMEZONE (UTC-6). El slicing anterior
+  //      (str.replace("T"," ").slice(0, 16)) tomaba la hora UTC cruda sin
+  //      convertir — cuando el backend enviaba "2024-03-15T14:30:00Z" el
+  //      usuario veía 14:30 en lugar de las 08:30 reales en Aguascalientes.
+  //   2. Formato legible "Hoy a las 08:30:15" / "Ayer a las 22:10:45" /
+  //      "15/03/2024 08:30:15" — siempre con segundos (explícito hasta el
+  //      segundo para análisis fino del recorrido).
+  //   3. Robusto ante cualquier formato ISO que envíe el backend (con o sin
+  //      offset de zona horaria).
+  const horaStr = formatCalendar(data.point.fecha_hora_gps);
 
   return `
     <div style="font-family:sans-serif; padding:6px 10px; min-width:130px; max-width:180px;">

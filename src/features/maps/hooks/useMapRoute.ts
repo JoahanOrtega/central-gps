@@ -16,7 +16,7 @@ import {
     buildSpeedEventContent,
 } from "../lib/map-html-builders";
 import { haversineKm } from "../lib/map-geometry";
-import { formatDuration, formatCalendar } from "@/lib/date-time";
+import { formatDurationHms, formatCalendar } from "@/lib/date-time";
 
 // ── Interfaz pública ──────────────────────────────────────────────────────────
 export interface UseMapRouteReturn {
@@ -236,7 +236,7 @@ export const useMapRoute = ({
                 points[i].latitud, points[i].longitud,
             );
 
-        const dur = formatDuration(Math.max(0, Math.floor(
+        const dur = formatDurationHms(Math.max(0, Math.floor(
             (new Date(last.fecha_hora_gps).getTime() -
                 new Date(first.fecha_hora_gps).getTime()) / 1000,
         )));
@@ -364,7 +364,7 @@ export const useMapRoute = ({
             const e = points[endIdx];
             if (!s || !e) return;
 
-            const dur = formatDuration(Math.max(0, Math.floor(
+            const dur = formatDurationHms(Math.max(0, Math.floor(
                 (new Date(e.fecha_hora_gps).getTime() -
                     new Date(s.fecha_hora_gps).getTime()) / 1000,
             )));

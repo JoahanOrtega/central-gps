@@ -147,10 +147,15 @@ export const formatElapsedTimeFromApiDate = (value?: string | null): string => {
  * Formatea una duración en segundos al formato "Xh Ym Zs".
  * Fiel a la función _duracion() de draw.js del PHP legacy.
  *
+ * Diseñada para el indicador "tiempo desde última transmisión" donde los
+ * segundos son ruido cuando ya pasaron horas. Para duraciones de rutas
+ * donde cada segundo importa, usar formatDurationHms.
+ *
  * Ejemplos:
- *   45   → "45s"
- *   125  → "2m 5s"
- *   3670 → "1h 1m 10s"
+ *   45      → "45s"
+ *   125     → "2m 5s"
+ *   3670    → "1h 1m"          (sin segundos cuando hay horas)
+ *   90000   → "1D 1h"           (sin minutos cuando hay días)
  */
 export const formatDuration = (totalSeconds: number): string => {
   const secs = Math.max(0, Math.floor(totalSeconds));
@@ -164,6 +169,38 @@ export const formatDuration = (totalSeconds: number): string => {
   if (hours > 0) return `${hours}h ${minutes}m`;
   if (minutes > 0) return `${minutes}m ${seconds}s`;
   return `${seconds}s`;
+};
+
+/**
+ * Formatea una duración en segundos al formato "HH:MM:SS" (o "Xd HH:MM:SS").
+ * Pensada para duraciones de rutas/trayectos donde cada segundo importa.
+ *
+ * Diferencia clave vs formatDuration: SIEMPRE incluye segundos. Nunca los
+ * omite, aunque haya horas o días. El reloj completo permite al usuario
+ * ver duraciones exactas de recorridos cortos (minuto y medio, 45 segundos).
+ *
+ * Formato con zero-padding para alineación visual en listas verticales
+ * (ej: columna de duración en la lista de trips).
+ *
+ * Ejemplos:
+ *   45      → "00:00:45"
+ *   125     → "00:02:05"
+ *   3670    → "01:01:10"
+ *   90000   → "1d 01:00:00"    (un día más HH:MM:SS)
+ */
+export const formatDurationHms = (totalSeconds: number): string => {
+  const secs = Math.max(0, Math.floor(totalSeconds));
+
+  const days = Math.floor(secs / 86400);
+  const hours = Math.floor((secs % 86400) / 3600);
+  const minutes = Math.floor((secs % 3600) / 60);
+  const seconds = secs % 60;
+
+  // Zero-pad a 2 dígitos para que cada campo ocupe el mismo ancho.
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  const hms = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+
+  return days > 0 ? `${days}d ${hms}` : hms;
 };
 
 /**
