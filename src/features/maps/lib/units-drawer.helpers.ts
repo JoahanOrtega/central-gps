@@ -7,7 +7,7 @@ import { getTelemetryMapState } from "./telemetry-status";
  */
 export const getUnitStatusDotClass = (unit: MapUnitItem) => {
   const mapState = getTelemetryMapState(
-    unit.telemetry?.status,
+    unit.telemetry?.engine_state,
     unit.telemetry?.velocidad,
   );
 

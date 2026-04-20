@@ -1,5 +1,5 @@
 import type { RoutePoint } from "../types/map.types";
-import { haversineKm } from "./map-geometry"; 
+import { haversineKm } from "./map-geometry";
 
 /**
  * Resumen calculado de un recorrido.
@@ -35,9 +35,15 @@ export const formatDuration = (seconds: number) => {
  * Genera un resumen completo del recorrido a partir de sus puntos.
  *
  * Reglas actuales:
- * - OFF => tiempo apagado
- * - ON + velocidad >= 1 => movimiento
- * - ON + velocidad < 1 => stop
+ * - engine_state === "off" => tiempo apagado
+ * - engine_state === "on" + velocidad >= 1 => movimiento
+ * - engine_state === "on" + velocidad < 1 => stop (relentí)
+ * - engine_state === "unknown" => no se acumula (se descarta del resumen)
+ *
+ * Nota: antes este cálculo usaba constantes locales STATUS_ON/STATUS_OFF
+ * y parseaba bits del campo `status`. Esa lógica fue unificada en el
+ * backend (utils/engine_state.py) y ahora se consume desde el campo
+ * derivado `engine_state` de cada punto.
  */
 export const getRouteSummary = (points: RoutePoint[]): RouteSummary => {
   if (!points.length) {
@@ -56,9 +62,6 @@ export const getRouteSummary = (points: RoutePoint[]): RouteSummary => {
   let stopSeconds = 0;
   let offSeconds = 0;
 
-  const STATUS_OFF = "000000000";
-  const STATUS_ON = "100000000";
-
   for (let index = 1; index < points.length; index += 1) {
     const previous = points[index - 1];
     const current = points[index];
@@ -72,8 +75,9 @@ export const getRouteSummary = (points: RoutePoint[]): RouteSummary => {
     );
 
     const previousSpeed = previous.velocidad ?? 0;
-    const previousStatus = (previous.status || "").trim();
+    const previousEngineState = previous.engine_state;
 
+    // Distancia acumulada siempre que ambos puntos tengan coordenadas
     if (
       previous.latitud != null &&
       previous.longitud != null &&
@@ -88,18 +92,23 @@ export const getRouteSummary = (points: RoutePoint[]): RouteSummary => {
       );
     }
 
-    if (previousStatus === STATUS_OFF) {
+    // Clasificación del intervalo según engine_state
+    if (previousEngineState === "off") {
       offSeconds += deltaSeconds;
       continue;
     }
 
-    if (previousStatus === STATUS_ON && previousSpeed >= 1) {
+    if (previousEngineState === "on" && previousSpeed >= 1) {
       movingSeconds += deltaSeconds;
       movementCount += 1;
       continue;
     }
 
-    stopSeconds += deltaSeconds;
+    if (previousEngineState === "on") {
+      // motor encendido pero sin velocidad → relentí
+      stopSeconds += deltaSeconds;
+    }
+    // engine_state === "unknown" → no se suma a ninguna categoría
   }
 
   return {

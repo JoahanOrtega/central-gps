@@ -52,7 +52,7 @@ export const useMapUnits = ({
         const map = mapRef.current!;
         const infoWindow = infoWindowRef.current!;
 
-        marker.addListener("click", () => {
+        marker.addListener("gmp-click", () => {
             infoWindow.setContent(buildUnitInfoWindowContent(unit));
             infoWindow.open({ map, anchor: marker });
         });
@@ -131,15 +131,17 @@ export const useMapUnits = ({
                 lng: unit.telemetry.longitud,
             };
 
-            // Unidades encendidas aparecen encima de las apagadas (igual que legacy)
-            const ignicion = (unit.telemetry?.status ?? "").charAt(0) === "1" ? 1 : 0;
+            // Unidades encendidas aparecen encima de las apagadas (igual que legacy).
+            // Consumimos engine_state pre-resuelto por el backend, en vez de
+            // reinterpretar bit 1 del status crudo.
+            const isOn = unit.engine_state === "on";
 
             const marker = new window.google.maps.marker.AdvancedMarkerElement({
                 map,
                 position,
                 title: unit.numero,
                 content: buildUnitMarkerContent(unit),
-                zIndex: ignicion === 1 ? 100 : 50,
+                zIndex: isOn ? 100 : 50,
             });
 
             attachUnitMarkerListeners(marker, unit);
@@ -178,9 +180,9 @@ export const useMapUnits = ({
         };
         marker.content = buildUnitMarkerContent(unit);
 
-        // Actualizar zIndex según ignición
-        const ignicion = (unit.telemetry?.status ?? "").charAt(0) === "1" ? 1 : 0;
-        marker.zIndex = ignicion === 1 ? 100 : 50;
+        // Actualizar zIndex según el engine_state pre-resuelto por el backend.
+        const isOn = unit.engine_state === "on";
+        marker.zIndex = isOn ? 100 : 50;
 
         // Si el infoWindow está abierto en esta unidad, actualizar su contenido
         const infoWindow = infoWindowRef.current;

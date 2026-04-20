@@ -142,9 +142,6 @@ export const useMapRoute = ({
         let distanceKm = 0, movingSeconds = 0, idleSeconds = 0;
         let offSeconds = 0, speedingCount = 0;
 
-        const OFF = "000000000";
-        const ON = "100000000";
-
         for (let i = 1; i < points.length; i++) {
             const prev = points[i - 1];
             const curr = points[i];
@@ -152,15 +149,18 @@ export const useMapRoute = ({
                 (new Date(curr.fecha_hora_gps).getTime() -
                     new Date(prev.fecha_hora_gps).getTime()) / 1000,
             ));
-            const status = (prev.status ?? "").trim();
+            const engineState = prev.engine_state;
             const speed = prev.velocidad ?? 0;
 
             distanceKm += haversineKm(prev.latitud, prev.longitud, curr.latitud, curr.longitud);
 
-            if (status === OFF) { offSeconds += dt; continue; }
-            if (speed >= 1) { movingSeconds += dt; }
-            else { idleSeconds += dt; }
-            if (velMax > 0 && Math.round(speed) >= velMax) speedingCount++;
+            if (engineState === "off") { offSeconds += dt; continue; }
+            if (engineState === "on") {
+                if (speed >= 1) { movingSeconds += dt; }
+                else { idleSeconds += dt; }
+                if (velMax > 0 && Math.round(speed) >= velMax) speedingCount++;
+            }
+            // engine_state === "unknown" → se descarta del cálculo
         }
 
         return {
@@ -244,11 +244,11 @@ export const useMapRoute = ({
         const startM = createRouteFlagMarker(map, { lat: first.latitud, lng: first.longitud }, "I", "#16a34a");
         const endM = createRouteFlagMarker(map, { lat: last.latitud, lng: last.longitud }, "F", "#374151");
 
-        startM.addListener("click", () => {
+        startM.addListener("gmp-click", () => {
             infoWindowRef.current?.setContent(buildStartFlagContent(formatCalendar(first.fecha_hora_gps)));
             infoWindowRef.current?.open({ map, anchor: startM });
         });
-        endM.addListener("click", () => {
+        endM.addListener("gmp-click", () => {
             infoWindowRef.current?.setContent(buildEndFlagContent(Number(totalKm.toFixed(2)), dur));
             infoWindowRef.current?.open({ map, anchor: endM });
         });
@@ -276,8 +276,10 @@ export const useMapRoute = ({
             const p = points[i];
             const next = points[i + 1];
 
-            // Solo puntos con movimiento real
-            if ((p.status ?? "").charAt(0) !== "1") continue;
+            // Solo puntos con movimiento real — motor encendido + velocidad > 0 + rumbo.
+            // Usamos engine_state pre-resuelto por el backend para coherencia total
+            // con el resto del refactor (Sección 4).
+            if (p.engine_state !== "on") continue;
             if ((p.velocidad ?? 0) < 1) continue;
             if ((p.grados ?? 0) === 0) continue;
 
@@ -296,7 +298,7 @@ export const useMapRoute = ({
             });
 
             const distFromStart = Number(cumDistKm.toFixed(2));
-            marker.addListener("click", () => {
+            marker.addListener("gmp-click", () => {
                 infoWindow.setContent(
                     buildRouteArrowInfoWindowContent(unitLabel, {
                         point: p, index: i,
@@ -328,8 +330,6 @@ export const useMapRoute = ({
         const map = mapRef.current!;
         const infoWindow = infoWindowRef.current!;
         const vis = visibilityRef.current;
-        const OFF = "000000000";
-        const ON = "100000000";
 
         type State = "none" | "stop" | "engine" | "speed";
         let state: State = "none";
@@ -351,7 +351,7 @@ export const useMapRoute = ({
                 content: buildRouteEventMarkerContent(type, velMaxima),
                 zIndex: 20,
             });
-            m.addListener("click", () => {
+            m.addListener("gmp-click", () => {
                 infoWindow.setContent(html);
                 infoWindow.open({ map, anchor: m });
             });
@@ -394,7 +394,7 @@ export const useMapRoute = ({
 
         for (let i = 0; i < points.length; i++) {
             const p = points[i];
-            const status = (p.status ?? "").trim();
+            const engineState = p.engine_state;
             const speed = p.velocidad ?? 0;
 
             if (i > 0) {
@@ -405,16 +405,19 @@ export const useMapRoute = ({
             }
 
             // ── Motor apagado ─────────────────────────────────────────────────
-            if (status === OFF && state === "none") {
+            // Usamos engine_state === "off" (pre-resuelto por el backend),
+            // no el status crudo. Esto evita falsos positivos por snapshots
+            // de status=0 con motor realmente encendido.
+            if (engineState === "off" && state === "none") {
                 state = "engine"; eventStart = i;
-            } else if (state === "engine" && status !== OFF) {
+            } else if (state === "engine" && engineState !== "off") {
                 closeState(i); state = "none";
             }
 
-            // ── Parada (relentí) ──────────────────────────────────────────────
-            if (status === ON && speed < 1 && state === "none") {
+            // ── Parada (relentí) — motor encendido pero sin velocidad ─────────
+            if (engineState === "on" && speed < 1 && state === "none") {
                 state = "stop"; eventStart = i;
-            } else if (state === "stop" && !(status === ON && speed < 1)) {
+            } else if (state === "stop" && !(engineState === "on" && speed < 1)) {
                 closeState(i); state = "none";
             }
 

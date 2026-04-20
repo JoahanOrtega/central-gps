@@ -1,8 +1,5 @@
 import type { MapUnitItem } from "../types/map.types";
-import {
-    getTelemetryStatusMeta,
-    getIgnicion,
-} from "./telemetry-status";
+import { getTelemetryStatusMeta } from "./telemetry-status";
 
 // ── Marker de búsqueda de dirección ──────────────────────────────────────────
 export const buildSearchMarkerContent = (): HTMLElement => {
@@ -33,10 +30,11 @@ export const buildUnitMarkerContent = (unit: MapUnitItem): HTMLElement => {
     const t = unit.telemetry;
     const velocidad = t?.velocidad ?? 0;
     const grados = t?.grados ?? 0;
-    const ignicion = getIgnicion(t?.status);
+    // El estado del motor viene pre-resuelto por el backend.
+    const engineState = t?.engine_state ?? "unknown";
 
     const meta = getTelemetryStatusMeta(
-        t?.status,
+        engineState,
         velocidad,
         t?.segundos,
         t?.segundos_sistema,
@@ -44,7 +42,7 @@ export const buildUnitMarkerContent = (unit: MapUnitItem): HTMLElement => {
     );
 
     // En movimiento → flecha; detenida/apagada → círculo
-    const enMovimiento = ignicion === 1 && Math.round(velocidad) >= 1;
+    const enMovimiento = engineState === "on" && Math.round(velocidad) >= 1;
 
     const numero = unit.numero ?? "";
     const fontSize = numero.length >= 5 ? "9px" : numero.length >= 4 ? "10px" : "12px";
