@@ -137,7 +137,7 @@ export const useMapPois = ({
             content: buildPoiMarkerContent(),
         });
 
-        marker.addListener("click", () => {
+        marker.addListener("gmp-click", () => {
             infoWindow.setContent(buildPoiInfoWindowContent(poi));
             infoWindow.open({ map, anchor: marker });
         });
@@ -170,7 +170,7 @@ export const useMapPois = ({
                 content: buildPoiMarkerContent(),
             });
 
-            marker.addListener("click", () => {
+            marker.addListener("gmp-click", () => {
                 infoWindow.setContent(buildPoiInfoWindowContent(poi));
                 infoWindow.open({ map, anchor: marker });
             });
