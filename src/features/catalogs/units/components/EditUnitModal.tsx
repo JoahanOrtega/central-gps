@@ -35,7 +35,7 @@
 //     códigos semánticos (UNIT_NOT_FOUND, FIELDS_NOT_ALLOWED) y los
 //     mapeamos a textos accionables.
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BusFront, Pencil, Lock, AlertCircle, RotateCcw } from "lucide-react";
 
 import {
@@ -48,6 +48,12 @@ import {
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 import { useUnitEdit } from "../hooks/useUnitEdit";
+import { EditUnitGeneralTab } from "./EditUnitGeneralTab";
+import { EditUnitAdditionalTab } from "./EditUnitAdditionalTab";
+import {
+    validateUnitForm,
+    hasErrors,
+} from "../lib/edit-unit-validation";
 
 // ── Props ────────────────────────────────────────────────────────────────────
 interface EditUnitModalProps {
@@ -68,6 +74,8 @@ export const EditUnitModal = ({ idUnidad, onClose }: EditUnitModalProps) => {
         detail,
         isLoading,
         loadError,
+        form,
+        patchForm,
         isDirty,
         isSaving,
         saveError,
@@ -78,6 +86,15 @@ export const EditUnitModal = ({ idUnidad, onClose }: EditUnitModalProps) => {
     } = useUnitEdit({ idUnidad });
 
     const isOpen = idUnidad !== null;
+
+    // Validación en vivo: recalcula en cada cambio del form.
+    // useMemo evita recorrer 20 campos cada render innecesario.
+    // El resultado se pasa a cada tab que lo distribuye a sus campos.
+    const errors = useMemo(
+        () => (canEdit ? validateUnitForm(form) : {}),
+        [form, canEdit],
+    );
+    const formHasErrors = hasErrors(errors);
 
     // ── Handlers ───────────────────────────────────────────────────────────
     // Si hay cambios sin guardar, pedir confirmación antes de cerrar.
@@ -96,11 +113,36 @@ export const EditUnitModal = ({ idUnidad, onClose }: EditUnitModalProps) => {
     };
 
     const handleSave = async () => {
+        // No llamar al backend si hay errores client-side. El botón debería
+        // estar deshabilitado en ese caso, pero validamos de nuevo por si
+        // el usuario dispara con Ctrl+S.
+        if (formHasErrors) return;
         const ok = await save();
         // Tras un guardado exitoso cerramos el modal. El usuario no tiene
         // que hacer click extra — Fitts + economía de clicks.
         if (ok) onClose();
     };
+
+    // Atajo Ctrl+S / Cmd+S para guardar sin tener que hacer click.
+    // Solo cuando el modal está abierto, puede editar, hay cambios y
+    // no está ya guardando. useEffect con cleanup porque es un listener
+    // global (document).
+    useEffect(() => {
+        if (!isOpen || !canEdit) return;
+        const handleKey = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+                e.preventDefault();
+                if (isDirty && !isSaving && !formHasErrors) {
+                    handleSave();
+                }
+            }
+        };
+        document.addEventListener("keydown", handleKey);
+        return () => document.removeEventListener("keydown", handleKey);
+        // handleSave depende de save que es estable (useMutation); el resto
+        // son flags simples — ok listar explícitamente sin función.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, canEdit, isDirty, isSaving, formHasErrors]);
 
     // Cuando se usa onOpenChange del Dialog, re-dirigir a nuestro flujo
     // para que la confirmación de cambios también se dispare con Escape
@@ -181,23 +223,24 @@ export const EditUnitModal = ({ idUnidad, onClose }: EditUnitModalProps) => {
                         {/* Skeleton mientras carga */}
                         {isLoading && <FormSkeleton />}
 
-                        {/* Placeholders temporales — los campos llegan en el turno 4 */}
+                        {/* Tabs con los campos reales */}
                         {!isLoading && detail && (
-                            <div className="space-y-6">
+                            <div>
                                 {activeTab === "general" && (
-                                    <PlaceholderTab
-                                        title="Datos Generales"
-                                        hint={
-                                            canViewTechnical
-                                                ? "Incluye identidad de la unidad, asignación de operador y grupo, y equipo instalado (IMEI, chip, inputs/outputs)."
-                                                : "Incluye identidad de la unidad y asignación de operador y grupo."
-                                        }
+                                    <EditUnitGeneralTab
+                                        form={form}
+                                        patchForm={patchForm}
+                                        canEdit={canEdit}
+                                        canViewTechnical={canViewTechnical}
+                                        errors={errors}
                                     />
                                 )}
                                 {activeTab === "additional" && (
-                                    <PlaceholderTab
-                                        title="Datos Adicionales"
-                                        hint="Combustible, seguro y verificación vehicular."
+                                    <EditUnitAdditionalTab
+                                        form={form}
+                                        patchForm={patchForm}
+                                        canEdit={canEdit}
+                                        errors={errors}
                                     />
                                 )}
                             </div>
@@ -236,7 +279,14 @@ export const EditUnitModal = ({ idUnidad, onClose }: EditUnitModalProps) => {
                                 <button
                                     type="button"
                                     onClick={handleSave}
-                                    disabled={!isDirty || isSaving}
+                                    disabled={!isDirty || isSaving || formHasErrors}
+                                    title={
+                                        formHasErrors
+                                            ? "Corrige los errores marcados para guardar"
+                                            : !isDirty
+                                                ? "No hay cambios para guardar"
+                                                : "Guardar cambios (Ctrl+S)"
+                                    }
                                     className="flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition-colors enabled:hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     {isSaving ? (
@@ -376,22 +426,5 @@ const FormSkeleton = () => (
             <div className="h-10 animate-pulse rounded bg-slate-100" />
         </div>
         <div className="h-20 animate-pulse rounded bg-slate-100" />
-    </div>
-);
-
-// Placeholder temporal — reemplazar en el turno 4 con los campos reales.
-const PlaceholderTab = ({
-    title,
-    hint,
-}: {
-    title: string;
-    hint: string;
-}) => (
-    <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-        <p className="text-sm font-medium text-slate-600">{title}</p>
-        <p className="mt-1 text-xs text-slate-500">{hint}</p>
-        <p className="mt-3 text-xs italic text-slate-400">
-            Los campos del formulario se implementan en el siguiente turno.
-        </p>
     </div>
 );
