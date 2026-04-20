@@ -95,7 +95,8 @@ export const useTripDrawer = ({
         setMode('summary');
 
         // Calcular resumen extendido (similar a getRouteSummary pero con idle y speeding)
-        // Por ahora usamos un cálculo básico; luego se puede mover a una función helper
+        // Nota: ya no se parsea el campo `status` crudo. El engine_state viene
+        // pre-resuelto por el backend (prioridad tipo_alerta > status).
         let movementCount = 0;
         let distanceKm = 0;
         let movingSeconds = 0;
@@ -103,8 +104,6 @@ export const useTripDrawer = ({
         let offSeconds = 0;
         let speedingCount = 0;
 
-        const STATUS_OFF = "000000000";
-        const STATUS_ON = "100000000";
         const SPEEDING_THRESHOLD = 80; // km/h, ajustable
 
         for (let i = 1; i < points.length; i++) {
@@ -116,7 +115,7 @@ export const useTripDrawer = ({
             );
 
             const speed = prev.velocidad ?? 0;
-            const status = (prev.status || '').trim();
+            const engineState = prev.engine_state;
 
             // Distancia
             if (prev.latitud && prev.longitud && curr.latitud && curr.longitud) {
@@ -129,10 +128,10 @@ export const useTripDrawer = ({
                 speedingCount++;
             }
 
-            // Clasificación de tiempo
-            if (status === STATUS_OFF) {
+            // Clasificación de tiempo por engine_state
+            if (engineState === "off") {
                 offSeconds += deltaSeconds;
-            } else if (status === STATUS_ON) {
+            } else if (engineState === "on") {
                 if (speed >= 1) {
                     movingSeconds += deltaSeconds;
                     movementCount++;
@@ -140,6 +139,7 @@ export const useTripDrawer = ({
                     idleSeconds += deltaSeconds;
                 }
             }
+            // engine_state === "unknown" → se descarta del cálculo
         }
 
         setExtendedSummary({
@@ -216,29 +216,6 @@ export const useTripDrawer = ({
         }
     };
 
-    // Archivar recorrido actual
-    const handleArchiveTrip = async () => {
-        if (!tripMonitor.selectedUnitImei || !tripMonitor.currentRoutePoints.length) {
-            notify.warning('No hay recorrido para archivar');
-            return;
-        }
-
-        const points = tripMonitor.currentRoutePoints;
-        const start = points[0].fecha_hora_gps;
-        const end = points[points.length - 1].fecha_hora_gps;
-
-        try {
-            await telemetryService.archiveTrip(tripMonitor.selectedUnitImei, {
-                start,
-                end,
-                label: `Recorrido ${new Date(start).toLocaleDateString()}`,
-            });
-            notify.success('Recorrido archivado correctamente');
-        } catch (error) {
-            notify.error('Error al archivar el recorrido');
-        }
-    };
-
     // Reset al cambiar de unidad o cerrar
     const handleClose = useCallback(() => {
         onRouteHidden();
@@ -287,7 +264,6 @@ export const useTripDrawer = ({
         handleLoadPredefinedRoute,
         handleLoadCustomRange,
         handleLoadTripById: tripMonitor.loadTripById,
-        handleArchiveTrip,
         handleClose,
     };
 };
