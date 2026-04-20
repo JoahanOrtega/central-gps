@@ -6,6 +6,8 @@ import type {
     EmpresaResumen,
     EmpresaFormData,
     UsuarioEmpresa,
+    AdminEmpresaFormData,
+    AdminEmpresaCreado,
     PermisoSistema,
     PermisoFormData,
     RegistroAuditoria,
@@ -40,6 +42,29 @@ export const toggleEmpresaStatus = (
 /** Lista todos los usuarios de una empresa */
 export const getUsuariosEmpresa = (idEmpresa: number): Promise<UsuarioEmpresa[]> =>
     apiFetch<UsuarioEmpresa[]>(`/admin-erp/empresas/${idEmpresa}/usuarios`);
+
+/**
+ * Crea un usuario admin para una empresa existente.
+ *
+ * El backend asegura la atomicidad de la operación:
+ *   - Inserta en t_usuarios (con bcrypt)
+ *   - Inserta en r_empresa_usuarios con es_admin=1
+ *   - Registra auditoría
+ * Si algo falla, rollback completo.
+ *
+ * Errores posibles (la función lanza apiFetchError con el mensaje):
+ *   - 404: La empresa no existe o está inactiva
+ *   - 409: El nombre de usuario ya está en uso
+ *   - 422: Datos inválidos (fields con el detalle por campo)
+ */
+export const createAdminEmpresa = (
+    idEmpresa: number,
+    data: AdminEmpresaFormData,
+): Promise<{ message: string; usuario: AdminEmpresaCreado }> =>
+    apiFetch(`/admin-erp/empresas/${idEmpresa}/usuarios`, {
+        method: "POST",
+        body: data,
+    });
 
 /** Promueve o revoca el rol admin de empresa a un usuario */
 export const setAdminEmpresa = (

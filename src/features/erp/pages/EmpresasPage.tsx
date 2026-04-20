@@ -1,11 +1,22 @@
 import { useCallback, useState } from "react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
-import { Building2, Plus, Search } from "lucide-react";
+import { Building2, Plus, Search, UserPlus } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getEmpresas, toggleEmpresaStatus, createEmpresa, updateEmpresa } from "../services/erpService";
-import type { EmpresaResumen, EmpresaFormData } from "../types/erp.types";
+import {
+    getEmpresas,
+    toggleEmpresaStatus,
+    createEmpresa,
+    updateEmpresa,
+    createAdminEmpresa,
+} from "../services/erpService";
+import type {
+    EmpresaResumen,
+    EmpresaFormData,
+    AdminEmpresaFormData,
+} from "../types/erp.types";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmpresaModal } from "../components/EmpresaModal";
+import { AdminEmpresaModal } from "../components/AdminEmpresaModal";
 import { queryKeys } from "@/lib/query-keys";
 
 interface ConfirmState {
@@ -25,6 +36,9 @@ export const EmpresasPage = () => {
     const [search, setSearch] = useState("");
     const [modalOpen, setModalOpen] = useState(false);
     const [editTarget, setEditTarget] = useState<EmpresaResumen | null>(null);
+    // Empresa sobre la que se está creando un admin (null = modal cerrado).
+    // El modal usa solo el nombre para mostrarlo como contexto al sudo_erp.
+    const [adminModalTarget, setAdminModalTarget] = useState<EmpresaResumen | null>(null);
     const [confirmState, setConfirmState] = useState<ConfirmState>(CONFIRM_CLOSED);
 
     // TanStack Query — reemplaza useState+useCallback+useEffect
@@ -77,6 +91,31 @@ export const EmpresasPage = () => {
             await invalidar();
         } catch (e) { showError(e instanceof Error ? e.message : "Error al guardar la empresa"); }
     }, [editTarget, showError]);
+
+    // Crea un usuario admin para la empresa del adminModalTarget.
+    // Backend es transaccional: si la creación falla, rollback completo.
+    // El modal se cierra solo cuando la petición es exitosa (para que el usuario
+    // pueda ver y corregir errores de validación que devuelva el backend).
+    const handleAdminModalSave = useCallback(async (data: AdminEmpresaFormData) => {
+        if (!adminModalTarget) return;
+        try {
+            await createAdminEmpresa(adminModalTarget.id_empresa, data);
+            setAdminModalTarget(null);
+            await invalidar();
+            setConfirmState({
+                open: true,
+                title: "Administrador creado",
+                description: `El usuario "${data.usuario}" fue creado como administrador de "${adminModalTarget.empresa}".`,
+                confirmText: "Entendido",
+                confirmButtonClassName: "bg-emerald-600 text-white hover:bg-emerald-700",
+                onConfirm: () => setConfirmState(CONFIRM_CLOSED),
+            });
+        } catch (e) {
+            // Error se muestra pero el modal permanece abierto, para que el
+            // sudo_erp corrija sin volver a llenar el formulario desde cero.
+            showError(e instanceof Error ? e.message : "Error al crear el administrador");
+        }
+    }, [adminModalTarget, showError]);
 
     const errorMessage = error instanceof Error ? error.message : null;
 
@@ -134,6 +173,16 @@ export const EmpresasPage = () => {
                                             <td className="border-b border-slate-200 px-4 py-3">
                                                 <div className="flex items-center gap-2">
                                                     <button type="button" onClick={() => { setEditTarget(emp); setModalOpen(true); }} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">Editar</button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAdminModalTarget(emp)}
+                                                        disabled={emp.status !== 1}
+                                                        title={emp.status === 1 ? "Crear usuario administrador" : "Activa la empresa para crear admins"}
+                                                        className="flex items-center gap-1 rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
+                                                        Admin
+                                                    </button>
                                                     <button type="button" onClick={() => handleToggleStatus(emp)} className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${emp.status === 1 ? "border-red-200 text-red-600 hover:bg-red-50" : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"}`}>
                                                         {emp.status === 1 ? "Suspender" : "Activar"}
                                                     </button>
@@ -149,6 +198,14 @@ export const EmpresasPage = () => {
             </section>
 
             {modalOpen && <EmpresaModal empresa={editTarget} onSave={handleModalSave} onClose={() => setModalOpen(false)} />}
+
+            {adminModalTarget && (
+                <AdminEmpresaModal
+                    empresaNombre={adminModalTarget.empresa}
+                    onSave={handleAdminModalSave}
+                    onClose={() => setAdminModalTarget(null)}
+                />
+            )}
 
             <ConfirmDialog open={confirmState.open} onOpenChange={(open) => !open && setConfirmState(CONFIRM_CLOSED)} title={confirmState.title} description={confirmState.description} confirmText={confirmState.confirmText} confirmButtonClassName={confirmState.confirmButtonClassName} onConfirm={confirmState.onConfirm} />
         </main>

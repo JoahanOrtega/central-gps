@@ -39,6 +39,34 @@ export interface UsuarioEmpresa {
   total_permisos: number;
 }
 
+// Payload de creación de un admin de empresa.
+// Coincide con CreateEmpresaAdminSchema del backend (validators/erp_validators.py).
+//
+// Restricciones aplicadas (duplicadas en frontend para UX inmediato y en
+// backend para seguridad real):
+//   - usuario: 3-100 caracteres
+//   - clave:   8-128 caracteres
+//   - nombre:  2-150 caracteres
+//   - email, telefono: opcionales
+export interface AdminEmpresaFormData {
+  usuario: string;
+  clave: string;
+  nombre: string;
+  email?: string | null;
+  telefono?: string | null;
+}
+
+// Respuesta del endpoint POST /admin-erp/empresas/:id/usuarios.
+// Coincide con el dict que retorna create_empresa_admin del backend.
+export interface AdminEmpresaCreado {
+  id_usuario: number;
+  usuario: string;
+  nombre: string;
+  id_empresa: number;
+  rol: string;
+  es_admin_empresa: boolean;
+}
+
 // ── Permisos del sistema ──────────────────────────────────
 export interface PermisoSistema {
   id_permiso: number;
