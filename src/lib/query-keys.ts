@@ -4,6 +4,12 @@ export const queryKeys = {
         all: ["units"] as const,
         list: (idEmpresa: number | null | undefined, search = "") =>
             ["units", "list", idEmpresa, search] as const,
+        // Detalle completo de una unidad (para el modal de edición).
+        // Incluye id_empresa en la key porque el backend filtra campos
+        // según el contexto de empresa del JWT — si el sudo_erp cambia
+        // de empresa, el detalle es otro y el caché no debe cruzarse.
+        detail: (idUnidad: number, idEmpresa: number | null | undefined) =>
+            ["units", "detail", idUnidad, idEmpresa] as const,
     },
     pois: {
         all: ["pois"] as const,

@@ -5,6 +5,7 @@ import { unitService } from "../services/unitService";
 import type { UnitItem } from "../types/unit.types";
 import { UnitCard } from "./UnitCard";
 import { NewUnitModal } from "./NewUnitModal";
+import { EditUnitModal } from "./EditUnitModal";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { usePermiso } from "@/hooks/usePermiso";
 import { SkeletonGrid } from "@/components/shared/SkeletonCard";
@@ -16,6 +17,10 @@ export const UnitsCatalogView = () => {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  // id de la unidad que se está editando — null cuando el modal está cerrado.
+  // Usamos el id como source of truth para que el modal sepa qué cargar
+  // sin que el parent tenga que pasar el UnitItem completo (menos acoplamiento).
+  const [editingUnitId, setEditingUnitId] = useState<number | null>(null);
   const { idEmpresa } = useEmpresaActiva();
 
   // Permiso para crear unidades (cund3).
@@ -23,6 +28,12 @@ export const UnitsCatalogView = () => {
   // El backend también valida este permiso — esto es solo UX para
   // evitar mostrar un botón que respondería 403.
   const puedeCrearUnidad = usePermiso("cund3");
+
+  // Permiso para editar unidades (cund_edit). Determina si las cards
+  // muestran el menú de acciones con "Editar". sudo_erp lo tiene por
+  // bypass; admin_empresa lo hereda del rol; usuario solo si su admin
+  // se lo asignó vía r_usuario_permisos.
+  const puedeEditarUnidad = usePermiso("cund_edit");
 
   // Debounce de 350ms — actualiza la queryKey solo después de que el usuario
   // deja de escribir, evitando una petición por cada tecla presionada
@@ -100,13 +111,28 @@ export const UnitsCatalogView = () => {
 
           {!showSkeleton && !errorMessage && units.length > 0 && (
             <div className="grid grid-cols-1 gap-4 md:gap-6 2xl:grid-cols-2">
-              {units.map((unit) => <UnitCard key={unit.id} unit={unit} />)}
+              {units.map((unit) => (
+                <UnitCard
+                  key={unit.id}
+                  unit={unit}
+                  canEdit={puedeEditarUnidad}
+                  onEdit={(id) => setEditingUnitId(id)}
+                />
+              ))}
             </div>
           )}
         </div>
       </section>
 
       <NewUnitModal open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen} onCreated={() => refetch()} />
+
+      {/* Modal de edición. Se controla con editingUnitId: null = cerrado.
+          El modal fetchea el detalle por su cuenta cuando cambia el id,
+          así evitamos prefetchear en el parent datos que tal vez no se usen. */}
+      <EditUnitModal
+        idUnidad={editingUnitId}
+        onClose={() => setEditingUnitId(null)}
+      />
     </main>
   );
 };
