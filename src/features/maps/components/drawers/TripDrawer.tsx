@@ -22,8 +22,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTripDrawer } from '../../hooks/useTripDrawer';
 import { formatAppDateTimeShort, todayLocalString } from '@/lib/date-time';
-import { getTelemetryStatusMeta, getIgnicion } from '../../lib/telemetry-status';
-import { X, ChevronDown, Calendar, RotateCcw, Archive } from 'lucide-react';
+import { getTelemetryStatusMeta } from '../../lib/telemetry-status';
+import { X, ChevronDown, Calendar, RotateCcw } from 'lucide-react';
 import type { RoutePoint, RouteDisplayOptions, CustomRangeParams } from '../../types/map.types';
 
 interface TripDrawerProps {
@@ -84,7 +84,7 @@ export const TripDrawer = ({
     extendedSummary, formatDuration,
     loadUnits, handleUnitChange,
     handleLoadPredefinedRoute, handleLoadCustomRange,
-    handleLoadTripById, handleArchiveTrip, handleClose,
+    handleLoadTripById, handleClose,
   } = useTripDrawer({
     onClose,
     onRouteSelected,
@@ -127,7 +127,7 @@ export const TripDrawer = ({
   const renderUnitCard = () => {
     if (!selectedUnit) return null;
     const t = selectedUnit.telemetry;
-    const meta = getTelemetryStatusMeta(t?.status, t?.velocidad, t?.segundos);
+    const meta = getTelemetryStatusMeta(t?.engine_state, t?.velocidad, t?.segundos);
     return (
       <div
         className="mx-3 mb-3 flex items-center gap-3 rounded-xl p-2.5"
@@ -208,8 +208,8 @@ export const TripDrawer = ({
                   title={label}
                   onClick={() => toggleLayer(key as keyof RouteDisplayOptions)}
                   className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-all ${on
-                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                      : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300 hover:text-slate-500'
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300 hover:text-slate-500'
                     }`}
                 >
                   <img
@@ -228,7 +228,7 @@ export const TripDrawer = ({
         </div>
 
         {/* Acciones */}
-        <div className="flex items-center justify-between border-t border-slate-200 px-3 py-2">
+        <div className="flex items-center justify-start border-t border-slate-200 px-3 py-2">
           <button
             type="button"
             onClick={() => { setMode('predefined'); }}
@@ -236,14 +236,6 @@ export const TripDrawer = ({
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Cambiar periodo
-          </button>
-          <button
-            type="button"
-            onClick={handleArchiveTrip}
-            className="flex items-center gap-1.5 rounded-md border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50"
-          >
-            <Archive className="h-3.5 w-3.5" />
-            Archivar
           </button>
         </div>
       </div>
@@ -361,7 +353,7 @@ export const TripDrawer = ({
           <option value="">— seleccione una unidad —</option>
           {units.map((unit) => (
             <option key={unit.id} value={unit.imei}>
-              {getIgnicion(unit.telemetry?.status) === 1 ? '●' : '○'}{' '}
+              {unit.engine_state === "on" ? '●' : '○'}{' '}
               [{unit.numero}] {unit.marca} {unit.modelo}
             </option>
           ))}
@@ -399,10 +391,10 @@ export const TripDrawer = ({
                     onClick={() => { setActiveRangeKey(key); void handleLoadPredefinedRoute(key); }}
                     disabled={isLoadingRoute}
                     className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40 ${activeRangeKey === key
-                        ? 'border-emerald-500 bg-emerald-600 text-white'
-                        : accent
-                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      ? 'border-emerald-500 bg-emerald-600 text-white'
+                      : accent
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                       }`}
                   >
                     {label}
