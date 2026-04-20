@@ -71,7 +71,7 @@ const validateRendimiento = (value: number | null | undefined): string | null =>
 const validateImei = (value: string | undefined): string | null => {
     if (value === undefined) return null; // opcional en PATCH
     if (value === "") return "El IMEI es obligatorio";
-    if (!/^\d{15}$/.test(value)) {
+    if (!/^\d{10}$/.test(value)) {
         return "Debe tener exactamente 10 dígitos numéricos";
     }
     return null;
