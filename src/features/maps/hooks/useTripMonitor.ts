@@ -38,7 +38,13 @@ export const useTripMonitor = () => {
   const { idEmpresa } = useEmpresaActiva();
 
   const selectedUnit = useMemo(
-    () => units.find((unit) => unit.imei === selectedUnitImei) ?? null,
+    // Guard defensivo: units siempre debería ser array (lo garantiza loadUnits
+    // y el service), pero Array.isArray evita un crash si algún consumidor
+    // externo muta el estado de forma inesperada.
+    () =>
+      Array.isArray(units)
+        ? (units.find((unit) => unit.imei === selectedUnitImei) ?? null)
+        : null,
     [units, selectedUnitImei],
   );
 
@@ -67,17 +73,32 @@ export const useTripMonitor = () => {
   /**
    * Carga unidades disponibles para consulta.
    * idEmpresa se pasa explícitamente para soportar sudo_erp.
+   *
+   * El service `monitorService.getUnitsLive` ya valida el shape y normaliza
+   * respuestas legacy (array plano). Este hook solo necesita la lista
+   * `units` — los conteos son responsabilidad de useUnitsLive.
+   *
+   * Garantía defensiva: ante cualquier error el estado `units` queda en
+   * `[]`, nunca `undefined`. Esto previene `TypeError: units.find is not
+   * a function` en el useMemo de `selectedUnit`.
    */
   const loadUnits = useCallback(async (searchValue = '') => {
+    setIsLoadingUnits(true);
+    setError('');
+
     try {
-      setIsLoadingUnits(true);
-      setError('');
-      const response = await monitorService.getUnitsLive(searchValue, idEmpresa);
-      setUnits(response);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'No fue posible cargar las unidades';
+      const { units: freshUnits } = await monitorService.getUnitsLive(
+        searchValue,
+        idEmpresa,
+      );
+      setUnits(freshUnits);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'No fue posible cargar las unidades';
       setError(message);
       notify.error(message);
+      // Recuperación segura: nunca dejar units como undefined.
+      setUnits([]);
     } finally {
       setIsLoadingUnits(false);
     }
