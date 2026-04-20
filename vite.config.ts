@@ -45,10 +45,16 @@ export default defineConfig(({ mode }) => {
   const csp = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' maps.googleapis.com maps.gstatic.com",
+    // worker-src: Vite usa Workers con blob: URL para el HMR (Hot Module
+    // Replacement). Sin esta directiva, Firefox aplica el fallback de
+    // script-src y bloquea la creación del Worker, rompiendo la reconexión
+    // del cliente de HMR cuando se guarda un archivo.
+    // En producción no es necesario si no usas Workers propios — pero
+    // mantenerlo 'self' + blob: es seguro: bloquea orígenes externos.
+    "worker-src 'self' blob:",
     "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
     // Google Maps carga fuentes desde fonts.gstatic.com — sin esta directiva
     // el navegador cae al default-src 'self' y bloquea las fuentes del mapa
-    
     "font-src 'self' fonts.gstatic.com data:",
     "img-src 'self' data: blob: *.googleapis.com *.gstatic.com",
     `connect-src 'self' ${apiUrl} https://maps.googleapis.com`,

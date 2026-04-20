@@ -10,6 +10,11 @@ import type {
 } from "../types/map.types";
 import { notify } from "@/stores/notificationStore";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
+import { useAutoRefresh } from "./useAutoRefresh";
+
+// Intervalo de polling para refrescar summary + trips de la unidad
+// seleccionada. 15s balancea "sensación de tiempo real" vs carga en backend.
+const SELECTED_UNIT_REFRESH_MS = 15_000;
 
 /**
  * Estado central del drawer de recorridos.
@@ -138,6 +143,59 @@ export const useTripMonitor = () => {
     },
     [resetRouteState, idEmpresa],
   );
+
+  /**
+   * Refresca SILENCIOSAMENTE los datos de la unidad ya seleccionada.
+   *
+   * Diferencias vs selectUnit:
+   *   - No llama a resetRouteState(): el usuario puede estar viendo una
+   *     ruta específica — no debe parpadear ni cerrarse.
+   *   - No limpia selectedTripId ni currentRoutePoints.
+   *   - No muestra notify.warning si no hay telemetría (sería molesto
+   *     cada 15 segundos). Solo actualiza el resumen.
+   *   - Solo actualiza summary + recentTrips, que son los campos que
+   *     reflejan cambios en tiempo real (última posición, velocidad,
+   *     estado del motor, nuevos recorridos registrados).
+   *
+   * Se usa desde el polling interno del hook — no se expone en el return
+   * porque no tiene caso llamarla manualmente; useAutoRefresh la dispara.
+   */
+  const refreshSelectedUnit = useCallback(async () => {
+    if (!selectedUnitImei) return;
+
+    try {
+      const summary = await telemetryService.getUnitSummary(
+        selectedUnitImei,
+        idEmpresa,
+      );
+      setUnitSummary(summary);
+
+      if (summary.hasTelemetry) {
+        const trips = await telemetryService.getRecentTrips(
+          selectedUnitImei,
+          idEmpresa,
+        );
+        setRecentTrips(trips);
+      }
+    } catch {
+      // Silencioso: un error de red puntual en un refresh en background
+      // no debe mostrar toast ni actualizar el estado de error visible.
+      // El próximo tick lo vuelve a intentar.
+    }
+  }, [selectedUnitImei, idEmpresa]);
+
+  // Polling de la unidad seleccionada: refresca cada 15s sin interrumpir
+  // la navegación del usuario. Protegido contra solapamiento por el propio
+  // useAutoRefresh (si un request tarda más que el intervalo, el siguiente
+  // tick se ignora hasta que termine).
+  useAutoRefresh({
+    callback: refreshSelectedUnit,
+    intervalMs: SELECTED_UNIT_REFRESH_MS,
+    enabled: !!selectedUnitImei,
+    // immediate:false → el primer dato lo trae selectUnit al seleccionar.
+    // El polling arranca tras el primer intervalo.
+    immediate: false,
+  });
 
   /**
    * Carga una ruta por modo: último, hoy, ayer o antier.

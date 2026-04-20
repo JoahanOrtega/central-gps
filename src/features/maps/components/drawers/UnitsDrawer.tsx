@@ -248,7 +248,6 @@ export const UnitsDrawer = ({
     isLoading, error, setSearch, loadUnits, toggleUnit, clearSelection,
   } = useUnitsLive();
 
-  useEffect(() => { void loadUnits(); }, [loadUnits]);
 
   useEffect(() => {
     selectedUnits.length === 0
