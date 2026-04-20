@@ -40,17 +40,29 @@ export const unitService = {
   // instalación) si el rol del usuario no es sudo_erp — por eso esos
   // campos son opcionales en el tipo UnitDetail.
   //
+  // idEmpresa se pasa como query param cuando el usuario es sudo_erp
+  // (su JWT no tiene id_empresa fijo). Para admin_empresa/usuario el
+  // backend lo toma del JWT y valida que coincida si viene en el query.
+  //
   // Requiere permiso `cund_edit`. Si el usuario no lo tiene, el backend
   // responde 403. La UI debe ocultar el botón "Editar" en ese caso para
   // no disparar una petición que sabemos que fallará.
-  getDetail(idUnidad: number, signal?: AbortSignal): Promise<UnitDetail> {
-    return apiFetch<UnitDetail>(`/units/${idUnidad}`, {
+  getDetail(
+    idUnidad: number,
+    idEmpresa?: number | null,
+    signal?: AbortSignal,
+  ): Promise<UnitDetail> {
+    const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
+    return apiFetch<UnitDetail>(`/units/${idUnidad}${query}`, {
       method: "GET",
       signal,
     });
   },
 
   // Actualización parcial (PATCH). Solo se mandan los campos que cambiaron.
+  //
+  // idEmpresa: ver nota en getDetail. Mismo patrón — el sudo_erp lo pasa
+  // explícitamente, el resto lo toma del JWT.
   //
   // El servidor valida que el rol del usuario tenga permiso para modificar
   // cada campo del payload — si un admin_empresa intenta mandar `imei` u
@@ -61,8 +73,10 @@ export const unitService = {
   update(
     idUnidad: number,
     payload: UpdateUnitPayload,
+    idEmpresa?: number | null,
   ): Promise<UpdateUnitResponse> {
-    return apiFetch<UpdateUnitResponse>(`/units/${idUnidad}`, {
+    const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
+    return apiFetch<UpdateUnitResponse>(`/units/${idUnidad}${query}`, {
       method: "PATCH",
       body: payload,
     });

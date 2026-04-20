@@ -106,7 +106,10 @@ export const useUnitEdit = ({
         error: loadErrorRaw,
     } = useQuery<UnitDetail>({
         queryKey: queryKeys.units.detail(idUnidad ?? -1, idEmpresa),
-        queryFn: () => unitService.getDetail(idUnidad as number),
+        // Pasamos idEmpresa como query param — necesario para sudo_erp cuyo
+        // JWT no tiene empresa fija. El backend ignora el parámetro si el rol
+        // no es sudo_erp (usa el del JWT y valida que coincida).
+        queryFn: () => unitService.getDetail(idUnidad as number, idEmpresa),
         // Solo disparar el fetch si hay id, está habilitado y el usuario
         // puede ver el detalle. Sin esto, abrir el modal con idUnidad=null
         // (cerrado) dispararía GET /units/-1 innecesariamente.
@@ -189,7 +192,7 @@ export const useUnitEdit = ({
             if (Object.keys(diff).length === 0) {
                 return { message: "Sin cambios", actualizado: false };
             }
-            return unitService.update(idUnidad, diff);
+            return unitService.update(idUnidad, diff, idEmpresa);
         },
         onSuccess: (result) => {
             setSaveError(null);
