@@ -12,13 +12,12 @@
  *   Doherty Threshold   → skeleton mientras carga, sin bloquear la UI
  *   Aesthetic-Usability → borde de color sutil en tarjeta seleccionada
  */
-import { useEffect, useState, useCallback } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useUnitsLive } from '../../hooks/useUnitsLive';
 import { formatElapsedTimeFromApiDate } from '@/lib/date-time';
 import {
   getTelemetryStatusMeta,
-  getIgnicion,
   getSpeedTextColor,
   UNIT_COLORS,
 } from '../../lib/telemetry-status';
@@ -47,21 +46,31 @@ const groupUnits = (units: MapUnitItem[]): UnitGroup[] => {
     .sort(([a], [b]) => a.localeCompare(b, 'es'))
     .map(([nombre, us]) => ({
       nombre,
-      // Serial Position Effect: encendidas primero dentro del grupo
+      // Serial Position Effect: encendidas primero dentro del grupo.
+      // engine_state === "on" pesa 1, el resto pesa 0 → orden descendente.
       units: [...us].sort(
-        (a, b) => getIgnicion(b.telemetry?.status) - getIgnicion(a.telemetry?.status)
+        (a, b) =>
+          (b.engine_state === "on" ? 1 : 0) -
+          (a.engine_state === "on" ? 1 : 0),
       ),
     }));
 };
 
 // ── Ícono de estado fiel al draw.js legacy ────────────────────────────────────
-const UnitStatusIcon = ({ unit }: { unit: MapUnitItem }) => {
+//
+// Envuelto en memo: la prop `unit` es un objeto que el hook useUnitsLive
+// mantiene estable entre renders (mientras no cambie la respuesta del
+// backend). Con memo, al cambiar el search del drawer o la selección,
+// los ~200 íconos NO se re-renderizan si su unidad no cambió.
+const UnitStatusIcon = memo(({ unit }: { unit: MapUnitItem }) => {
   const t = unit.telemetry;
   const vel = unit.vel_max;
-  const ignicion = getIgnicion(t?.status);
+  // Usamos engine_state a nivel de unidad (mirror del telemetry.engine_state)
+  // para evitar encadenar ?. y para manejar uniformemente el caso sin telemetría.
+  const engineState = unit.engine_state;
   const speed = t?.velocidad ?? 0;
-  const meta = getTelemetryStatusMeta(t?.status, speed, t?.segundos, t?.segundos_sistema, vel);
-  const enMov = ignicion === 1 && Math.round(speed) >= 1;
+  const meta = getTelemetryStatusMeta(engineState, speed, t?.segundos, t?.segundos_sistema, vel);
+  const enMov = engineState === "on" && Math.round(speed) >= 1;
   const speedC = getSpeedTextColor(speed, vel ?? 0);
 
   return (
@@ -78,9 +87,11 @@ const UnitStatusIcon = ({ unit }: { unit: MapUnitItem }) => {
         {enMov ? '⮝' : '●'}
       </span>
       <span className="text-[9px] font-semibold leading-none" style={{ color: speedC }}>
-        {ignicion === 1
+        {engineState === "on"
           ? (speed >= 1 ? `${Math.round(speed)} km/h` : 'Relentí')
-          : 'Apagada'}
+          : engineState === "off"
+            ? 'Apagada'
+            : 'Sin datos'}
       </span>
       {(t?.door === 1 || t?.inmovilizador === 1 || ((t?.voltaje ?? 11) < 10)) && (
         <div className="flex gap-0.5 text-[9px]">
@@ -91,10 +102,16 @@ const UnitStatusIcon = ({ unit }: { unit: MapUnitItem }) => {
       )}
     </div>
   );
-};
+});
+UnitStatusIcon.displayName = 'UnitStatusIcon';
 
 // ── Tarjeta de una unidad ─────────────────────────────────────────────────────
-const UnitCard = ({
+//
+// Envuelta en memo: el prop `unit` es la referencia estable del hook;
+// las callbacks `onToggle` y `onSelect` se estabilizan con useCallback en
+// el componente padre (UnitsDrawer) para que la comparación superficial
+// de memo detecte que no cambiaron.
+const UnitCard = memo(({
   unit, isChecked, onToggle, onSelect,
 }: {
   unit: MapUnitItem; isChecked: boolean;
@@ -102,7 +119,7 @@ const UnitCard = ({
   onSelect: (u: MapUnitItem) => void;
 }) => {
   const meta = getTelemetryStatusMeta(
-    unit.telemetry?.status, unit.telemetry?.velocidad,
+    unit.telemetry?.engine_state, unit.telemetry?.velocidad,
     unit.telemetry?.segundos,
   );
   const elapsed = formatElapsedTimeFromApiDate(unit.telemetry?.fecha_hora_gps);
@@ -111,8 +128,8 @@ const UnitCard = ({
   return (
     <div
       className={`flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 transition-colors ${isChecked
-          ? 'bg-emerald-50 ring-1 ring-emerald-200'
-          : 'hover:bg-slate-50'
+        ? 'bg-emerald-50 ring-1 ring-emerald-200'
+        : 'hover:bg-slate-50'
         }`}
       onClick={() => onSelect(unit)}
     >
@@ -153,7 +170,8 @@ const UnitCard = ({
       </div>
     </div>
   );
-};
+});
+UnitCard.displayName = 'UnitCard';
 
 // ── Grupo colapsable ──────────────────────────────────────────────────────────
 const UnitGroupSection = ({
@@ -226,7 +244,7 @@ export const UnitsDrawer = ({
   onClose, onSelectUnit, onUnitsSelectionChange, onUnitsHidden,
 }: UnitsDrawerProps) => {
   const {
-    units, selectedIds, selectedUnits, search,
+    units, counts, selectedIds, selectedUnits, search,
     isLoading, error, setSearch, loadUnits, toggleUnit, clearSelection,
   } = useUnitsLive();
 
@@ -238,13 +256,27 @@ export const UnitsDrawer = ({
       : onUnitsSelectionChange(selectedUnits);
   }, [selectedUnits, onUnitsSelectionChange, onUnitsHidden]);
 
-  const handleClose = () => { clearSelection(); onUnitsHidden(); onClose(); };
+  const handleClose = useCallback(() => {
+    clearSelection();
+    onUnitsHidden();
+    onClose();
+  }, [clearSelection, onUnitsHidden, onClose]);
 
-  const groups = search.trim()
-    ? [{ nombre: `Resultados (${units.length})`, units }]
-    : groupUnits(units);
+  // Los conteos vienen pre-calculados desde el backend (Sección 2 del refactor).
+  // Antes se recomputaba con units.filter(...).length en cada render.
+  const { engine_on: encendidas, engine_off: apagadas, engine_unknown: sinDatos } = counts;
 
-  const encendidas = units.filter((u) => getIgnicion(u.telemetry?.status) === 1).length;
+  // Memo de agrupación — con ~200 unidades, groupUnits implica construir un Map,
+  // sortear entries alfabéticamente y sortear cada grupo por engine_state.
+  // Sin useMemo se ejecutaba en CADA render (al tipear en el buscador, cambiar
+  // selección, etc.). Ahora solo se recalcula cuando cambian units o search.
+  const groups = useMemo(
+    () =>
+      search.trim()
+        ? [{ nombre: `Resultados (${units.length})`, units }]
+        : groupUnits(units),
+    [units, search],
+  );
 
   return (
     <aside className="absolute inset-x-2 bottom-2 top-2 z-20 flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:w-[380px]">
@@ -261,8 +293,16 @@ export const UnitsDrawer = ({
                 </span>
                 {' · '}
                 <span className="font-semibold" style={{ color: UNIT_COLORS.ROJO }}>
-                  {units.length - encendidas} apag.
+                  {apagadas} apag.
                 </span>
+                {sinDatos > 0 && (
+                  <>
+                    {' · '}
+                    <span className="font-semibold" style={{ color: UNIT_COLORS.GRIS }}>
+                      {sinDatos} s/d
+                    </span>
+                  </>
+                )}
               </p>
             )}
           </div>
