@@ -90,6 +90,21 @@ const parseToken = (token: string): JwtPayload | null => {
     }
 };
 
+// ── Deduplicación de tryRestoreSession ────────────────────────────────────────
+// El backend ROTA el refresh token en cada llamada a /auth/refresh: emite uno
+// nuevo y revoca el anterior. Si dos llamadas entran en paralelo con la misma
+// cookie, solo la primera valida; la segunda llega con el token ya revocado y
+// recibe 401 + set-cookie=""  (limpia la cookie).
+//
+// Sin este guard, React StrictMode (que monta cada componente 2 veces en dev)
+// dispara 2 llamadas a tryRestoreSession desde PrivateRoute casi al mismo
+// tiempo, provocando que la segunda borre la sesión recién renovada.
+//
+// En producción StrictMode no duplica los efectos, pero el guard se queda
+// porque también protege contra escenarios donde múltiples componentes
+// invocan el helper simultáneamente (p.ej. navegación rápida entre rutas).
+let _restoreSessionPromise: Promise<boolean> | null = null;
+
 // ── Store de autenticación ────────────────────────────────────────────────────
 // Sin zustand/persist — el token vive solo en memoria React.
 // La persistencia de sesión la maneja el refresh token en la cookie HttpOnly.
@@ -157,41 +172,59 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     // La marca se activa en LoginPage.markSessionStarted() tras login exitoso
     // y se borra en logout() + PrivateRoute.clearSessionMark() cuando la
     // sesión deja de ser válida. No contiene datos sensibles — solo un "1".
+    //
+    // Deduplicación: si ya hay una llamada en vuelo, se retorna la misma
+    // promesa. Previene que React StrictMode (que duplica efectos en dev)
+    // dispare dos refresh paralelos — el segundo encontraría la cookie ya
+    // revocada por el primero y borraría la sesión.
     tryRestoreSession: async (): Promise<boolean> => {
-        // Shortcut: nunca hubo sesión en este navegador → no hay nada que
-        // restaurar. Saltarse el fetch evita el 401 visible en consola.
-        if (localStorage.getItem("cgps_had_session") !== "1") {
-            set({ token: null, user: null });
-            return false;
-        }
+        // Si ya hay una llamada en curso, reutilizar la misma promesa.
+        // Las llamadas subsecuentes simplemente esperan el mismo resultado
+        // en vez de disparar otro request al backend.
+        if (_restoreSessionPromise) return _restoreSessionPromise;
 
-        try {
-            const apiUrl = import.meta.env.VITE_API_URL;
-            const response = await fetch(`${apiUrl}/auth/refresh`, {
-                method: "POST",
-                credentials: "include",     // El navegador envía la cookie automáticamente
-            });
-
-            if (!response.ok) {
+        _restoreSessionPromise = (async () => {
+            // Shortcut: nunca hubo sesión en este navegador → no hay nada que
+            // restaurar. Saltarse el fetch evita el 401 visible en consola.
+            if (localStorage.getItem("cgps_had_session") !== "1") {
                 set({ token: null, user: null });
                 return false;
             }
 
-            const data = await response.json() as { token: string; user: JwtPayload };
-            const payload = parseToken(data.token);
+            try {
+                const apiUrl = import.meta.env.VITE_API_URL;
+                const response = await fetch(`${apiUrl}/auth/refresh`, {
+                    method: "POST",
+                    credentials: "include",     // El navegador envía la cookie automáticamente
+                });
 
-            if (!payload) {
+                if (!response.ok) {
+                    set({ token: null, user: null });
+                    return false;
+                }
+
+                const data = await response.json() as { token: string; user: JwtPayload };
+                const payload = parseToken(data.token);
+
+                if (!payload) {
+                    set({ token: null, user: null });
+                    return false;
+                }
+
+                set({ token: data.token, user: payload });
+                return true;
+            } catch {
+                // Error de red — no hay sesión que restaurar
                 set({ token: null, user: null });
                 return false;
+            } finally {
+                // Liberar el guard al terminar — llamadas FUTURAS (no las que
+                // ya están esperando esta promesa) harán un request nuevo.
+                _restoreSessionPromise = null;
             }
+        })();
 
-            set({ token: data.token, user: payload });
-            return true;
-        } catch {
-            // Error de red — no hay sesión que restaurar
-            set({ token: null, user: null });
-            return false;
-        }
+        return _restoreSessionPromise;
     },
 
     isSudoErp: () => get().user?.rol === "sudo_erp",

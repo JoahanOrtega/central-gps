@@ -9,10 +9,17 @@ export default defineConfig(({ mode }) => {
   // Necesario para leer VITE_API_URL y construir la CSP dinámicamente.
   const env = loadEnv(mode, process.cwd(), "");
 
-  const apiUrl = env.VITE_API_URL || "http://127.0.0.1:5000";
+  const apiUrl = env.VITE_API_URL || "http://localhost:5000";
+  const isDev = mode !== "production";
 
   // ── Content Security Policy ─────────────────────────────────
-  // Se construye dinámicamente para incluir la URL real del backend.
+  // Se construye dinámicamente según el modo:
+  //
+  //   DEV: permite cualquier localhost (puerto y hostname) para no romperse
+  //        con cambios de VITE_API_URL ni con herramientas del dev server.
+  //        Incluye ws://localhost:* para el HMR de Vite.
+  //
+  //   PRODUCCIÓN: estricto, solo la URL exacta del backend de producción.
   //
   // Directivas:
   //   default-src 'self'
@@ -28,8 +35,7 @@ export default defineConfig(({ mode }) => {
   //   img-src 'self' data: blob: *.googleapis.com *.gstatic.com
   //     → Imágenes propias + tiles de Google Maps.
   //
-  //   connect-src 'self' <apiUrl> https://maps.googleapis.com
-  //     → Peticiones fetch solo al backend (URL dinámica) + Google Maps API.
+  //   connect-src (según entorno, ver abajo).
   //
   //   frame-src 'none'  → Impide embeber la app en iframes (clickjacking).
   //   object-src 'none' → Deshabilita plugins obsoletos (Flash, etc.).
@@ -42,6 +48,22 @@ export default defineConfig(({ mode }) => {
   //   add_header Referrer-Policy "strict-origin-when-cross-origin";
   //   add_header Permissions-Policy "geolocation=(self), camera=(), microphone=()";
   // ────────────────────────────────────────────────────────────
+
+  // connect-src: en dev usa comodines de localhost para no sufrir con
+  // variaciones de puerto, cambios de VITE_API_URL ni el ws:// del HMR.
+  // En producción es estricto: solo el apiUrl configurado.
+  const connectSrc = isDev
+    ? [
+      "'self'",
+      "http://localhost:*",
+      "http://127.0.0.1:*",
+      // ws y wss para el canal de HMR de Vite (hot reload tras guardar)
+      "ws://localhost:*",
+      "ws://127.0.0.1:*",
+      "https://maps.googleapis.com",
+    ].join(" ")
+    : `'self' ${apiUrl} https://maps.googleapis.com`;
+
   const csp = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' maps.googleapis.com maps.gstatic.com",
@@ -57,7 +79,7 @@ export default defineConfig(({ mode }) => {
     // el navegador cae al default-src 'self' y bloquea las fuentes del mapa
     "font-src 'self' fonts.gstatic.com data:",
     "img-src 'self' data: blob: *.googleapis.com *.gstatic.com",
-    `connect-src 'self' ${apiUrl} https://maps.googleapis.com`,
+    `connect-src ${connectSrc}`,
     "frame-src 'none'",
     "object-src 'none'",
   ].join("; ");
