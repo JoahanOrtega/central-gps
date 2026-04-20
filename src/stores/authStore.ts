@@ -8,10 +8,12 @@ export interface JwtPayload {
     username: string;
     nombre: string | null;
     perfil: number;
+    // rol es la fuente única de verdad para determinar privilegios.
+    // Para saber si el usuario es admin de empresa: rol === "admin_empresa".
+    // El flag booleano es_admin_empresa fue eliminado — era redundante con rol.
     rol: "sudo_erp" | "admin_empresa" | "usuario" | null;
     id_empresa: number | null;
     nombre_empresa: string | null;
-    es_admin_empresa: boolean;
     // Lista de claves de permisos efectivos del usuario en la empresa activa.
     // Es la UNIÓN de permisos heredados del rol (r_rol_permiso) + permisos
     // específicos del usuario (r_usuario_permisos), calculada en backend.
@@ -196,7 +198,10 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
     isAdminEmpresa: () => {
         const user = get().user;
-        return user?.rol === "sudo_erp" || user?.es_admin_empresa === true;
+        // sudo_erp también cuenta como admin de empresa para propósitos de UI
+        // (puede hacer lo que un admin_empresa y más). Este helper se usa en
+        // componentes que muestran acciones de "admin".
+        return user?.rol === "sudo_erp" || user?.rol === "admin_empresa";
     },
 
     hasPermission: (clave: string): boolean => {

@@ -23,6 +23,15 @@ export interface EmpresaFormData {
 }
 
 // ── Usuarios de empresa ───────────────────────────────────
+// Shape del endpoint GET /admin-erp/empresas/<id>/usuarios.
+// Proyección de la vista v_erp_usuarios_empresa tras el refactor 1:N
+// (migración 004). Ver backend/migrations/004_vista_usuarios_empresa_1_a_1.sql.
+//
+// Campos retirados en el refactor:
+//   - es_admin_empresa → se infiere de rol === "admin_empresa"
+//   - status_relacion  → la relación vive en t_usuarios, no hay status aparte
+//   - autenticacion_2f → no se usa en la UI actual; si hace falta, agregar
+//                         explícitamente con una query dedicada
 export interface UsuarioEmpresa {
   id_empresa: number;
   empresa: string;
@@ -31,10 +40,7 @@ export interface UsuarioEmpresa {
   nombre_usuario: string;
   rol: string;
   nombre_rol: string;
-  es_admin_empresa: number;
-  status_relacion: number;
   status_usuario: number;
-  autenticacion_2f: number;
   fecha_asignacion: string;
   total_permisos: number;
 }
@@ -58,13 +64,14 @@ export interface AdminEmpresaFormData {
 
 // Respuesta del endpoint POST /admin-erp/empresas/:id/usuarios.
 // Coincide con el dict que retorna create_empresa_admin del backend.
+// El rol devuelto siempre será "admin_empresa" (es lo que crea ese endpoint);
+// no hay campo separado para "es admin" — se infiere del rol.
 export interface AdminEmpresaCreado {
   id_usuario: number;
   usuario: string;
   nombre: string;
   id_empresa: number;
   rol: string;
-  es_admin_empresa: boolean;
 }
 
 // ── Permisos del sistema ──────────────────────────────────

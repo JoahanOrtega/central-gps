@@ -13,11 +13,12 @@ export interface AuthUser {
   nombre: string | null;
   // Legacy — se mantiene mientras se migra el PHP
   perfil: number;
-  // Nuevo — rol normalizado del sistema
+  // Nuevo — rol normalizado del sistema.
+  // Para saber si es admin de empresa: rol === "admin_empresa".
+  // El flag booleano es_admin_empresa fue eliminado por redundante.
   rol: "sudo_erp" | "admin_empresa" | "usuario" | null;
   id_empresa: number | null;
   nombre_empresa: string | null;
-  es_admin_empresa: boolean;
 }
 
 export interface LoginResponse {
