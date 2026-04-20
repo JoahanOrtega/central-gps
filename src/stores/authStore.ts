@@ -12,9 +12,15 @@ export interface JwtPayload {
     id_empresa: number | null;
     nombre_empresa: string | null;
     es_admin_empresa: boolean;
-    // Permisos para usuarios con rol "usuario".
-    // Formato: string separado por comas — "on,cund1,cpoi1" — o "*" para wildcard.
-    permisos?: string;
+    // Lista de claves de permisos efectivos del usuario en la empresa activa.
+    // Es la UNIÓN de permisos heredados del rol (r_rol_permiso) + permisos
+    // específicos del usuario (r_usuario_permisos), calculada en backend.
+    //
+    // Compatibilidad legacy: el backend puede también devolver:
+    //   - string "on,cund1,cpoi1" (formato PHP antiguo)
+    //   - string "*" (wildcard)
+    // El helper hasPermission del store normaliza todos los casos.
+    permisos?: string[] | string;
     exp: number;    // Unix timestamp — segundos desde epoch
     iat: number;    // Unix timestamp — fecha de emisión
     type: string;   // Debe ser "access"
@@ -46,6 +52,20 @@ interface AuthState {
     // Helpers de rol
     isSudoErp: () => boolean;
     isAdminEmpresa: () => boolean;
+
+    // Verifica si el usuario tiene un permiso específico según su JWT.
+    //
+    // Jerarquía:
+    //   1. sudo_erp → true (único bypass, refleja el decorador del backend)
+    //   2. cualquier otro rol → se valida contra la lista `permisos` del JWT
+    //
+    // Esta lógica es el MIRROR EXACTO del decorador @permiso_required del
+    // backend — ambas capas deben tomar la misma decisión para que la UI
+    // no muestre botones que el backend luego rechazará (y viceversa).
+    //
+    // Importante: esta capa es UX, no seguridad. La validación real ocurre
+    // en backend. Nunca confiar solo en este helper para decisiones críticas.
+    hasPermission: (clave: string) => boolean;
 }
 
 // ── Margen de expiración ──────────────────────────────────────────────────────
@@ -126,7 +146,23 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     // Intenta renovar la sesión usando la cookie HttpOnly del refresh token.
     // Si la cookie existe y es válida → nuevo access token en memoria.
     // Si no → retorna false → PrivateRoute redirige a /login.
+    //
+    // Optimización: si no hay marca de sesión previa (cgps_had_session en
+    // localStorage), ni siquiera hacemos el request. Esto evita:
+    //   - Un 401 innecesario en la consola de usuarios que visitan por 1ª vez
+    //   - Una petición extra al backend en cada arranque de la app
+    //
+    // La marca se activa en LoginPage.markSessionStarted() tras login exitoso
+    // y se borra en logout() + PrivateRoute.clearSessionMark() cuando la
+    // sesión deja de ser válida. No contiene datos sensibles — solo un "1".
     tryRestoreSession: async (): Promise<boolean> => {
+        // Shortcut: nunca hubo sesión en este navegador → no hay nada que
+        // restaurar. Saltarse el fetch evita el 401 visible en consola.
+        if (localStorage.getItem("cgps_had_session") !== "1") {
+            set({ token: null, user: null });
+            return false;
+        }
+
         try {
             const apiUrl = import.meta.env.VITE_API_URL;
             const response = await fetch(`${apiUrl}/auth/refresh`, {
@@ -161,5 +197,34 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     isAdminEmpresa: () => {
         const user = get().user;
         return user?.rol === "sudo_erp" || user?.es_admin_empresa === true;
+    },
+
+    hasPermission: (clave: string): boolean => {
+        const user = get().user;
+
+        // Sin sesión → sin permisos
+        if (!user) return false;
+
+        // Nivel 1: sudo_erp bypassa todo (alineado con backend)
+        if (user.rol === "sudo_erp") return true;
+
+        // Nivel 2: validar contra la lista de permisos del JWT.
+        // Backend devuelve string[] en formato nuevo, pero soportamos
+        // también "*" (wildcard) y "on,cund1" (string legacy PHP) para
+        // que tokens viejos sigan funcionando durante el rollout.
+        const permisos = user.permisos;
+
+        if (permisos === "*") return true;
+
+        if (Array.isArray(permisos)) {
+            return permisos.includes(clave);
+        }
+
+        if (typeof permisos === "string") {
+            return permisos.split(",").map((p) => p.trim()).includes(clave);
+        }
+
+        // permisos undefined/null → sin permisos
+        return false;
     },
 }));
