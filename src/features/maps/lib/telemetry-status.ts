@@ -1,25 +1,30 @@
-// ── Constantes de status crudo ────────────────────────────────────────────────
-// El campo `status` de t_data es un string de 9 bits donde:
-//   bit 1 (posición 0) = ignición  → '1' encendida, '0' apagada
-//   bit 2 (posición 1) = input1
-//   bit 3 (posición 2) = input2
-//   bit 4 (posición 3) = input3
-//   bit 5 (posición 4) = input4
-//   bit 6 (posición 5) = output1
-//   bit 7 (posición 6) = output2
-//   bit 8 (posición 7) = output3
-//   bit 9 (posición 8) = output4
-export const TELEMETRY_STATUS = {
-  OFF: "000000000",
-  ON: "100000000",
-} as const;
+// ── Lógica de estado de telemetría (frontend) ────────────────────────────────
+//
+// A partir de la refactorización, el BACKEND es la única fuente de verdad
+// para determinar si el motor está encendido, apagado o desconocido
+// (campo `engine_state` en la respuesta de telemetría).
+//
+// Este archivo se encarga SOLO de:
+//   - Derivar presentación visual (color, label, strokeColor) a partir de
+//     `engine_state` + tiempo desde el último reporte.
+//   - Clasificar movimiento semántico (movimiento/detenido/apagado/sin-datos)
+//     a partir de `engine_state` + velocidad.
+//
+// NO reinterpreta bits crudos del campo `status`. Si encuentras código que
+// lo haga (ej: `status.charAt(0) === "1"`), debe migrarse a usar el nuevo
+// campo `engine_state`.
+
+import type { EngineState } from "../types/map.types";
+
+// ── Re-export para consumidores que necesiten el tipo ────────────────────────
+export type { EngineState };
 
 // ── Estado lógico para la UI ──────────────────────────────────────────────────
 export type TelemetryMapState =
-  | "movimiento"       // ignición ON + velocidad >= 1 km/h
-  | "detenido"         // ignición ON + velocidad < 1 km/h (relentí)
-  | "apagado"          // ignición OFF
-  | "sin-telemetria";  // sin datos
+  | "movimiento"       // motor ON + velocidad >= 1 km/h
+  | "detenido"         // motor ON + velocidad < 1 km/h (relentí)
+  | "apagado"          // motor OFF
+  | "sin-telemetria";  // sin datos o engine_state === "unknown"
 
 // ── Color por tiempo de transmisión (lógica del PHP legacy) ──────────────────
 //
@@ -30,17 +35,17 @@ export type TelemetryMapState =
 //   Apagada:    verde ≤ 35 min | amarillo 35-36 min | rojo > 36 min
 //
 // Estas constantes son los límites en SEGUNDOS:
-const IGNICION_ON_VERDE = 240;   // 4 min
-const IGNICION_ON_AMBAR = 300;   // 5 min
+const IGNICION_ON_VERDE = 240;    // 4 min
+const IGNICION_ON_AMBAR = 300;    // 5 min
 const IGNICION_OFF_VERDE = 2100;  // 35 min
 const IGNICION_OFF_AMBAR = 2160;  // 36 min
 
 // ── Colores del sistema ───────────────────────────────────────────────────────
 export const UNIT_COLORS = {
-  VERDE: "#26C281",  // transmisión reciente
-  AMBAR: "#F1C40F",  // transmisión con leve retraso
-  ROJO: "#ed6b75",  // sin transmisión / offline
-  GRIS: "#94a3b8",  // sin telemetría
+  VERDE: "#26C281",   // transmisión reciente
+  AMBAR: "#F1C40F",   // transmisión con leve retraso
+  ROJO: "#ed6b75",    // sin transmisión / offline
+  GRIS: "#94a3b8",    // sin telemetría
   BLANCO: "#FFFFFF",
 } as const;
 
@@ -68,7 +73,7 @@ export const getUnitStrokeColor = (
 };
 
 // ── Metadata completa del estado ─────────────────────────────────────────────
-export type TelemetryStatusMeta = {
+export interface TelemetryStatusMeta {
   // Color de relleno del marcador según tiempo de transmisión
   fillColor: string;
   // Color del stroke (borde) del marcador
@@ -79,86 +84,86 @@ export type TelemetryStatusMeta = {
   label: string;
   // Abreviatura para espacios compactos
   shortLabel: string;
-  // Ignición (1 = encendida, 0 = apagada)
-  ignicion: 0 | 1;
-};
+  // Estado del motor tal como viene del backend
+  engineState: EngineState;
+}
 
 /**
  * Calcula el color del marcador según la lógica del PHP legacy (draw.js _setColor).
  *
- * La función recibe `segundos` que es el tiempo transcurrido desde el ÚLTIMO
- * dato GPS hasta ahora, y la ignición extraída del campo status.
- *
  * Reglas (idénticas al original PHP):
  *   Encendida: verde ≤ 4 min | amarillo 4-5 min | rojo > 5 min
  *   Apagada:   verde ≤ 35 min | amarillo 35-36 min | rojo > 36 min
+ *
+ * Cuando el estado es "unknown", se usa el esquema de "apagada" (umbrales
+ * amplios) como aproximación razonable para unidades que transmiten poco.
  */
-const getTimingColor = (ignicion: 0 | 1, segundos: number): string => {
-  if (ignicion === 1) {
+const getTimingColor = (engineState: EngineState, segundos: number): string => {
+  if (engineState === "on") {
     if (segundos <= IGNICION_ON_VERDE) return UNIT_COLORS.VERDE;
     if (segundos <= IGNICION_ON_AMBAR) return UNIT_COLORS.AMBAR;
     return UNIT_COLORS.ROJO;
   }
-  // Apagada — umbrales más amplios porque transmite menos frecuente
+  // "off" o "unknown" — umbrales amplios (transmite menos frecuente)
   if (segundos <= IGNICION_OFF_VERDE) return UNIT_COLORS.VERDE;
   if (segundos <= IGNICION_OFF_AMBAR) return UNIT_COLORS.AMBAR;
   return UNIT_COLORS.ROJO;
 };
 
 /**
- * Extrae la ignición del campo status (primer bit).
- * Retorna 1 si el primer carácter es '1', 0 en cualquier otro caso.
- */
-export const getIgnicion = (status?: string | null): 0 | 1 =>
-  (status || "").charAt(0) === "1" ? 1 : 0;
-
-/**
  * Construye los metadatos completos del estado de una unidad.
  *
- * @param status      - Campo status crudo de t_data (9 bits)
- * @param velocidad   - Velocidad en km/h
- * @param segundos    - Segundos desde el último dato GPS hasta ahora
- * @param segundosSistema - Segundos desde el último dato del sistema (para stroke)
- * @param velMax      - Velocidad máxima configurada en la unidad
+ * Recibe el `engineState` ya resuelto por el backend (no reinterpreta bits).
+ *
+ * @param engineState     - Estado del motor ("on" | "off" | "unknown").
+ * @param velocidad       - Velocidad en km/h.
+ * @param segundos        - Segundos desde el último dato GPS hasta ahora.
+ * @param segundosSistema - Segundos desde el último dato del sistema (para stroke).
+ * @param velMax          - Velocidad máxima configurada en la unidad.
  */
 export const getTelemetryStatusMeta = (
-  status?: string | null,
+  engineState: EngineState | null | undefined,
   velocidad?: number | null,
   segundos?: number | null,
   segundosSistema?: number | null,
   velMax?: number | null,
 ): TelemetryStatusMeta => {
-  const code = (status || "").trim();
+  const effectiveEngineState: EngineState = engineState ?? "unknown";
   const speed = velocidad ?? 0;
   const secs = segundos ?? 9999;
-  const ignicion = getIgnicion(code);
 
   // Sin datos → marcador gris neutro
-  if (!code) {
+  if (effectiveEngineState === "unknown") {
     return {
       fillColor: UNIT_COLORS.GRIS,
       strokeColor: UNIT_COLORS.BLANCO,
       mapState: "sin-telemetria",
       label: "Sin telemetría",
       shortLabel: "N/A",
-      ignicion: 0,
+      engineState: "unknown",
     };
   }
 
-  const fillColor = getTimingColor(ignicion, secs);
-  const strokeColor = getUnitStrokeColor(fillColor, segundosSistema, speed, velMax);
+  const fillColor = getTimingColor(effectiveEngineState, secs);
+  const strokeColor = getUnitStrokeColor(
+    fillColor,
+    segundosSistema,
+    speed,
+    velMax,
+  );
 
-  if (ignicion === 0) {
+  if (effectiveEngineState === "off") {
     return {
       fillColor,
       strokeColor,
       mapState: "apagado",
       label: "Apagada",
       shortLabel: "OFF",
-      ignicion,
+      engineState: "off",
     };
   }
 
+  // engineState === "on"
   if (speed >= 1) {
     return {
       fillColor,
@@ -166,7 +171,7 @@ export const getTelemetryStatusMeta = (
       mapState: "movimiento",
       label: "En movimiento",
       shortLabel: "MOV",
-      ignicion,
+      engineState: "on",
     };
   }
 
@@ -176,7 +181,7 @@ export const getTelemetryStatusMeta = (
     mapState: "detenido",
     label: "En relentí",
     shortLabel: "ON",
-    ignicion,
+    engineState: "on",
   };
 };
 
@@ -184,42 +189,48 @@ export const getTelemetryStatusMeta = (
 
 /** Color de relleno del marcador. */
 export const getTelemetryStatusColor = (
-  status?: string | null,
+  engineState: EngineState | null | undefined,
   velocidad?: number | null,
   segundos?: number | null,
   segundosSistema?: number | null,
   velMax?: number | null,
-) => getTelemetryStatusMeta(status, velocidad, segundos, segundosSistema, velMax).fillColor;
+): string =>
+  getTelemetryStatusMeta(engineState, velocidad, segundos, segundosSistema, velMax)
+    .fillColor;
 
 /** Etiqueta legible del estado. */
 export const getTelemetryStatusLabel = (
-  status?: string | null,
+  engineState: EngineState | null | undefined,
   velocidad?: number | null,
-) => getTelemetryStatusMeta(status, velocidad).label;
+): string => getTelemetryStatusMeta(engineState, velocidad).label;
 
 /** Abreviatura del estado. */
 export const getTelemetryStatusShortLabel = (
-  status?: string | null,
+  engineState: EngineState | null | undefined,
   velocidad?: number | null,
-) => getTelemetryStatusMeta(status, velocidad).shortLabel;
+): string => getTelemetryStatusMeta(engineState, velocidad).shortLabel;
 
 /** Estado lógico para el mapa. */
 export const getTelemetryMapState = (
-  status?: string | null,
+  engineState: EngineState | null | undefined,
   velocidad?: number | null,
-) => getTelemetryStatusMeta(status, velocidad).mapState;
+): TelemetryMapState => getTelemetryStatusMeta(engineState, velocidad).mapState;
 
 /** true si la ignición está apagada. */
-export const isTelemetryOff = (status?: string | null) => getIgnicion(status) === 0;
+export const isEngineOff = (
+  engineState: EngineState | null | undefined,
+): boolean => engineState === "off";
 
 /** true si la ignición está encendida. */
-export const isTelemetryOn = (status?: string | null) => getIgnicion(status) === 1;
+export const isEngineOn = (
+  engineState: EngineState | null | undefined,
+): boolean => engineState === "on";
 
 // ── Color de velocidad en textos ──────────────────────────────────────────────
 // Replicado del PHP: verde normal, amarillo cerca del límite, rojo exceso.
 export const getSpeedTextColor = (velocidad: number, velMax: number): string => {
   if (velMax <= 0) return "#26C281";
-  if (Math.round(velocidad) >= velMax) return "#ed6b75"; // exceso
-  if (Math.round(velocidad) >= (velMax - 5)) return "#F1C40F"; // cerca
-  return "#26C281";                                                   // normal
+  if (Math.round(velocidad) >= velMax) return "#ed6b75";           // exceso
+  if (Math.round(velocidad) >= (velMax - 5)) return "#F1C40F";     // cerca
+  return "#26C281";                                                 // normal
 };
