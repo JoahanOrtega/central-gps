@@ -82,8 +82,8 @@ export const NewUnitModal = ({
 
     switch (name) {
       case "imei":
-        if (strValue && !/^\d{15}$/.test(strValue)) {
-          return "El IMEI debe tener exactamente 15 dígitos numéricos";
+        if (strValue && !/^\d{10}$/.test(strValue)) {
+          return "El IMEI debe tener exactamente 10 dígitos numéricos";
         }
         break;
 
