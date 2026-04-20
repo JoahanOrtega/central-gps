@@ -262,7 +262,7 @@ export const EditUnitGeneralTab = ({
                             onChange={(v) => patchForm({ imei: v })}
                             readOnly={readOnly}
                             required
-                            maxLength={15}
+                            maxLength={10}
                             hint="Identificador único del equipo AVL: exactamente 10 dígitos numéricos (estándar GSM)"
                             placeholder="1234567890"
                             error={errors.imei}
