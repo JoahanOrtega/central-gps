@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/shared/UserMenu";
 import { SwitchCompanyModal } from "@/components/shared/SwitchCompanyModal";
+import { EmpresaLabel } from "@/components/shared/EmpresaLabel";
 
 // ── Tipo explícito para los items del navbar ──────────────
 interface NavItem {
@@ -79,8 +80,12 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
   const esSudoErp = user?.rol === "sudo_erp";
 
   useEffect(() => {
-    if (user) fetchCompanies();
-  }, [user, fetchCompanies]);
+    // Cargar empresas solo para sudo_erp. Los demás roles tienen UNA empresa
+    // (leída directamente del JWT) — no hay lista que obtener del backend.
+    // Esto evita un request innecesario y, por consecuencia, evita que el
+    // label del cliente parpadee entre "—" y el nombre real.
+    if (user && esSudoErp) fetchCompanies();
+  }, [user, esSudoErp, fetchCompanies]);
 
   // Items visibles para este usuario según sus permisos
   const itemsVisibles = NAV_ITEMS.filter((item) =>
@@ -219,26 +224,43 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
 
         {/* ── Acciones derecha ── */}
         <div className="flex shrink-0 items-center gap-2 md:gap-3">
-          <button
-            onClick={() => setSwitchModalOpen(true)}
-            className={cn(
-              "group flex items-center gap-2 rounded-lg border bg-white px-3 py-1.5 text-sm font-medium shadow-sm transition-all md:px-4 md:py-2",
-              fetchError
-                ? "border-red-300 text-red-600 hover:border-red-400 hover:bg-red-50"
-                : "border-blue-300 text-blue-700 hover:border-blue-400 hover:bg-blue-50 hover:shadow"
-            )}
-          >
-            <Building2 className={cn("h-4 w-4 shrink-0", fetchError ? "text-red-400" : "text-blue-500")} />
-            <span className="max-w-[120px] truncate sm:max-w-[180px] lg:max-w-[240px]">
-              {fetchError ? "Error al cargar" : (currentCompany?.nombre || "Cargando...")}
-            </span>
-            <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform group-hover:rotate-180", fetchError ? "text-red-400" : "text-blue-500")} />
-          </button>
+          {esSudoErp ? (
+            <>
+              {/*
+                Selector de empresa — SOLO para sudo_erp.
+                Los clientes pertenecen a UNA empresa y no pueden cambiar.
+                El modal SwitchCompanyModal se monta junto al botón para
+                que el estado switchModalOpen quede encapsulado en esta rama.
+              */}
+              <button
+                onClick={() => setSwitchModalOpen(true)}
+                className={cn(
+                  "group flex items-center gap-2 rounded-lg border bg-white px-3 py-1.5 text-sm font-medium shadow-sm transition-all md:px-4 md:py-2",
+                  fetchError
+                    ? "border-red-300 text-red-600 hover:border-red-400 hover:bg-red-50"
+                    : "border-blue-300 text-blue-700 hover:border-blue-400 hover:bg-blue-50 hover:shadow"
+                )}
+              >
+                <Building2 className={cn("h-4 w-4 shrink-0", fetchError ? "text-red-400" : "text-blue-500")} />
+                <span className="max-w-[120px] truncate sm:max-w-[180px] lg:max-w-[240px]">
+                  {fetchError ? "Error al cargar" : (currentCompany?.nombre || "Cargando...")}
+                </span>
+                <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform group-hover:rotate-180", fetchError ? "text-red-400" : "text-blue-500")} />
+              </button>
 
-          <SwitchCompanyModal
-            open={switchModalOpen}
-            onOpenChange={setSwitchModalOpen}
-          />
+              <SwitchCompanyModal
+                open={switchModalOpen}
+                onOpenChange={setSwitchModalOpen}
+              />
+            </>
+          ) : (
+            /*
+              Clientes (admin_empresa, usuario): solo ven su empresa como
+              label informativo, sin posibilidad de cambiar. Se lee del JWT
+              directamente (user.nombre_empresa) — no depende de companyStore.
+            */
+            <EmpresaLabel nombre={user?.nombre_empresa} />
+          )}
 
           <UserMenu />
         </div>
