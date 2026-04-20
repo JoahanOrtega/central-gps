@@ -6,6 +6,7 @@ import type { UnitItem } from "../types/unit.types";
 import { UnitCard } from "./UnitCard";
 import { NewUnitModal } from "./NewUnitModal";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
+import { usePermiso } from "@/hooks/usePermiso";
 import { SkeletonGrid } from "@/components/shared/SkeletonCard";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -16,6 +17,12 @@ export const UnitsCatalogView = () => {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const { idEmpresa } = useEmpresaActiva();
+
+  // Permiso para crear unidades (cund3).
+  // Si el usuario no lo tiene, el botón "Agregar" queda oculto.
+  // El backend también valida este permiso — esto es solo UX para
+  // evitar mostrar un botón que respondería 403.
+  const puedeCrearUnidad = usePermiso("cund3");
 
   // Debounce de 350ms — actualiza la queryKey solo después de que el usuario
   // deja de escribir, evitando una petición por cada tecla presionada
@@ -45,9 +52,11 @@ export const UnitsCatalogView = () => {
               <h1 className="text-xl font-semibold text-slate-800 md:text-2xl">Catálogo de Unidades</h1>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center xl:flex-nowrap">
-              <button type="button" onClick={() => setIsCreateModalOpen(true)} className="flex h-10 w-full items-center justify-center rounded-lg border border-emerald-400 bg-white text-emerald-500 hover:bg-emerald-50 sm:w-12" title="Agregar unidad">
-                <Plus className="h-4 w-4" />
-              </button>
+              {puedeCrearUnidad && (
+                <button type="button" onClick={() => setIsCreateModalOpen(true)} className="flex h-10 w-full items-center justify-center rounded-lg border border-emerald-400 bg-white text-emerald-500 hover:bg-emerald-50 sm:w-12" title="Agregar unidad">
+                  <Plus className="h-4 w-4" />
+                </button>
+              )}
               <div className="flex w-full items-center rounded-lg border border-slate-300 bg-white sm:w-auto">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center border-r border-slate-300 text-emerald-500">
                   <Search className="h-4 w-4" />
