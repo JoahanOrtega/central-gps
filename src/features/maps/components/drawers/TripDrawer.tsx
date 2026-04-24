@@ -18,10 +18,11 @@
  *   Error Prevention    — max/min en fechas, Consultar deshabilitado sin fechas
  *   Progressive Disclosure — rango personalizado oculto hasta pedirlo
  *   Serial Position     — Hoy antes que Ayer antes que Antier
+ *   User Control (H#3)  — cerrar panel preserva todo el contexto del usuario
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useTripDrawer } from '../../hooks/useTripDrawer';
-import { formatAppDateTimeShort, todayLocalString } from '@/lib/date-time';
+import { formatAppDateTimeShort } from '@/lib/date-time';
 import { getTelemetryStatusMeta } from '../../lib/telemetry-status';
 import { X, ChevronDown, Calendar, RotateCcw } from 'lucide-react';
 import type { RoutePoint, RouteDisplayOptions, CustomRangeParams } from '../../types/map.types';
@@ -82,6 +83,8 @@ export const TripDrawer = ({
     customRange, setCustomRange,
     displayOptions, setDisplayOptions,
     extendedSummary, formatDuration,
+    // activeRangeKey ahora viene del store — persiste al cerrar/reabrir
+    activeRangeKey, setActiveRangeKey,
     loadUnits, handleUnitChange,
     handleLoadPredefinedRoute, handleLoadCustomRange,
     handleLoadTripById, handleClose,
@@ -94,16 +97,9 @@ export const TripDrawer = ({
     onDirectionVisibilityChange,
   });
 
+  // Estados locales SOLO de UI efímera (no se persisten entre cierres).
   const [showHours, setShowHours] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
-  // Rastrear el rango activo para feedback visual en los botones
-  const [activeRangeKey, setActiveRangeKey] = useState<string | null>(null);
-
-  // Inicializar fechas en UTC-6 correcto
-  useEffect(() => {
-    const today = todayLocalString();
-    setCustomRange((p) => ({ ...p, startDate: today, endDate: today }));
-  }, [setCustomRange]);
 
   // Sincronizar capas con el mapa
   const toggleLayer = useCallback((key: keyof RouteDisplayOptions) => {
@@ -162,7 +158,6 @@ export const TripDrawer = ({
   };
 
   // ── Resumen inline ────────────────────────────────────────────────────────
-  // Aparece debajo del selector de recorridos — sin pestaña separada
   const renderSummaryInline = () => {
     if (!extendedSummary) return null;
     return (
@@ -193,7 +188,7 @@ export const TripDrawer = ({
           ))}
         </div>
 
-        {/* Capas — checkboxes visibles con etiqueta (no sr-only) */}
+        {/* Capas */}
         <div className="border-t border-slate-200 p-2.5">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
             Ver en el mapa

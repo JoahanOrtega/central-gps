@@ -11,6 +11,25 @@
  *   Error Prevention    → checkbox de grupo con estado indeterminate
  *   Doherty Threshold   → skeleton mientras carga, sin bloquear la UI
  *   Aesthetic-Usability → borde de color sutil en tarjeta seleccionada
+ *   User Control (H#3)  → cerrar panel preserva selección y markers del mapa
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Decisión UX — "Cerrar panel" ≠ "Limpiar selección"
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Son 2 acciones independientes del usuario:
+ *
+ *   Cerrar panel (botón X):
+ *     → Oculta el panel
+ *     → MANTIENE markers seleccionados en el mapa
+ *     → MANTIENE checkboxes marcados al reabrir
+ *     Motivo: el usuario cierra el panel PARA ver mejor los markers,
+ *     no para limpiarlos. Borrarlos sería penalizar su acción.
+ *
+ *   Limpiar selección (botón "Limpiar" del header):
+ *     → Desmarca todas las unidades
+ *     → Oculta markers del mapa
+ *     → El panel sigue abierto
+ *     Motivo: es una acción explícita del usuario sobre su selección.
  */
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, X, ChevronDown, ChevronRight } from 'lucide-react';
@@ -248,20 +267,31 @@ export const UnitsDrawer = ({
     isLoading, error, setSearch, loadUnits, toggleUnit, clearSelection,
   } = useUnitsLive();
 
-
+  // Sincroniza la selección con los markers del mapa:
+  //   - Si hay unidades seleccionadas → muestra markers
+  //   - Si la selección se vacía → oculta markers
+  // Solo se dispara por cambios en `selectedUnits` (ej: toggle, clearSelection).
+  // Cerrar el panel NO modifica `selectedUnits`, por lo que los markers
+  // se preservan intactos al cerrar — comportamiento UX deseado.
   useEffect(() => {
     selectedUnits.length === 0
       ? onUnitsHidden()
       : onUnitsSelectionChange(selectedUnits);
   }, [selectedUnits, onUnitsSelectionChange, onUnitsHidden]);
 
+  /**
+   * Cierra el panel SIN tocar la selección.
+   * El usuario puede reabrir el panel y encontrar su trabajo intacto
+   * (checkboxes marcados, markers en el mapa).
+   *
+   * Para limpiar la selección explícitamente, el usuario tiene el botón
+   * "Limpiar" en el header del drawer.
+   */
   const handleClose = useCallback(() => {
-    clearSelection();
-    onUnitsHidden();
     onClose();
-  }, [clearSelection, onUnitsHidden, onClose]);
+  }, [onClose]);
 
-  // Los conteos vienen pre-calculados desde el backend (Sección 2 del refactor).
+  // Conteos pre-calculados desde el backend (Sección 2 del refactor).
   // Antes se recomputaba con units.filter(...).length en cada render.
   const { engine_on: encendidas, engine_off: apagadas, engine_unknown: sinDatos } = counts;
 

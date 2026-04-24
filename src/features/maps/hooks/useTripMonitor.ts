@@ -11,41 +11,70 @@ import type {
 import { notify } from "@/stores/notificationStore";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { useAutoRefresh } from "./useAutoRefresh";
+import { useTripDrawerStore } from "../stores/tripDrawerStore";
 
 // Intervalo de polling para refrescar summary + trips de la unidad
 // seleccionada. 15s balancea "sensación de tiempo real" vs carga en backend.
 const SELECTED_UNIT_REFRESH_MS = 15_000;
 
 /**
- * Estado central del drawer de recorridos.
- * Este hook encapsula:
- * - carga de unidades
- * - selección de unidad
- * - carga de resumen
- * - carga de recorridos por modo
- * - carga de trips recientes
+ * Estado central del drawer de recorridos — nivel de datos.
+ *
+ * Responsabilidades:
+ *   - Carga de unidades desde backend
+ *   - Selección de unidad (lleva a carga de summary + trips recientes)
+ *   - Carga de recorridos por modo (today, yesterday, latest, etc.)
+ *   - Carga de trips específicos por ID
+ *   - Polling de la unidad seleccionada cada 15s
+ *
+ * Estado persistente en `tripDrawerStore`:
+ *   - `selectedUnitImei`:     unidad elegida (sobrevive al desmontaje)
+ *   - `selectedTripId`:       trip específico cargado
+ *   - `activeMode`:           modo de ruta activo
+ *   - `currentRoutePoints`:   polilínea dibujada (para redibujar al reabrir)
+ *
+ * Estado local (se re-fetchea al montar):
+ *   - `units`:        catálogo de unidades disponibles
+ *   - `unitSummary`:  resumen liviano (con polling)
+ *   - `recentTrips`:  trips recientes (con polling)
  */
 export const useTripMonitor = () => {
+  // Estado local: datos del backend (volátiles).
   const [units, setUnits] = useState<MapUnitItem[]>([]);
-  const [selectedUnitImei, setSelectedUnitImei] = useState("");
   const [unitSummary, setUnitSummary] = useState<TripUnitSummary | null>(null);
   const [recentTrips, setRecentTrips] = useState<RecentTripItem[]>([]);
-  const [selectedTripId, setSelectedTripId] = useState("");
-  const [activeMode, setActiveMode] = useState<RouteMode | null>(null);
-
-  const [currentRoutePoints, setCurrentRoutePoints] = useState<RoutePoint[]>([]);
-
   const [isLoadingUnits, setIsLoadingUnits] = useState(false);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [error, setError] = useState("");
 
-  // Empresa activa — necesaria para sudo_erp que no tiene empresa fija en el JWT
+  // Estado persistente desde el store (suscripciones granulares para
+  // que cambiar un slice no re-renderice hooks que leen otros slices).
+  const selectedUnitImei = useTripDrawerStore((s) => s.selectedUnitImei);
+  const selectedTripId = useTripDrawerStore((s) => s.selectedTripId);
+  const activeMode = useTripDrawerStore((s) => s.activeMode);
+  const currentRoutePoints = useTripDrawerStore((s) => s.currentRoutePoints);
+
+  const setSelectedUnitImeiInStore = useTripDrawerStore(
+    (s) => s.setSelectedUnitImei,
+  );
+  const setSelectedTripIdInStore = useTripDrawerStore(
+    (s) => s.setSelectedTripId,
+  );
+  const setActiveModeInStore = useTripDrawerStore((s) => s.setActiveMode);
+  const setCurrentRoutePointsInStore = useTripDrawerStore(
+    (s) => s.setCurrentRoutePoints,
+  );
+  const resetRouteStateInStore = useTripDrawerStore((s) => s.resetRouteState);
+
   const { idEmpresa } = useEmpresaActiva();
 
+  /**
+   * Unidad completa seleccionada — derivada del catálogo + imei persistido.
+   * Array.isArray es guard defensivo: units siempre debería ser array
+   * (lo garantiza loadUnits y el service), pero previene crashes si
+   * un consumidor externo muta el estado de forma inesperada.
+   */
   const selectedUnit = useMemo(
-    // Guard defensivo: units siempre debería ser array (lo garantiza loadUnits
-    // y el service), pero Array.isArray evita un crash si algún consumidor
-    // externo muta el estado de forma inesperada.
     () =>
       Array.isArray(units)
         ? (units.find((unit) => unit.imei === selectedUnitImei) ?? null)
@@ -53,9 +82,7 @@ export const useTripMonitor = () => {
     [units, selectedUnitImei],
   );
 
-  /**
-   * Filtra recorridos vacíos o insignificantes para evitar ruido visual.
-   */
+  /** Filtra recorridos insignificantes para evitar ruido visual. */
   const visibleTrips = useMemo(
     () =>
       recentTrips.filter(
@@ -65,57 +92,65 @@ export const useTripMonitor = () => {
   );
 
   /**
-   * Limpia el estado actual del recorrido seleccionado.
+   * Limpia el estado del recorrido actual.
+   * Usado al cambiar de unidad: la polilínea/trip de la unidad anterior
+   * no debe persistir cuando el usuario elige otra.
    */
   const resetRouteState = useCallback(() => {
     setUnitSummary(null);
     setRecentTrips([]);
-    setSelectedTripId("");
-    setActiveMode(null);
-    setCurrentRoutePoints([]);
-  }, []);
+    resetRouteStateInStore();
+  }, [resetRouteStateInStore]);
 
   /**
-   * Carga unidades disponibles para consulta.
+   * Carga unidades disponibles.
    * idEmpresa se pasa explícitamente para soportar sudo_erp.
-   *
-   * El service `monitorService.getUnitsLive` ya valida el shape y normaliza
-   * respuestas legacy (array plano). Este hook solo necesita la lista
-   * `units` — los conteos son responsabilidad de useUnitsLive.
-   *
-   * Garantía defensiva: ante cualquier error el estado `units` queda en
-   * `[]`, nunca `undefined`. Esto previene `TypeError: units.find is not
-   * a function` en el useMemo de `selectedUnit`.
+   * Garantía defensiva: ante error, units queda en `[]` (nunca undefined).
    */
-  const loadUnits = useCallback(async (searchValue = '') => {
-    setIsLoadingUnits(true);
-    setError('');
+  const loadUnits = useCallback(
+    async (searchValue = "") => {
+      setIsLoadingUnits(true);
+      setError("");
 
-    try {
-      const { units: freshUnits } = await monitorService.getUnitsLive(
-        searchValue,
-        idEmpresa,
-      );
-      setUnits(freshUnits);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'No fue posible cargar las unidades';
-      setError(message);
-      notify.error(message);
-      // Recuperación segura: nunca dejar units como undefined.
-      setUnits([]);
-    } finally {
-      setIsLoadingUnits(false);
-    }
-  }, [idEmpresa]);
+      try {
+        const { units: freshUnits } = await monitorService.getUnitsLive(
+          searchValue,
+          idEmpresa,
+        );
+        setUnits(freshUnits);
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "No fue posible cargar las unidades";
+        setError(message);
+        notify.error(message);
+        setUnits([]);
+      } finally {
+        setIsLoadingUnits(false);
+      }
+    },
+    [idEmpresa],
+  );
 
   /**
    * Selecciona una unidad y carga su resumen + trips recientes.
+   * Si el imei coincide con el ya persistido en el store, NO limpia la
+   * ruta previa (caso típico: el usuario remonteó el drawer, no eligió
+   * una unidad distinta). Así la polilínea y el resumen se preservan.
    */
   const selectUnit = useCallback(
     async (imei: string) => {
-      setSelectedUnitImei(imei);
-      resetRouteState();
+      // Si es la MISMA unidad que ya teníamos seleccionada, no reseteamos
+      // la ruta. Esto permite que al remontar el drawer con unidad
+      // persistida, el trip activo no se borre.
+      const isSameUnit = imei === selectedUnitImei && imei !== "";
+
+      setSelectedUnitImeiInStore(imei);
+
+      if (!isSameUnit) {
+        resetRouteState();
+      }
 
       if (!imei) return;
 
@@ -126,7 +161,9 @@ export const useTripMonitor = () => {
         setUnitSummary(summary);
 
         if (!summary.hasTelemetry) {
-          notify.warning("No hay información para mostrar");
+          if (!isSameUnit) {
+            notify.warning("No hay información para mostrar");
+          }
           return;
         }
 
@@ -141,24 +178,18 @@ export const useTripMonitor = () => {
         setError(message);
       }
     },
-    [resetRouteState, idEmpresa],
+    [
+      resetRouteState,
+      idEmpresa,
+      selectedUnitImei,
+      setSelectedUnitImeiInStore,
+    ],
   );
 
   /**
-   * Refresca SILENCIOSAMENTE los datos de la unidad ya seleccionada.
-   *
-   * Diferencias vs selectUnit:
-   *   - No llama a resetRouteState(): el usuario puede estar viendo una
-   *     ruta específica — no debe parpadear ni cerrarse.
-   *   - No limpia selectedTripId ni currentRoutePoints.
-   *   - No muestra notify.warning si no hay telemetría (sería molesto
-   *     cada 15 segundos). Solo actualiza el resumen.
-   *   - Solo actualiza summary + recentTrips, que son los campos que
-   *     reflejan cambios en tiempo real (última posición, velocidad,
-   *     estado del motor, nuevos recorridos registrados).
-   *
-   * Se usa desde el polling interno del hook — no se expone en el return
-   * porque no tiene caso llamarla manualmente; useAutoRefresh la dispara.
+   * Refresca silenciosamente los datos de la unidad ya seleccionada.
+   * No resetea estado visible (ruta, trip) — solo summary y recentTrips.
+   * No muestra errores visuales (sería molesto cada 15s).
    */
   const refreshSelectedUnit = useCallback(async () => {
     if (!selectedUnitImei) return;
@@ -178,28 +209,18 @@ export const useTripMonitor = () => {
         setRecentTrips(trips);
       }
     } catch {
-      // Silencioso: un error de red puntual en un refresh en background
-      // no debe mostrar toast ni actualizar el estado de error visible.
-      // El próximo tick lo vuelve a intentar.
+      // Silencioso: error puntual en background no debe alarmar al usuario.
     }
   }, [selectedUnitImei, idEmpresa]);
 
-  // Polling de la unidad seleccionada: refresca cada 15s sin interrumpir
-  // la navegación del usuario. Protegido contra solapamiento por el propio
-  // useAutoRefresh (si un request tarda más que el intervalo, el siguiente
-  // tick se ignora hasta que termine).
   useAutoRefresh({
     callback: refreshSelectedUnit,
     intervalMs: SELECTED_UNIT_REFRESH_MS,
     enabled: !!selectedUnitImei,
-    // immediate:false → el primer dato lo trae selectUnit al seleccionar.
-    // El polling arranca tras el primer intervalo.
     immediate: false,
   });
 
-  /**
-   * Carga una ruta por modo: último, hoy, ayer o antier.
-   */
+  /** Carga una ruta por modo predefinido (today, yesterday, latest, etc.). */
   const loadRouteByMode = useCallback(
     async (mode: RouteMode) => {
       if (!selectedUnitImei) return [];
@@ -207,8 +228,8 @@ export const useTripMonitor = () => {
       try {
         setIsLoadingRoute(true);
         setError("");
-        setSelectedTripId("");
-        setActiveMode(mode);
+        setSelectedTripIdInStore("");
+        setActiveModeInStore(mode);
 
         const points = await telemetryService.getRouteByMode(
           selectedUnitImei,
@@ -217,12 +238,12 @@ export const useTripMonitor = () => {
         );
 
         if (!points.length) {
-          setCurrentRoutePoints([]);
+          setCurrentRoutePointsInStore([]);
           notify.warning("No hay información para mostrar");
           return [];
         }
 
-        setCurrentRoutePoints(points);
+        setCurrentRoutePointsInStore(points);
         return points;
       } catch (error) {
         const message =
@@ -231,25 +252,29 @@ export const useTripMonitor = () => {
             : "No fue posible cargar el recorrido";
 
         setError(message);
-        setCurrentRoutePoints([]);
+        setCurrentRoutePointsInStore([]);
         return [];
       } finally {
         setIsLoadingRoute(false);
       }
     },
-    [selectedUnitImei, idEmpresa],
+    [
+      selectedUnitImei,
+      idEmpresa,
+      setSelectedTripIdInStore,
+      setActiveModeInStore,
+      setCurrentRoutePointsInStore,
+    ],
   );
 
-  /**
-   * Carga el detalle de un recorrido específico.
-   */
+  /** Carga el detalle de un recorrido específico por ID. */
   const loadTripById = useCallback(
     async (tripId: string) => {
-      setSelectedTripId(tripId);
-      setActiveMode(null);
+      setSelectedTripIdInStore(tripId);
+      setActiveModeInStore(null);
 
       if (!selectedUnitImei || !tripId) {
-        setCurrentRoutePoints([]);
+        setCurrentRoutePointsInStore([]);
         return [];
       }
 
@@ -264,12 +289,12 @@ export const useTripMonitor = () => {
         );
 
         if (!points.length) {
-          setCurrentRoutePoints([]);
+          setCurrentRoutePointsInStore([]);
           notify.warning("No hay información para mostrar");
           return [];
         }
 
-        setCurrentRoutePoints(points);
+        setCurrentRoutePointsInStore(points);
         return points;
       } catch (error) {
         const message =
@@ -278,24 +303,39 @@ export const useTripMonitor = () => {
             : "No fue posible cargar el recorrido";
 
         setError(message);
-        setCurrentRoutePoints([]);
+        setCurrentRoutePointsInStore([]);
         return [];
       } finally {
         setIsLoadingRoute(false);
       }
     },
-    [selectedUnitImei, idEmpresa],
+    [
+      selectedUnitImei,
+      idEmpresa,
+      setSelectedTripIdInStore,
+      setActiveModeInStore,
+      setCurrentRoutePointsInStore,
+    ],
   );
 
-  /**
-   * Limpia completamente el estado del feature.
-   */
+  /** Limpia completamente el estado del feature. */
   const resetAll = useCallback(() => {
     setUnits([]);
-    setSelectedUnitImei("");
+    setUnitSummary(null);
+    setRecentTrips([]);
     setError("");
-    resetRouteState();
-  }, [resetRouteState]);
+    useTripDrawerStore.getState().reset();
+  }, []);
+
+  // Wrappers que proxean al store manteniendo la API pública del hook.
+  const setSelectedTripId = useCallback(
+    (id: string) => setSelectedTripIdInStore(id),
+    [setSelectedTripIdInStore],
+  );
+  const setActiveMode = useCallback(
+    (mode: RouteMode | null) => setActiveModeInStore(mode),
+    [setActiveModeInStore],
+  );
 
   return {
     units,

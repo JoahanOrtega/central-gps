@@ -2,12 +2,28 @@
  * PoisDrawer.tsx — Panel lateral de Puntos de Interés
  *
  * Leyes UX aplicadas:
- *   Chunking        → POIs agrupados en acordeón por grupo
- *   Recognition     → ícono diferente por tipo_poi (📍 punto / ⬡ polígono)
- *   Fitts's Law     → clic en toda la fila enfoca en mapa
- *   Error Prevention→ checkbox de grupo con indeterminate
- *   Visibility      → contador total y seleccionados en header
- *   Feedback        → fila con bg distinto cuando seleccionada
+ *   Chunking            → POIs agrupados en acordeón por grupo
+ *   Recognition         → ícono diferente por tipo_poi (📍 punto / ⬡ polígono)
+ *   Fitts's Law         → clic en toda la fila enfoca en mapa
+ *   Error Prevention    → checkbox de grupo con indeterminate
+ *   Visibility          → contador total y seleccionados en header
+ *   Feedback            → fila con bg distinto cuando seleccionada
+ *   User Control (H#3)  → cerrar panel preserva selección y markers del mapa
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Decisión UX — "Cerrar panel" ≠ "Limpiar selección"
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Son 2 acciones independientes del usuario:
+ *
+ *   Cerrar panel (botón X):
+ *     → Oculta el panel
+ *     → MANTIENE POIs marcados en el mapa
+ *     → MANTIENE checkboxes marcados al reabrir
+ *
+ *   Limpiar selección (botón "Limpiar selección" del header):
+ *     → Desmarca todos los POIs
+ *     → Oculta markers del mapa
+ *     → El panel sigue abierto
  */
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Search, X, ChevronDown, ChevronRight } from 'lucide-react';
@@ -151,18 +167,41 @@ export const PoisDrawer = ({
   const {
     pois, filteredPois, selectedPois, selectedPoiIds,
     search, isLoading, error,
-    setSearch, loadPois, togglePoi, clearSelection, reset,
+    setSearch, loadPois, togglePoi, clearSelection,
   } = usePoisDrawer();
 
+  // Cargar POIs al montar.
+  // Antes este useEffect también llamaba a clearSelection() y onPoisHidden(),
+  // lo que borraba la selección cada vez que el componente se re-montaba
+  // (ej: al reabrir el panel). Ahora solo carga los datos — la selección
+  // previa se mantiene intacta.
   useEffect(() => {
-    clearSelection(); onPoisHidden(); void loadPois();
-  }, [clearSelection, loadPois, onPoisHidden]);
+    void loadPois();
+  }, [loadPois]);
 
+  // Sincroniza la selección con los markers del mapa:
+  //   - Si hay POIs seleccionados → muestra markers
+  //   - Si la selección se vacía → oculta markers
+  // Cerrar el panel NO modifica `selectedPois`, por lo que los markers
+  // se preservan al cerrar — comportamiento UX deseado.
   useEffect(() => {
-    onPoisSelectionChange(selectedPois);
-  }, [selectedPois, onPoisSelectionChange]);
+    if (selectedPois.length === 0) {
+      onPoisHidden();
+    } else {
+      onPoisSelectionChange(selectedPois);
+    }
+  }, [selectedPois, onPoisSelectionChange, onPoisHidden]);
 
-  const handleClose = () => { clearSelection(); onPoisHidden(); reset(); onClose(); };
+  /**
+   * Cierra el panel SIN tocar la selección.
+   * El usuario puede reabrir y encontrar su trabajo intacto.
+   *
+   * Para limpiar explícitamente, usa el botón "Limpiar selección"
+   * del header del drawer.
+   */
+  const handleClose = useCallback(() => {
+    onClose();
+  }, [onClose]);
 
   const handleToggle = useCallback((poi: MapPoiItem) => {
     const wasOn = selectedPoiIds.includes(poi.id_poi);
