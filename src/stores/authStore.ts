@@ -139,7 +139,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         // Llamar al backend para revocar el refresh token en BD
         // y eliminar la cookie HttpOnly del navegador
         try {
-            const apiUrl = import.meta.env.VITE_API_URL;
+            const apiUrl = import.meta.env.VITE_API_URL ?? "";
             await fetch(`${apiUrl}/auth/logout`, {
                 method: "POST",
                 credentials: "include",

@@ -19,7 +19,11 @@ export const loadGoogleMaps = (): Promise<void> => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
 
     if (!apiKey) {
-      reject(new Error("No se encontró VITE_GOOGLE_MAPS_API_KEY"))
+      console.warn(
+        "VITE_GOOGLE_MAPS_API_KEY no está configurada. El mapa no se cargará. " +
+        "Obtén una en console.cloud.google.com y agrégala al .env raíz del proyecto."
+      )
+      reject(new Error("Google Maps no disponible (sin API key)"))
       return
     }
 
