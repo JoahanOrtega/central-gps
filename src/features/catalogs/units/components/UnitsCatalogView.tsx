@@ -27,13 +27,13 @@ export const UnitsCatalogView = () => {
   // Si el usuario no lo tiene, el botón "Agregar" queda oculto.
   // El backend también valida este permiso — esto es solo UX para
   // evitar mostrar un botón que respondería 403.
-  const puedeCrearUnidad = usePermiso("cund3");
+  const puedeCrearUnidad = usePermiso("unidades.crear");
 
   // Permiso para editar unidades (cund_edit). Determina si las cards
   // muestran el menú de acciones con "Editar". sudo_erp lo tiene por
   // bypass; admin_empresa lo hereda del rol; usuario solo si su admin
   // se lo asignó vía r_usuario_permisos.
-  const puedeEditarUnidad = usePermiso("cund_edit");
+  const puedeEditarUnidad = usePermiso("unidades.editar");
 
   // Debounce de 350ms — actualiza la queryKey solo después de que el usuario
   // deja de escribir, evitando una petición por cada tecla presionada
