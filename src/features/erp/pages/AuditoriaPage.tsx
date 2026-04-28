@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { ClipboardList, Filter, RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -17,6 +17,19 @@ const ENTIDADES = ["", "empresa", "usuario", "usuario_empresa", "permiso"];
 const formatFecha = (iso: string) => new Date(iso).toLocaleString("es-MX", {
     day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
 });
+
+// ── Headers de la tabla ───────────────────────────────────
+// IP fue removida: en el deployment actual el backend ve la IP del proxy
+// (servidor) en lugar de la del cliente real. Mostrarla daba la falsa
+// impresión de que todos los registros venían del mismo origen.
+// Si en el futuro se configura X-Forwarded-For correctamente y se lee
+// la IP real, se puede reintroducir como columna o como detalle expandible.
+const TABLE_HEADERS = ["Fecha", "Usuario", "Entidad", "Acción", "Detalle"];
+
+// Número de columnas para el colSpan de la fila expandida.
+// Se calcula desde el array para que, si en el futuro se agregan o quitan
+// columnas, no haya que recordar actualizar el colSpan manualmente.
+const COLUMN_COUNT = TABLE_HEADERS.length;
 
 export const AuditoriaPage = () => {
     useDocumentTitle("Auditoría");
@@ -73,14 +86,18 @@ export const AuditoriaPage = () => {
                         <div className="overflow-hidden rounded-xl border border-slate-200">
                             <table className="w-full border-collapse text-sm">
                                 <thead className="bg-slate-50 text-slate-600">
-                                    <tr>{["Fecha", "Usuario", "Entidad", "Acción", "IP", "Detalle"].map((h) => (
+                                    <tr>{TABLE_HEADERS.map((h) => (
                                         <th key={h} className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium">{h}</th>
                                     ))}</tr>
                                 </thead>
                                 <tbody>
                                     {registros.map((reg) => (
-                                        <>
-                                            <tr key={reg.id_auditoria} className="cursor-pointer hover:bg-slate-50" onClick={() => toggleExpand(reg.id_auditoria)}>
+                                        // Fragment con key explícita: <>...</> no acepta key,
+                                        // por eso usamos <Fragment key=...>. Sin esto, React
+                                        // emitía warning en consola y, en listas grandes, podía
+                                        // causar re-render innecesario al expandir filas.
+                                        <Fragment key={reg.id_auditoria}>
+                                            <tr className="cursor-pointer hover:bg-slate-50" onClick={() => toggleExpand(reg.id_auditoria)}>
                                                 <td className="border-b border-slate-200 px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{formatFecha(reg.fecha_registro)}</td>
                                                 <td className="border-b border-slate-200 px-4 py-3">
                                                     <p className="font-medium text-slate-800 text-xs">{reg.nombre_usuario}</p>
@@ -93,14 +110,14 @@ export const AuditoriaPage = () => {
                                                 <td className="border-b border-slate-200 px-4 py-3">
                                                     <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${accionStyle(reg.accion)}`}>{reg.accion}</span>
                                                 </td>
-                                                <td className="border-b border-slate-200 px-4 py-3 text-xs text-slate-400">{reg.ip_origen ?? "—"}</td>
+                                                {/* Columna IP eliminada — ver comentario en TABLE_HEADERS */}
                                                 <td className="border-b border-slate-200 px-4 py-3 text-xs text-emerald-500">
                                                     {(reg.datos_nuevos || reg.datos_anteriores) ? expandedId === reg.id_auditoria ? "Ocultar ▲" : "Ver ▼" : "—"}
                                                 </td>
                                             </tr>
                                             {expandedId === reg.id_auditoria && (
-                                                <tr key={`${reg.id_auditoria}-detail`}>
-                                                    <td colSpan={6} className="border-b border-slate-200 bg-slate-50 px-6 py-4">
+                                                <tr>
+                                                    <td colSpan={COLUMN_COUNT} className="border-b border-slate-200 bg-slate-50 px-6 py-4">
                                                         <div className="flex gap-6">
                                                             {reg.datos_anteriores && (
                                                                 <div className="flex-1">
@@ -118,7 +135,7 @@ export const AuditoriaPage = () => {
                                                     </td>
                                                 </tr>
                                             )}
-                                        </>
+                                        </Fragment>
                                     ))}
                                 </tbody>
                             </table>
