@@ -1,19 +1,32 @@
 import { useEffect, useRef, useState } from "react";
 import type { UnitItem } from "../types/unit.types";
-import { BusFront, MoreHorizontal, FileImage, Pencil } from "lucide-react";
+import { BusFront, MoreHorizontal, FileImage, Pencil, Trash2 } from "lucide-react";
 
 interface UnitCardProps {
   unit: UnitItem;
-  // Visible solo cuando el usuario tiene permiso cund_edit.
+  // Visible solo cuando el usuario tiene permiso unidades.editar.
   // El caller (UnitsCatalogView) resuelve el permiso una vez y lo pasa
   // al mapear — evitamos que cada card consulte el store por su cuenta.
   canEdit?: boolean;
+  // Visible solo cuando el usuario tiene permiso unidades.eliminar.
+  // Igual que canEdit, el padre lo resuelve una vez.
+  canDelete?: boolean;
   // Callback al hacer click en "Editar". Recibe el id para que el
   // parent abra el modal correspondiente.
   onEdit?: (idUnidad: number) => void;
+  // Callback al hacer click en "Eliminar". Recibe la unidad completa
+  // (no solo el id) para que el parent pueda mostrar el nombre/numero
+  // en el diálogo de confirmación sin tener que volver a buscarla.
+  onDelete?: (unit: UnitItem) => void;
 }
 
-export const UnitCard = ({ unit, canEdit = false, onEdit }: UnitCardProps) => {
+export const UnitCard = ({
+  unit,
+  canEdit = false,
+  canDelete = false,
+  onEdit,
+  onDelete,
+}: UnitCardProps) => {
   const statusLabel = "Apagada";
   const operatorLabel = unit.id_operador
     ? `Operador ${unit.id_operador}`
@@ -50,6 +63,16 @@ export const UnitCard = ({ unit, canEdit = false, onEdit }: UnitCardProps) => {
     onEdit?.(unit.id);
   };
 
+  const handleDeleteClick = () => {
+    setMenuOpen(false);
+    onDelete?.(unit);
+  };
+
+  // El menú aparece si tiene CUALQUIER acción disponible.
+  // Ocultar el botón cuando no hay acciones evita un kebab "muerto"
+  // que confunde al usuario al hacer click y no pasar nada.
+  const hasAnyAction = canEdit || canDelete;
+
   return (
     <article className="relative rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between">
@@ -64,9 +87,9 @@ export const UnitCard = ({ unit, canEdit = false, onEdit }: UnitCardProps) => {
         </div>
 
         {/* Kebab menu — solo si el usuario tiene al menos una acción
-            disponible. Hoy solo "Editar"; en el futuro habrá más
+            disponible. Hoy "Editar" y "Eliminar"; en el futuro habrá más
             (Detalles, Historial, Alertas, Token de Rastreo). */}
-        {canEdit && (
+        {hasAnyAction && (
           <div className="relative" ref={menuRef}>
             <button
               type="button"
@@ -84,15 +107,36 @@ export const UnitCard = ({ unit, canEdit = false, onEdit }: UnitCardProps) => {
                 role="menu"
                 className="absolute right-0 top-full z-10 mt-1 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
               >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={handleEditClick}
-                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <Pencil className="h-4 w-4 text-slate-500" />
-                  Editar
-                </button>
+                {canEdit && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleEditClick}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    <Pencil className="h-4 w-4 text-slate-500" />
+                    Editar
+                  </button>
+                )}
+
+                {/* Separador visual entre acción "neutra" (editar) y
+                    acción "destructiva" (eliminar). Refuerza visualmente
+                    que son dos categorías de operaciones. */}
+                {canEdit && canDelete && (
+                  <div className="border-t border-slate-100" aria-hidden="true" />
+                )}
+
+                {canDelete && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleDeleteClick}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Eliminar
+                  </button>
+                )}
               </div>
             )}
           </div>

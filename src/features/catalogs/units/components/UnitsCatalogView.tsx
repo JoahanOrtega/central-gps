@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BusFront, Plus, Search, Download, TriangleAlert, X } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { unitService } from "../services/unitService";
 import type { UnitItem } from "../types/unit.types";
 import { UnitCard } from "./UnitCard";
@@ -11,9 +11,12 @@ import { usePermiso } from "@/hooks/usePermiso";
 import { SkeletonGrid } from "@/components/shared/SkeletonCard";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { notify } from "@/stores/notificationStore";
 import { queryKeys } from "@/lib/query-keys";
 
 export const UnitsCatalogView = () => {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -21,19 +24,34 @@ export const UnitsCatalogView = () => {
   // Usamos el id como source of truth para que el modal sepa qué cargar
   // sin que el parent tenga que pasar el UnitItem completo (menos acoplamiento).
   const [editingUnitId, setEditingUnitId] = useState<number | null>(null);
+
+  // Estado del diálogo de confirmación de eliminación.
+  // Guardamos la unidad COMPLETA (no solo el id) para mostrar su número
+  // en el mensaje del diálogo — el usuario debe ver QUÉ va a eliminar
+  // antes de confirmar (Heurística #5: prevenir errores).
+  const [unitToDelete, setUnitToDelete] = useState<UnitItem | null>(null);
+  // Loading independiente del confirm para que solo este botón muestre
+  // spinner; el resto de la UI no se bloquea.
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const { idEmpresa } = useEmpresaActiva();
 
-  // Permiso para crear unidades (cund3).
+  // Permiso para crear unidades.
   // Si el usuario no lo tiene, el botón "Agregar" queda oculto.
   // El backend también valida este permiso — esto es solo UX para
   // evitar mostrar un botón que respondería 403.
   const puedeCrearUnidad = usePermiso("unidades.crear");
 
-  // Permiso para editar unidades (cund_edit). Determina si las cards
-  // muestran el menú de acciones con "Editar". sudo_erp lo tiene por
-  // bypass; admin_empresa lo hereda del rol; usuario solo si su admin
-  // se lo asignó vía r_usuario_permisos.
+  // Permiso para editar unidades. Determina si las cards muestran el
+  // menú de acciones con "Editar". sudo_erp lo tiene por bypass;
+  // admin_empresa lo hereda del rol; usuario solo si su admin se lo
+  // asignó vía r_usuario_permisos.
   const puedeEditarUnidad = usePermiso("unidades.editar");
+
+  // Permiso para eliminar unidades (nuevo en este PR).
+  // Mismo patrón: sudo_erp tiene bypass; admin_empresa hereda del rol;
+  // usuario individual lo recibe asignado.
+  const puedeEliminarUnidad = usePermiso("unidades.eliminar");
 
   // Debounce de 350ms — actualiza la queryKey solo después de que el usuario
   // deja de escribir, evitando una petición por cada tecla presionada
@@ -52,6 +70,52 @@ export const UnitsCatalogView = () => {
 
   const showSkeleton = useDelayedLoading(isLoading);
   const errorMessage = error instanceof Error ? error.message : null;
+
+  // ── Handlers de eliminación ───────────────────────────────────────────────
+  // Separamos la apertura del confirm del envío real:
+  //   - handleAskDelete: solo abre el confirm con el target seleccionado.
+  //   - handleConfirmDelete: ejecuta el DELETE, invalida caché, notifica.
+  // Esta separación facilita testear cada paso por su lado y deja el
+  // ConfirmDialog como componente "tonto" sin lógica de negocio.
+
+  const handleAskDelete = (unit: UnitItem) => {
+    setUnitToDelete(unit);
+  };
+
+  const handleCancelDelete = () => {
+    // No tocar unitToDelete si estamos en pleno DELETE — esperar a que
+    // termine evita que el confirm desaparezca a mitad de operación si
+    // el usuario presiona Esc accidentalmente. Si no está cargando,
+    // cerrar normalmente.
+    if (!isDeleting) setUnitToDelete(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!unitToDelete) return;
+    setIsDeleting(true);
+    try {
+      await unitService.delete(unitToDelete.id, idEmpresa);
+
+      // Invalidar TODAS las queries de units — afecta tanto al listado
+      // por empresa como por filtros de búsqueda. queryKeys.units.all
+      // captura cualquier subkey ([units, *]).
+      await queryClient.invalidateQueries({ queryKey: queryKeys.units.all });
+
+      notify.success(`Unidad ${unitToDelete.numero} eliminada correctamente`);
+      setUnitToDelete(null);
+    } catch (err) {
+      notify.error(
+        err instanceof Error
+          ? err.message
+          : "No fue posible eliminar la unidad",
+      );
+      // NO cerramos el confirm en caso de error — el usuario decide si
+      // reintentar o cancelar. Esto sigue Heurística #9 (recuperarse de
+      // errores): el contexto de la operación se mantiene visible.
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <main className="h-full overflow-auto bg-[#f5f6f8] p-3 md:p-6">
@@ -116,7 +180,9 @@ export const UnitsCatalogView = () => {
                   key={unit.id}
                   unit={unit}
                   canEdit={puedeEditarUnidad}
+                  canDelete={puedeEliminarUnidad}
                   onEdit={(id) => setEditingUnitId(id)}
+                  onDelete={handleAskDelete}
                 />
               ))}
             </div>
@@ -132,6 +198,27 @@ export const UnitsCatalogView = () => {
       <EditUnitModal
         idUnidad={editingUnitId}
         onClose={() => setEditingUnitId(null)}
+      />
+
+      {/* ── Confirm de eliminación ──────────────────────────────────────────
+          Reusa el ConfirmDialog compartido. Mostramos el número de la
+          unidad en el título Y la descripción para reforzar QUÉ se va
+          a eliminar — Heurística #5 de Nielsen: prevenir errores.
+
+          confirmText cambia a "ELIMINANDO..." durante el async para dar
+          feedback visible (Heurística #1: visibilidad del estado). */}
+      <ConfirmDialog
+        open={unitToDelete !== null}
+        onOpenChange={(open) => !open && handleCancelDelete()}
+        title="Eliminar unidad"
+        description={
+          unitToDelete
+            ? `¿Estás seguro de eliminar la unidad ${unitToDelete.numero}? Esta acción no se puede deshacer desde la interfaz.`
+            : ""
+        }
+        confirmText={isDeleting ? "ELIMINANDO..." : "ELIMINAR"}
+        confirmButtonClassName="bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+        onConfirm={handleConfirmDelete}
       />
     </main>
   );

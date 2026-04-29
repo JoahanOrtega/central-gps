@@ -65,6 +65,47 @@ export interface CreatePoiPayload {
   observaciones: string
   id_grupo_pois: number[]
 }
+
+// ─── UpdatePoiPayload ─────────────────────────────────────────────────────────
+// Payload del PATCH /pois/<id>. TODOS los campos son opcionales — el cliente
+// solo manda los que cambiaron. Esto refleja el contrato del backend con
+// UpdatePoiSchema, que NO inyecta defaults: los campos omitidos no entran al
+// UPDATE SQL.
+//
+// Por qué NO usar Partial<CreatePoiPayload>:
+//   `direccionEsAproximada` es un flag de UI (no se persiste en BD).
+//   `id_grupo_pois` puede ser undefined (no tocar grupos) o [] (desasignar
+//   todos), distinto del Partial standard. Definirlo explícitamente hace
+//   visible esa semántica al lector.
+export interface UpdatePoiPayload {
+  // Datos básicos editables
+  nombre?: string
+  direccion?: string | null
+  observaciones?: string | null
+
+  // Geometría — modificable solo si el modal lo permite
+  tipo_poi?: number
+  lat?: number | null
+  lng?: number | null
+  radio?: number | null
+  polygon_path?: string | null
+  bounds?: string | null
+  area?: number | null
+
+  // Apariencia
+  tipo_marker?: number
+  url_marker?: string | null
+  marker_path?: string | null
+  marker_color?: string
+  icon?: string | null
+  icon_color?: string
+  radio_color?: string
+  polygon_color?: string
+
+  // Grupos — undefined = no tocar; [] = desasignar todos
+  id_grupo_pois?: number[]
+}
+
 export interface CreatePoiGroupPayload {
   id_cliente: number | null
   nombre: string
