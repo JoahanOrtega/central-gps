@@ -1,4 +1,17 @@
 // ── Query keys centralizadas ──────────────────────────────────────────────────
+//
+// Convenciones:
+//   - <recurso>.all: invalidar TODAS las queries del recurso
+//     Ej: invalidar catalogs.users.all tras crear/editar uno → refetch de
+//     listado, detalle, etc.
+//   - <recurso>.list(...args): listado paginado/filtrado
+//   - <recurso>.detail(id): detalle individual
+//
+// El orden y nesting refleja el dominio del proyecto:
+//   - units / pois / catalogs:  módulos del catálogo del usuario
+//   - erp:                       módulo del Panel ERP (sudo_erp)
+//   - catalogs.users:            ← nuevo, Catálogos > Usuarios
+
 export const queryKeys = {
     units: {
         all: ["units"] as const,
@@ -27,6 +40,24 @@ export const queryKeys = {
         avlModels: () => ["catalogs", "avl-models"] as const,
         clients: (idEmpresa: number | null | undefined) =>
             ["catalogs", "clients", idEmpresa] as const,
+
+        // ─── Catálogos > Usuarios ───────────────────────────────────
+        // El módulo nuevo del PR 4. La key incluye solo "users" como
+        // segundo nivel — TanStack Query usa subcoincidencia de prefix,
+        // así invalidar `["catalogs", "users"]` borra list + detail
+        // automáticamente.
+        //
+        // No incluimos id_empresa en las keys porque el backend ya lo
+        // toma del JWT y devuelve solo usuarios de la empresa actual.
+        // Si el sudo_erp cambia de empresa via switch-company, el JWT
+        // se renueva — TanStack Query refetcha tras un invalidate manual
+        // que el switch-company ya hace.
+        users: {
+            all: ["catalogs", "users"] as const,
+            list: () => ["catalogs", "users", "list"] as const,
+            detail: (idUsuario: number) =>
+                ["catalogs", "users", "detail", idUsuario] as const,
+        },
     },
     erp: {
         all: ["erp"] as const,
@@ -34,5 +65,14 @@ export const queryKeys = {
         permisos: () => ["erp", "permisos"] as const,
         auditoria: (entidad: string, limit: number) =>
             ["erp", "auditoria", entidad, limit] as const,
+        // ── Recursos auxiliares para el wizard de creación de usuario ──
+        // Se usan en Step2Restricciones para poblar los selectores de
+        // grupos de unidades y clientes. La key incluye id_empresa porque
+        // los recursos son específicos de cada empresa — al cambiar de
+        // empresa (sudo_erp via switch) se invalida automáticamente.
+        unitGroupsByEmpresa: (idEmpresa: number) =>
+            ["erp", "unit-groups", idEmpresa] as const,
+        clientsByEmpresa: (idEmpresa: number) =>
+            ["erp", "clients", idEmpresa] as const,
     },
 } as const;

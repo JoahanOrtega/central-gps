@@ -27,6 +27,7 @@ const MonitorPage = lazy(() => import("@/pages/MonitorPage").then(m => ({ defaul
 const FuelPage = lazy(() => import("@/pages/FuelPage").then(m => ({ default: m.FuelPage })));
 const PointsOfInterestPage = lazy(() => import("@/pages/PointsOfInterestPage").then(m => ({ default: m.PointsOfInterestPage })));
 const PoiGroupsPage = lazy(() => import("@/pages/PoiGroupsPage").then(m => ({ default: m.PoiGroupsPage })));
+const UsersPage = lazy(() => import("@/features/catalogs/users/pages/UsersPage").then(m => ({ default: m.UsersPage })));
 
 // ── Panel ERP — solo sudo_erp lo descarga ─────────────────────────────────────
 const EmpresasPage = lazy(() => import("@/features/erp/pages/EmpresasPage").then(m => ({ default: m.EmpresasPage })));
@@ -98,6 +99,10 @@ export const appRouter = createBrowserRouter([
       {
         path: "catalogs/poi-groups",
         element: <PermisoRoute permiso="cpoi1"><LazyPage name="Grupos de POI"><PoiGroupsPage /></LazyPage></PermisoRoute>,
+      },
+      {
+        path: "catalogs/users",
+        element: <PermisoRoute permiso="usuarios.ver"><LazyPage name="Usuarios"><UsersPage /></LazyPage></PermisoRoute>,
       },
       {
         path: "operation/monitor",
