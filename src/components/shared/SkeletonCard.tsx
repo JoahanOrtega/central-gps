@@ -72,6 +72,37 @@ export const PoiCardSkeleton = () => (
     </article>
 );
 
+// ── Skeleton de tarjeta de usuario ────────────────────────────
+// Replica la estructura visual de UserCard:
+//   - Avatar circular + nombre + rol (chip)
+//   - Email/usuario debajo
+//   - Sección de info (teléfono, grupo, cliente)
+//   - Botón kebab a la derecha
+export const UserCardSkeleton = () => (
+    <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+            {/* Avatar + nombre + rol */}
+            <div className="flex flex-1 items-start gap-3">
+                <SkeletonPulse className="h-12 w-12 rounded-full" />
+                <div className="flex-1 space-y-2">
+                    <SkeletonPulse className="h-5 w-40" />
+                    <SkeletonPulse className="h-4 w-32" />
+                    <SkeletonPulse className="h-5 w-24 rounded-full" />
+                </div>
+            </div>
+            {/* Kebab menu */}
+            <SkeletonPulse className="h-9 w-9 rounded-lg" />
+        </div>
+
+        {/* Info debajo: 3 líneas de datos */}
+        <div className="mt-4 space-y-2 border-t border-slate-100 pt-3">
+            <SkeletonPulse className="h-3 w-3/4" />
+            <SkeletonPulse className="h-3 w-1/2" />
+            <SkeletonPulse className="h-3 w-2/3" />
+        </div>
+    </article>
+);
+
 // ── Grid de skeletons ─────────────────────────────────────────
 // Renderiza N skeletons en el mismo grid que las vistas reales.
 // El número por defecto (6) representa una carga típica —
@@ -79,16 +110,24 @@ export const PoiCardSkeleton = () => (
 
 interface SkeletonGridProps {
     count?: number;
-    variant: "unit" | "poi";
+    variant: "unit" | "poi" | "user";
 }
 
 export const SkeletonGrid = ({ count = 6, variant }: SkeletonGridProps) => (
     <div className="grid grid-cols-1 gap-4 md:gap-6 2xl:grid-cols-2">
-        {Array.from({ length: count }).map((_, index) => (
-            variant === "unit"
-                ? <UnitCardSkeleton key={index} />
-                : <PoiCardSkeleton key={index} />
-        ))}
+        {Array.from({ length: count }).map((_, index) => {
+            // Switch en lugar de ternarios anidados — más legible cuando
+            // la cantidad de variantes crece. Si en el futuro se agrega
+            // una cuarta (ej. "operator"), el cambio es trivial.
+            switch (variant) {
+                case "unit":
+                    return <UnitCardSkeleton key={index} />;
+                case "poi":
+                    return <PoiCardSkeleton key={index} />;
+                case "user":
+                    return <UserCardSkeleton key={index} />;
+            }
+        })}
     </div>
 );
 
