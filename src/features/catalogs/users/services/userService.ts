@@ -149,8 +149,14 @@ export const userService = {
      * Como esta es una operación de lectura simple sin manejo de
      * errores 422 con campos, usamos apiFetch directamente.
      */
-    list: (signal?: AbortSignal): Promise<UserListItem[]> =>
-        apiFetch<UserListItem[]>("/catalogs/users", { method: "GET", signal }),
+    list: (
+        idEmpresa: number,
+        signal?: AbortSignal,
+    ): Promise<UserListItem[]> =>
+        apiFetch<UserListItem[]>(
+            `/catalogs/users?id_empresa=${idEmpresa}`,
+            { method: "GET", signal },
+        ),
 
     /**
      * Obtiene el detalle de un usuario para edición.
@@ -161,11 +167,15 @@ export const userService = {
      * Si el usuario no existe o no pertenece a la empresa del que llama,
      * lanza Error (apiFetch traduce el 404 en throw).
      */
-    getDetail: (idUsuario: number, signal?: AbortSignal): Promise<UserDetail> =>
-        apiFetch<UserDetail>(`/catalogs/users/${idUsuario}`, {
-            method: "GET",
-            signal,
-        }),
+    getDetail: (
+        idUsuario: number,
+        idEmpresa: number,
+        signal?: AbortSignal,
+    ): Promise<UserDetail> =>
+        apiFetch<UserDetail>(
+            `/catalogs/users/${idUsuario}?id_empresa=${idEmpresa}`,
+            { method: "GET", signal },
+        ),
 
     /**
      * Crea un usuario nuevo.
@@ -174,9 +184,9 @@ export const userService = {
      * pueda distinguir entre éxito, error de validación (con fields
      * por sección) y otros errores genéricos.
      */
-    create: (payload: CreateUserPayload) =>
+    create: (idEmpresa: number, payload: CreateUserPayload) =>
         fetchWithFieldErrors<CreateUserResponse>(
-            `${API_URL}/catalogs/users`,
+            `${API_URL}/catalogs/users?id_empresa=${idEmpresa}`,
             "POST",
             payload,
         ),
@@ -190,9 +200,13 @@ export const userService = {
      * Para desasignar todos los permisos: enviar
      *   { permisos: { id_permisos: [] } }
      */
-    update: (idUsuario: number, payload: UpdateUserPayload) =>
+    update: (
+        idUsuario: number,
+        idEmpresa: number,
+        payload: UpdateUserPayload,
+    ) =>
         fetchWithFieldErrors<UpdateUserResponse>(
-            `${API_URL}/catalogs/users/${idUsuario}`,
+            `${API_URL}/catalogs/users/${idUsuario}?id_empresa=${idEmpresa}`,
             "PATCH",
             payload,
         ),
@@ -208,9 +222,12 @@ export const userService = {
      * del Panel ERP. Si el usuario intenta enviar status=1, el backend
      * responde 403 con un mensaje que dirige al lugar correcto.
      */
-    inhabilitar: (idUsuario: number): Promise<InhabilitarUserResponse> =>
+    inhabilitar: (
+        idUsuario: number,
+        idEmpresa: number,
+    ): Promise<InhabilitarUserResponse> =>
         apiFetch<InhabilitarUserResponse>(
-            `/catalogs/users/${idUsuario}/status`,
+            `/catalogs/users/${idUsuario}/status?id_empresa=${idEmpresa}`,
             {
                 method: "PATCH",
                 body: { status: 0 },

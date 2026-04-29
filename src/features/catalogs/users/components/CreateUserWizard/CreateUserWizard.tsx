@@ -81,12 +81,13 @@ export const CreateUserWizard = ({
             ? queryKeys.catalogs.users.detail(editingUser.id)
             : ["wizard-no-detail"],
         queryFn: ({ signal }) =>
-            editingUser ? userService.getDetail(editingUser.id, signal) : Promise.resolve(null),
+            editingUser
+                ? userService.getDetail(editingUser.id, idEmpresa, signal)
+                : Promise.resolve(null),
         enabled: open && isEditMode,
-        // No cachear demasiado tiempo — un admin puede haber editado al
-        // usuario en otra pestaña recientemente y queremos datos frescos.
         staleTime: 30 * 1000,
     });
+
 
     // ── Roles permitidos según quién está creando ──────────────────────────
     // Solo el sudo_erp puede asignar el rol admin_empresa.
@@ -245,7 +246,7 @@ export const CreateUserWizard = ({
                     return;
                 }
 
-                const result = await userService.update(editingUser.id, payload);
+                const result = await userService.update(editingUser.id, idEmpresa, payload);
 
                 if (result.kind === "success") {
                     notify.success(
@@ -273,7 +274,7 @@ export const CreateUserWizard = ({
 
             // ── Modo creación: POST con todos los campos ──────────────
             const payload = buildCreatePayload(form);
-            const result = await userService.create(payload);
+            const result = await userService.create(idEmpresa, payload);
 
             if (result.kind === "success") {
                 notify.success(
