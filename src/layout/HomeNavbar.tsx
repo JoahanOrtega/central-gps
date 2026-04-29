@@ -103,8 +103,8 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
           constante de que está operando con privilegios totales. */}
       {esSudoErp && (
         <div className="flex items-center justify-center gap-2 bg-amber-50 border-b border-amber-200 px-4 py-1">
-          <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
-          <span className="text-xs font-medium text-amber-700">
+          <ShieldCheck className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+          <span className="text-[11px] sm:text-xs font-medium text-amber-700 text-center">
             Modo Administrador ERP — tienes acceso total al sistema
           </span>
         </div>
@@ -139,8 +139,14 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
+                      // Mobile (sm- ): solo el ícono visible para ahorrar espacio.
+                      // Desktop (sm+): se agrega el label visible.
+                      // aria-label asegura que en mobile el botón sea
+                      // identificable por lectores de pantalla aunque
+                      // el texto esté oculto.
+                      aria-label={grupo.label}
                       className={cn(
-                        "inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors md:px-4",
+                        "inline-flex shrink-0 items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors sm:px-3 md:px-4",
                         isGroupActive
                           ? "bg-slate-100 text-slate-900"
                           : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
@@ -180,14 +186,21 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
               );
             })}
 
-            {/* ── Botón panel ERP — solo visible para sudo_erp ── */}
+            {/* ── Botón panel ERP — solo visible para sudo_erp ──
+                Comportamiento responsive:
+                  - Mobile: solo se ve el escudo (ShieldCheck) y el chevron.
+                    El borde amber se mantiene para que sea reconocible
+                    como acceso ERP aunque el texto esté oculto.
+                  - Desktop (sm+): se muestra "Panel ERP" como texto.
+                aria-label garantiza accesibilidad cuando el texto se oculta. */}
             {esSudoErp && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
+                    aria-label="Panel ERP"
                     className={cn(
-                      "inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors md:px-4",
+                      "inline-flex shrink-0 items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors sm:px-3 md:px-4",
                       isErpActive
                         ? "bg-amber-100 text-amber-900"
                         : "text-amber-700 hover:bg-amber-50 border border-amber-200"
@@ -234,15 +247,24 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
               */}
               <button
                 onClick={() => setSwitchModalOpen(true)}
+                aria-label={
+                  fetchError
+                    ? "Error al cargar empresa — abrir selector"
+                    : `Cambiar empresa actual: ${currentCompany?.nombre || "cargando"}`
+                }
                 className={cn(
-                  "group flex items-center gap-2 rounded-lg border bg-white px-3 py-1.5 text-sm font-medium shadow-sm transition-all md:px-4 md:py-2",
+                  "group flex items-center gap-2 rounded-lg border bg-white px-2.5 py-1.5 text-sm font-medium shadow-sm transition-all sm:px-3 md:px-4 md:py-2",
                   fetchError
                     ? "border-red-300 text-red-600 hover:border-red-400 hover:bg-red-50"
                     : "border-blue-300 text-blue-700 hover:border-blue-400 hover:bg-blue-50 hover:shadow"
                 )}
               >
                 <Building2 className={cn("h-4 w-4 shrink-0", fetchError ? "text-red-400" : "text-blue-500")} />
-                <span className="max-w-[120px] truncate sm:max-w-[180px] lg:max-w-[240px]">
+                {/* En mobile el nombre de la empresa se oculta para
+                    dejar más espacio al menú de navegación. El usuario
+                    aún puede tocar el botón (es lo suficientemente
+                    grande para tap) y abrir el selector. */}
+                <span className="hidden max-w-[120px] truncate sm:inline sm:max-w-[180px] lg:max-w-[240px]">
                   {fetchError ? "Error al cargar" : (currentCompany?.nombre || "Cargando...")}
                 </span>
                 <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform group-hover:rotate-180", fetchError ? "text-red-400" : "text-blue-500")} />
