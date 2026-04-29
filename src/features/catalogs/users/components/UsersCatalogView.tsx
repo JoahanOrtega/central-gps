@@ -4,7 +4,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { userService } from "../services/userService";
 import type { UserListItem } from "../types/user.types";
 import { UserCard } from "./UserCard";
+import { CreateUserWizard } from "./CreateUserWizard/CreateUserWizard";
 import { useAuthStore } from "@/stores/authStore";
+import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { usePermiso } from "@/hooks/usePermiso";
 import { SkeletonGrid } from "@/components/shared/SkeletonCard";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
@@ -16,59 +18,57 @@ import { queryKeys } from "@/lib/query-keys";
 /**
  * Vista principal del módulo Catálogos > Usuarios.
  *
- * Responsabilidades:
- *   1. Cargar el listado vía TanStack Query (caché + refetch automático).
- *   2. Filtrar localmente por nombre/email (búsqueda).
- *   3. Mostrar permisos correctos: solo botón "Crear" si tiene
- *      'usuarios.editar', botones de cada card según corresponda.
- *   4. Orquestar el flujo de inhabilitar con ConfirmDialog.
+ * Patrón id_empresa: usa useEmpresaActiva() — el mismo hook que
+ * UnitsCatalogView. Esto resuelve el id de tres maneras:
+ *   - admin_empresa / usuario: viene del JWT (siempre la misma empresa).
+ *   - sudo_erp con empresa seleccionada en el selector del navbar:
+ *     viene del companyStore.
+ *   - sudo_erp sin empresa seleccionada (modo "Particular"): null →
+ *     se muestra EmptyState pidiendo seleccionar empresa.
  *
- * Lo que NO hace este archivo:
- *   - El wizard de crear/editar usuario (lo monta el padre — el wizard
- *     se entrega en el mensaje 4d).
- *
- * Por ahora el botón "+" mostrará un toast informando que el wizard
- * estará disponible en el siguiente mensaje. Esto se reemplaza en 4d
- * con la integración real.
+ * El service pasa idEmpresa como query param a todos los endpoints
+ * de /catalogs/users/* — el backend acepta este patrón (mismo que
+ * /catalogs/operators y /catalogs/unit-groups).
  */
 export const UsersCatalogView = () => {
     const queryClient = useQueryClient();
     const currentUser = useAuthStore((s) => s.user);
+    const { idEmpresa, nombreEmpresa, isLoading: isLoadingEmpresa } = useEmpresaActiva();
 
     const [search, setSearch] = useState("");
 
-    // Estado del confirm de inhabilitar.
-    // Guardamos el usuario completo (no solo el id) para mostrar el nombre
-    // en el dialog — Heurística #5: el usuario debe ver QUIÉN va a quedar
-    // inhabilitado antes de confirmar.
+    // ── Estado del wizard (creación + edición) ──────────────────────────
+    const [wizardOpen, setWizardOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState<UserListItem | null>(null);
+
+    // ── Estado del confirm de inhabilitar ───────────────────────────────
     const [userToDisable, setUserToDisable] = useState<UserListItem | null>(null);
     const [isDisabling, setIsDisabling] = useState(false);
 
-    // ── Permisos del usuario logueado ──────────────────────────────────────
-    // Estos permisos se chequean en frontend para ocultar botones y
-    // mejorar UX. El backend revalida cada operación con su propio
-    // @permiso_required, así que esto es solo cosmético.
+    // ── Permisos del usuario logueado ───────────────────────────────────
     const puedeCrearUsuario = usePermiso("usuarios.editar");
     const puedeEditarUsuario = usePermiso("usuarios.editar");
     const puedeInhabilitarUsuario = usePermiso("usuarios.inhabilitar");
 
-    // ── Carga del listado ─────────────────────────────────────────────────
-    // No incluimos id_empresa en la queryKey porque el backend lo toma
-    // del JWT — al cambiar de empresa (sudo via switch) se invalida la
-    // sesión completa y el caché se descarta automáticamente.
-    const { data: users = [], isLoading, error, refetch } = useQuery<UserListItem[]>({
-        queryKey: queryKeys.catalogs.users.list(),
-        queryFn: ({ signal }) => userService.list(signal),
+    // ── Carga del listado ──────────────────────────────────────────────
+    // enabled: !!idEmpresa evita que la query se dispare con null —
+    // mismo patrón que UnitsCatalogView. Cuando el sudo_erp cambia de
+    // empresa en el selector del navbar, idEmpresa cambia, la queryKey
+    // cambia, y TanStack Query refetcha automáticamente.
+    const {
+        data: users = [],
+        isLoading,
+        error,
+        refetch,
+    } = useQuery<UserListItem[]>({
+        queryKey: idEmpresa
+            ? [...queryKeys.catalogs.users.list(), idEmpresa]
+            : ["catalogs", "users", "no-empresa"],
+        queryFn: ({ signal }) => userService.list(idEmpresa as number, signal),
+        enabled: !!idEmpresa,
     });
 
-    // ── Filtrado local ────────────────────────────────────────────────────
-    // Filtramos en cliente porque:
-    //   1. La cantidad de usuarios por empresa típicamente es < 100.
-    //   2. Refrescar al servidor en cada keystroke sería innecesario.
-    //   3. Tener el dataset cacheado permite filtrar en <1ms.
-    //
-    // Si en el futuro alguna empresa tiene miles de usuarios, conviene
-    // mover el search al backend con debounce — pero hoy es prematuro.
+    // ── Filtrado local ─────────────────────────────────────────────────
     const filteredUsers = useMemo(() => {
         const q = search.trim().toLowerCase();
         if (!q) return users;
@@ -82,48 +82,54 @@ export const UsersCatalogView = () => {
     const showSkeleton = useDelayedLoading(isLoading);
     const errorMessage = error instanceof Error ? error.message : null;
 
-    // ── Handlers ──────────────────────────────────────────────────────────
+    // ── Handlers de creación / edición ──────────────────────────────────
 
-    // Por ahora el botón "+" solo notifica — la integración con el wizard
-    // viene en el mensaje 4d. Marcamos esto con TODO para no perderlo.
-    // TODO(4d): reemplazar con setIsCreateOpen(true) y montar el wizard.
     const handleCreate = () => {
-        notify.info(
-            "El wizard de creación se conectará en el siguiente paso del PR.",
-        );
+        if (!idEmpresa) {
+            notify.error(
+                "Selecciona una empresa antes de crear usuarios.",
+            );
+            return;
+        }
+        setEditingUser(null);
+        setWizardOpen(true);
     };
 
-    // Edición: igual que crear, conexión real al wizard en 4d.
-    // TODO(4d): reemplazar con setEditingUser(user).
     const handleEdit = (user: UserListItem) => {
-        notify.info(
-            `El wizard de edición se conectará en el siguiente paso del PR. Usuario: ${user.nombre}`,
-        );
+        if (!idEmpresa) {
+            notify.error("Selecciona una empresa antes de editar usuarios.");
+            return;
+        }
+        setEditingUser(user);
+        setWizardOpen(true);
     };
 
-    // Inhabilitar: ESTE flujo SÍ está completamente conectado en 4c.
-    // El de crear/editar requiere el wizard que viene en 4d.
+    const handleWizardOpenChange = (open: boolean) => {
+        setWizardOpen(open);
+        if (!open) {
+            // Pequeño retraso para evitar parpadeo durante la animación
+            // de cierre del modal.
+            setTimeout(() => setEditingUser(null), 250);
+        }
+    };
+
+    // ── Handlers de inhabilitar ─────────────────────────────────────────
+
     const handleAskInhabilitar = (user: UserListItem) => {
         setUserToDisable(user);
     };
 
     const handleCancelInhabilitar = () => {
-        // No cerrar mientras está procesando — evitar que un click accidental
-        // mientras spinea cierre el dialog y el usuario pierda contexto.
         if (!isDisabling) setUserToDisable(null);
     };
 
     const handleConfirmInhabilitar = async () => {
-        if (!userToDisable) return;
+        if (!userToDisable || !idEmpresa) return;
         setIsDisabling(true);
 
         try {
-            await userService.inhabilitar(userToDisable.id);
+            await userService.inhabilitar(userToDisable.id, idEmpresa);
 
-            // Invalidar la lista para que TanStack Query refetche
-            // y el usuario inhabilitado desaparezca de la vista.
-            // Usamos `.all` (no `.list()`) por si en el futuro hay
-            // queries adicionales del módulo que también dependen.
             await queryClient.invalidateQueries({
                 queryKey: queryKeys.catalogs.users.all,
             });
@@ -138,26 +144,35 @@ export const UsersCatalogView = () => {
                     ? err.message
                     : "No fue posible inhabilitar el usuario",
             );
-            // NO cerrar el confirm en caso de error — el usuario decide si
-            // reintentar o cancelar. Heurística #9: recuperarse de errores
-            // manteniendo el contexto visible.
         } finally {
             setIsDisabling(false);
         }
     };
 
-    // ── Estados derivados para render ─────────────────────────────────────
-    const hasNoData = !isLoading && !errorMessage && users.length === 0;
+    // ── Estados derivados para render ───────────────────────────────────
+    // Ojo con el orden de prioridad — del más bloqueante al más específico:
+    //   1. isLoadingEmpresa → empresa aún cargando (caso fugaz)
+    //   2. !idEmpresa       → sudo sin empresa seleccionada
+    //   3. errorMessage     → fallo de red/backend
+    //   4. hasNoData        → backend OK pero lista vacía
+    //   5. hasNoResults     → hay datos pero el filtro no encontró nada
+    //   6. hasData          → render normal
+    const sinEmpresaSeleccionada = !isLoadingEmpresa && !idEmpresa;
+    const hasNoData =
+        idEmpresa && !isLoading && !errorMessage && users.length === 0;
     const hasNoResults =
-        !isLoading && !errorMessage && users.length > 0 && filteredUsers.length === 0;
-    const hasData = !isLoading && !errorMessage && filteredUsers.length > 0;
+        idEmpresa &&
+        !isLoading &&
+        !errorMessage &&
+        users.length > 0 &&
+        filteredUsers.length === 0;
+    const hasData =
+        idEmpresa && !isLoading && !errorMessage && filteredUsers.length > 0;
 
     return (
         <main className="h-full overflow-auto bg-[#f5f6f8] p-3 md:p-6">
             <section className="flex min-h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                {/* ── Cabecera con título + buscador + botón crear ────────────
-                    Stack vertical en mobile, inline en desktop —
-                    mismo patrón que los demás catálogos del proyecto. */}
+                {/* ── Cabecera ────────────────────────────────────────── */}
                 <div className="border-b border-slate-200 px-4 py-4 md:px-6">
                     <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                         <div className="flex items-center gap-3">
@@ -168,11 +183,22 @@ export const UsersCatalogView = () => {
                             <h1 className="text-xl font-semibold text-slate-800 md:text-2xl">
                                 Catálogo de Usuarios
                             </h1>
+                            {/* Sub-título con el nombre de la empresa activa.
+                                Heurística #1: el usuario debe saber en qué
+                                empresa está operando — crítico cuando el
+                                sudo_erp cambia entre empresas. */}
+                            {nombreEmpresa && (
+                                <span className="hidden text-sm text-slate-400 md:inline">
+                                    · {nombreEmpresa}
+                                </span>
+                            )}
                         </div>
 
                         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center xl:flex-nowrap">
-                            {/* Botón crear — solo si tiene permiso */}
-                            {puedeCrearUsuario && (
+                            {/* Botón crear — solo si tiene permiso Y hay empresa.
+                                Sin empresa, ocultarlo evita que el usuario lo
+                                clickee y reciba un mensaje de error confuso. */}
+                            {puedeCrearUsuario && idEmpresa && (
                                 <button
                                     type="button"
                                     onClick={handleCreate}
@@ -198,18 +224,39 @@ export const UsersCatalogView = () => {
                                     onChange={(e) => setSearch(e.target.value)}
                                     placeholder="buscar..."
                                     aria-label="Buscar usuario por nombre o email"
-                                    className="h-10 w-full min-w-0 rounded-r-lg px-3 text-sm outline-none sm:w-56"
+                                    disabled={!idEmpresa}
+                                    className="h-10 w-full min-w-0 rounded-r-lg px-3 text-sm outline-none disabled:bg-slate-50 disabled:text-slate-400 sm:w-56"
                                 />
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* ── Contenido principal: estados loading/error/empty/data ── */}
+                {/* ── Contenido principal ───────────────────────────── */}
                 <div className="p-4 md:p-6">
-                    {showSkeleton && <SkeletonGrid variant="user" count={6} />}
+                    {/* Loading inicial mientras se resuelve la empresa activa */}
+                    {isLoadingEmpresa && (
+                        <div className="py-10 text-center text-sm text-slate-400">
+                            Cargando empresa...
+                        </div>
+                    )}
 
-                    {errorMessage && (
+                    {/* Sudo_erp sin empresa seleccionada — guía clara al
+                        selector del navbar. Heurística #6: reconocer en
+                        lugar de recordar. */}
+                    {sinEmpresaSeleccionada && (
+                        <EmptyState
+                            icon={Users}
+                            title="Selecciona una empresa"
+                            description="Para ver y administrar usuarios, selecciona una empresa desde el selector del navbar (esquina superior derecha)."
+                        />
+                    )}
+
+                    {idEmpresa && showSkeleton && (
+                        <SkeletonGrid variant="user" count={6} />
+                    )}
+
+                    {idEmpresa && errorMessage && (
                         <EmptyState
                             icon={Users}
                             title="No se pudieron cargar los usuarios"
@@ -224,7 +271,7 @@ export const UsersCatalogView = () => {
                             <EmptyState
                                 icon={Users}
                                 title="No hay usuarios registrados"
-                                description="Crea el primer usuario para tu empresa."
+                                description={`Crea el primer usuario para ${nombreEmpresa ?? "esta empresa"}.`}
                                 actionLabel="+ Nuevo usuario"
                                 onAction={handleCreate}
                             />
@@ -268,10 +315,17 @@ export const UsersCatalogView = () => {
                 </div>
             </section>
 
-            {/* ── Confirm de inhabilitar ──────────────────────────────────
-                Mismo patrón que en UnitsCatalogView (PR 3). El nombre
-                del usuario se incluye en la descripción para reforzar
-                qué cuenta va a quedar inhabilitada. */}
+            {/* ── Wizard de creación / edición ────────────────────────── */}
+            {idEmpresa !== null && (
+                <CreateUserWizard
+                    open={wizardOpen}
+                    onOpenChange={handleWizardOpenChange}
+                    idEmpresa={idEmpresa}
+                    editingUser={editingUser}
+                />
+            )}
+
+            {/* ── Confirm de inhabilitar ───────────────────────────── */}
             <ConfirmDialog
                 open={userToDisable !== null}
                 onOpenChange={(open) => !open && handleCancelInhabilitar()}
@@ -282,9 +336,6 @@ export const UsersCatalogView = () => {
                         : ""
                 }
                 confirmText={isDisabling ? "INHABILITANDO..." : "INHABILITAR"}
-                // Ámbar (no rojo) — inhabilitar es REVERSIBLE, distinto a un
-                // DELETE definitivo. Comunicamos el "calor" del cambio con el
-                // color: ámbar para reversibles, rojo para destructivos.
                 confirmButtonClassName="bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
                 onConfirm={handleConfirmInhabilitar}
             />
