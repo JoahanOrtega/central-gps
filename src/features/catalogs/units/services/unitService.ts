@@ -10,6 +10,16 @@ import type {
   UpdateUnitResponse,
 } from "../types/unit-edit.types";
 
+// ── Tipo de respuesta del DELETE ─────────────────────────────────────────────
+// El backend retorna {message, eliminado, id_unidad} con 200 OK.
+// Lo definimos inline (no en types/) porque solo lo usa este service —
+// si en el futuro otro consumidor lo necesita, se promueve a types/.
+interface DeleteUnitResponse {
+  message: string;
+  eliminado: boolean;
+  id_unidad: number;
+}
+
 export const unitService = {
   getUnits(
     search = "",
@@ -79,6 +89,25 @@ export const unitService = {
     return apiFetch<UpdateUnitResponse>(`/units/${idUnidad}${query}`, {
       method: "PATCH",
       body: payload,
+    });
+  },
+
+  // Elimina (soft-delete) una unidad — la marca con status=0 en BD.
+  //
+  // Requiere permiso `unidades.eliminar`. El backend rechaza con 403
+  // si el usuario no lo tiene. La UI debe ocultar el botón "Eliminar"
+  // cuando usePermiso("unidades.eliminar") devuelve false para no
+  // disparar una petición que sabemos que fallará.
+  //
+  // idEmpresa: mismo patrón que getDetail/update — sudo_erp lo pasa
+  // explícitamente, otros roles lo heredan del JWT.
+  delete(
+    idUnidad: number,
+    idEmpresa?: number | null,
+  ): Promise<DeleteUnitResponse> {
+    const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
+    return apiFetch<DeleteUnitResponse>(`/units/${idUnidad}${query}`, {
+      method: "DELETE",
     });
   },
 };
