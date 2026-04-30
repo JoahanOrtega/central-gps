@@ -120,7 +120,10 @@ export const useMapInit = (): UseMapInitReturn => {
             mapRef.current = map;
             geocoderRef.current = new window.google.maps.Geocoder();
             trafficLayerRef.current = new window.google.maps.TrafficLayer();
-            infoWindowRef.current = new window.google.maps.InfoWindow();
+            infoWindowRef.current = new window.google.maps.InfoWindow({
+                maxWidth: 320,
+                pixelOffset: new window.google.maps.Size(0, -8),
+            });
 
             // Marker de ubicación — se crea una vez y se reposiciona
             let userMarker: google.maps.marker.AdvancedMarkerElement | null = null;
