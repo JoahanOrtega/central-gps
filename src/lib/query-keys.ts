@@ -63,8 +63,33 @@ export const queryKeys = {
         all: ["erp"] as const,
         empresas: () => ["erp", "empresas"] as const,
         permisos: () => ["erp", "permisos"] as const,
-        auditoria: (entidad: string, limit: number) =>
-            ["erp", "auditoria", entidad, limit] as const,
+
+        /**
+         * QueryKey para el log de auditoría con filtros.
+         *
+         * Recibe los filtros como un objeto opaco para que TanStack Query
+         * detecte automáticamente cualquier cambio (entidad, usuario,
+         * acción, fechas) y refetche.
+         *
+         * El objeto se serializa como parte de la queryKey usando deep
+         * equality — distintos valores generan distintos caches, mismos
+         * valores reutilizan caché.
+         */
+        auditoria: (filtros: {
+            limit?: number;
+            entidad?: string;
+            id_usuario?: number;
+            accion?: string;
+            fecha_desde?: string;
+            fecha_hasta?: string;
+        }) => ["erp", "auditoria", filtros] as const,
+
+        /**
+         * QueryKey para la lista de usuarios con eventos en auditoría.
+         * No tiene parámetros — la lista es la misma para cualquier sudo_erp.
+         */
+        auditUsers: () => ["erp", "auditUsers"] as const,
+
         // ── Recursos auxiliares para el wizard de creación de usuario ──
         // Se usan en Step2Restricciones para poblar los selectores de
         // grupos de unidades y clientes. La key incluye id_empresa porque

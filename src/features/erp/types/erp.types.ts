@@ -107,3 +107,65 @@ export interface RegistroAuditoria {
   ip_origen: string | null;
   fecha_registro: string;
 }
+
+/**
+ * Usuario que aparece en el dropdown de filtro de Auditoría.
+ *
+ * Se obtiene del endpoint /admin-erp/auditoria/usuarios. Incluye solo
+ * usuarios que tienen al menos UN registro en t_auditoria — no todos
+ * los usuarios del sistema.
+ */
+export interface UsuarioAuditoria {
+  id: number;
+  usuario: string;       // email
+  nombre: string;
+  rol: string | null;    // 'sudo_erp' | 'admin_empresa' | 'usuario' | null
+  total_eventos: number; // count para mostrar actividad relativa
+}
+
+/**
+ * Filtros que el usuario puede aplicar en la página de Auditoría.
+ *
+ * Todos opcionales. Se combinan con AND en el backend. Vacíos o
+ * undefined se ignoran (el backend no añade su condición SQL).
+ */
+export interface FiltrosAuditoria {
+  limit?: number;
+  entidad?: string;
+  id_usuario?: number;
+  accion?: string;
+  fecha_desde?: string; // YYYY-MM-DD
+  fecha_hasta?: string; // YYYY-MM-DD
+}
+
+/**
+ * Lista cerrada de acciones registrables en la bitácora.
+ *
+ * Espejo del frozenset _ACCIONES_VALIDAS del backend (erp_routes.py).
+ * Si agregas una acción nueva, actualízala en AMBOS lados — TypeScript
+ * no puede sincronizarse automáticamente con el frozenset de Python.
+ */
+export const ACCIONES_AUDITORIA = [
+  "LOGIN",
+  "CREATE", "UPDATE", "DELETE",
+  "CREATE_USUARIO", "UPDATE_USUARIO",
+  "INHABILITAR", "REACTIVAR",
+  "DELETE_PERM", "RESET_CLAVE",
+  "SUSPEND", "ACTIVATE",
+  "PROMOTE_ADMIN", "REVOKE_ADMIN",
+] as const;
+
+export type AccionAuditoria = (typeof ACCIONES_AUDITORIA)[number];
+
+/**
+ * Lista cerrada de entidades sobre las que se registra auditoría.
+ *
+ * "session" se agregó en el PR de audit logins.
+ */
+export const ENTIDADES_AUDITORIA = [
+  "session",
+  "empresa", "usuario", "usuario_empresa",
+  "permiso", "unidad", "poi",
+] as const;
+
+export type EntidadAuditoria = (typeof ENTIDADES_AUDITORIA)[number];
