@@ -264,6 +264,8 @@ export const useTripDrawer = ({
 
             switch (range) {
                 case "current":
+                    points = await tripMonitor.loadRouteByMode("current");
+                    break;
                 case "latest":
                     points = await tripMonitor.loadRouteByMode("latest");
                     break;
@@ -299,6 +301,7 @@ export const useTripDrawer = ({
             const points = await telemetryService.getRouteByCustomRange(
                 tripMonitor.selectedUnitImei,
                 customRange,
+                idEmpresa,
             );
             applyRouteToMap(points);
         } catch {

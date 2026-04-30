@@ -7,6 +7,7 @@ import type {
 } from "../types/map.types";
 
 export type RouteMode =
+  | "current"
   | "latest"
   | "today"
   | "yesterday"
