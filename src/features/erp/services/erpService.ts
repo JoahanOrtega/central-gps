@@ -11,6 +11,8 @@ import type {
     PermisoSistema,
     PermisoFormData,
     RegistroAuditoria,
+    UsuarioAuditoria,
+    FiltrosAuditoria,
 } from "../types/erp.types";
 
 // ── Empresas ──────────────────────────────────────────────
@@ -89,14 +91,35 @@ export const createPermiso = (data: PermisoFormData): Promise<{ id_permiso: numb
 
 // ── Auditoría ─────────────────────────────────────────────
 
-/** Obtiene el log de auditoría con filtros opcionales */
-export const getAuditoria = (params?: {
-    limit?: number;
-    entidad?: string;
-}): Promise<RegistroAuditoria[]> => {
+/**
+ * Obtiene el log de auditoría con filtros opcionales.
+ *
+ * Filtros todos opcionales y combinables. Solo se incluyen en el query
+ * string los que el usuario aplicó — los `undefined` se omiten.
+ */
+export const getAuditoria = (
+    params?: FiltrosAuditoria,
+): Promise<RegistroAuditoria[]> => {
     const query = new URLSearchParams();
+
     if (params?.limit) query.set("limit", String(params.limit));
     if (params?.entidad) query.set("entidad", params.entidad);
+    if (params?.id_usuario)
+        query.set("id_usuario", String(params.id_usuario));
+    if (params?.accion) query.set("accion", params.accion);
+    if (params?.fecha_desde) query.set("fecha_desde", params.fecha_desde);
+    if (params?.fecha_hasta) query.set("fecha_hasta", params.fecha_hasta);
+
     const qs = query.toString() ? `?${query.toString()}` : "";
     return apiFetch<RegistroAuditoria[]>(`/admin-erp/auditoria${qs}`);
 };
+
+/**
+ * Obtiene la lista de usuarios que tienen al menos un evento en
+ * la bitácora de auditoría.
+ *
+ * Sirve para popular el dropdown filtrable de la página de Auditoría.
+ * Devuelve hasta 200 usuarios ordenados por total_eventos DESC.
+ */
+export const getAuditUsers = (): Promise<UsuarioAuditoria[]> =>
+    apiFetch<UsuarioAuditoria[]>("/admin-erp/auditoria/usuarios");
