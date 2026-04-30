@@ -30,14 +30,15 @@ interface NavItem {
 
 // ── Catálogo de items del navbar ──────────────────────────
 const NAV_ITEMS: NavItem[] = [
-  { id: "units", label: "Unidades", path: "/home/catalogs/units", grupo: "catalogs", permiso: "cund1", disponible: true },
-  { id: "clients", label: "Clientes", path: "/home/catalogs/clients", grupo: "catalogs", permiso: "cclt1", disponible: false },
-  { id: "operators", label: "Operadores", path: "/home/catalogs/operators", grupo: "catalogs", permiso: "cop1", disponible: false },
-  { id: "points-of-interest", label: "Puntos de Interés", path: "/home/catalogs/points-of-interest", grupo: "catalogs", permiso: "cpoi1", disponible: true },
-  { id: "gas-stations", label: "Gasolineras", path: "/home/catalogs/gas-stations", grupo: "catalogs", permiso: "cgas1", disponible: false },
-  { id: "users", label: "Usuarios", path: "/home/catalogs/users", grupo: "catalogs", permiso: null, disponible: true },
-  { id: "monitor", label: "Monitor de flota", path: "/home/operation/monitor", grupo: "operation", permiso: "on", disponible: true },
-  { id: "fuel-general", label: "General", path: "/home/fuel/general", grupo: "fuel", permiso: "cfuel1", disponible: false },
+  // Catálogos — claves modulares <modulo>.ver
+  { id: "units", label: "Unidades", path: "/home/catalogs/units", grupo: "catalogs", permiso: "unidades.ver", disponible: true },
+  { id: "clients", label: "Clientes", path: "/home/catalogs/clients", grupo: "catalogs", permiso: "clientes.ver", disponible: false },
+  { id: "operators", label: "Operadores", path: "/home/catalogs/operators", grupo: "catalogs", permiso: "operadores.ver", disponible: false },
+  { id: "points-of-interest", label: "Puntos de Interés", path: "/home/catalogs/points-of-interest", grupo: "catalogs", permiso: "pois.ver", disponible: true },
+  { id: "gas-stations", label: "Gasolineras", path: "/home/catalogs/gas-stations", grupo: "catalogs", permiso: "gasolineras.ver", disponible: false },
+  { id: "users", label: "Usuarios", path: "/home/catalogs/users", grupo: "catalogs", permiso: null, disponible: false },
+  { id: "monitor", label: "Monitor de flota", path: "/home/operation/monitor", grupo: "operation", permiso: "mapa.ver", disponible: true },
+  { id: "fuel-general", label: "General", path: "/home/fuel/general", grupo: "fuel", permiso: "cargas.ver", disponible: false },
 ];
 
 const TODAS_LAS_CLAVES: string[] = [

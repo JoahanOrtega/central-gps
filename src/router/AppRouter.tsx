@@ -82,23 +82,23 @@ export const appRouter = createBrowserRouter([
       },
       {
         path: "maps",
-        element: <PermisoRoute permiso="on"><LazyPage name="Mapa"><MapsPage /></LazyPage></PermisoRoute>,
+        element: <PermisoRoute permiso="mapa.ver"><LazyPage name="Mapa"><MapsPage /></LazyPage></PermisoRoute>,
       },
       {
         path: "reports",
-        element: <PermisoRoute permiso="crep1"><LazyPage name="Reportes"><ReportsPage /></LazyPage></PermisoRoute>,
+        element: <PermisoRoute permiso="reportes.ver"><LazyPage name="Reportes"><ReportsPage /></LazyPage></PermisoRoute>,
       },
       {
         path: "catalogs/units",
-        element: <PermisoRoute permiso="cund1"><LazyPage name="Unidades"><UnitsPage /></LazyPage></PermisoRoute>,
+        element: <PermisoRoute permiso="unidades.ver"><LazyPage name="Unidades"><UnitsPage /></LazyPage></PermisoRoute>,
       },
       {
         path: "catalogs/points-of-interest",
-        element: <PermisoRoute permiso="cpoi1"><LazyPage name="Puntos de Interés"><PointsOfInterestPage /></LazyPage></PermisoRoute>,
+        element: <PermisoRoute permiso="pois.ver"><LazyPage name="Puntos de Interés"><PointsOfInterestPage /></LazyPage></PermisoRoute>,
       },
       {
         path: "catalogs/poi-groups",
-        element: <PermisoRoute permiso="cpoi1"><LazyPage name="Grupos de POI"><PoiGroupsPage /></LazyPage></PermisoRoute>,
+        element: <PermisoRoute permiso="pois.ver"><LazyPage name="Grupos de POI"><PoiGroupsPage /></LazyPage></PermisoRoute>,
       },
       {
         path: "catalogs/users",
@@ -106,11 +106,11 @@ export const appRouter = createBrowserRouter([
       },
       {
         path: "operation/monitor",
-        element: <PermisoRoute permiso="on"><LazyPage name="Monitor de Flota"><MonitorPage /></LazyPage></PermisoRoute>,
+        element: <PermisoRoute permiso="mapa.ver"><LazyPage name="Monitor de Flota"><MonitorPage /></LazyPage></PermisoRoute>,
       },
       {
         path: "fuel/general",
-        element: <PermisoRoute permiso="cfuel1"><LazyPage name="Combustible"><FuelPage /></LazyPage></PermisoRoute>,
+        element: <PermisoRoute permiso="cargas.ver"><LazyPage name="Combustible"><FuelPage /></LazyPage></PermisoRoute>,
       },
 
       // ── Panel ERP — rutas protegidas con ErpRoute ──────────────────────
