@@ -169,3 +169,68 @@ export const ENTIDADES_AUDITORIA = [
 ] as const;
 
 export type EntidadAuditoria = (typeof ENTIDADES_AUDITORIA)[number];
+
+// ─── Gestión de permisos por usuario ────────────────────────────────────────
+ 
+/**
+ * Una fila de la tabla principal de "Gestión de Permisos".
+ *
+ * Representa "este usuario tiene N permisos en esta empresa". Un usuario
+ * que pertenece a varias empresas aparecerá una vez por cada empresa.
+ *
+ * El backend filtra para incluir solo usuarios con rol admin_empresa o
+ * usuario — el sudo_erp NO aparece porque tiene bypass en código.
+ */
+export interface UsuarioConPermisos {
+  id_usuario: number;
+  usuario: string;       // email
+  nombre: string;
+  rol_clave: string;     // 'admin_empresa' | 'usuario'
+  rol_nombre: string;    // texto legible: 'Administrador Empresa', 'Usuario'
+  id_empresa: number;
+  empresa: string;       // nombre de la empresa
+  total_permisos: number;
+}
+ 
+/**
+ * Item del catálogo de permisos en la respuesta del endpoint
+ * GET /admin-erp/users/:id/permissions.
+ *
+ * Incluye TODOS los permisos del catálogo, cada uno con un flag indicando
+ * si el usuario lo tiene asignado o no. Esto facilita popular los
+ * checkboxes del modal sin tener que hacer 2 queries.
+ */
+export interface PermisoUsuarioItem {
+  id_permiso: number;
+  clave: string;
+  nombre: string;
+  modulo: string;
+  descripcion: string | null;
+  asignado: boolean;
+}
+ 
+/**
+ * Body del endpoint PUT /admin-erp/users/:id/permissions.
+ *
+ * El frontend envía el SET COMPLETO de permisos a aplicar (no diffs).
+ * El backend hace DELETE-then-INSERT en una transacción.
+ *
+ * Lista vacía es válida: significa "quitarle todos los permisos a este
+ * usuario en esta empresa".
+ */
+export interface ActualizarPermisosUsuarioBody {
+  id_empresa: number;
+  permisos: string[];  // claves de permisos (ej. ["clientes.ver", "unidades.editar"])
+}
+ 
+/**
+ * Respuesta del endpoint PUT /admin-erp/users/:id/permissions.
+ *
+ * Retorna conteos de antes y después para que la UI pueda mostrar un
+ * mensaje claro: "Antes tenía X, ahora tiene Y permisos".
+ */
+export interface ActualizarPermisosUsuarioResponse {
+  message: string;
+  permisos_anteriores: number;
+  permisos_nuevos: number;
+}

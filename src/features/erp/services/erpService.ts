@@ -13,6 +13,10 @@ import type {
     RegistroAuditoria,
     UsuarioAuditoria,
     FiltrosAuditoria,
+    UsuarioConPermisos,
+    PermisoUsuarioItem,
+    ActualizarPermisosUsuarioBody,
+    ActualizarPermisosUsuarioResponse,
 } from "../types/erp.types";
 
 // ── Empresas ──────────────────────────────────────────────
@@ -123,3 +127,56 @@ export const getAuditoria = (
  */
 export const getAuditUsers = (): Promise<UsuarioAuditoria[]> =>
     apiFetch<UsuarioAuditoria[]>("/admin-erp/auditoria/usuarios");
+
+// ── Gestión de permisos por usuario ──────────────────────────
+
+/**
+ * Lista de usuarios con conteo de permisos por empresa.
+ *
+ * Cada fila representa "este usuario tiene N permisos en esta empresa".
+ * Un usuario que pertenece a varias empresas aparece una vez por cada una.
+ *
+ * Solo accesible por sudo_erp (validado en backend con @sudo_erp_required).
+ */
+export const getUsersPermissions = (): Promise<UsuarioConPermisos[]> =>
+    apiFetch<UsuarioConPermisos[]>("/admin-erp/users-permissions");
+
+
+/**
+ * Obtiene los permisos del catálogo + flag de asignación para un
+ * usuario en una empresa específica.
+ *
+ * Devuelve TODOS los permisos del catálogo (no solo los asignados),
+ * cada uno con un campo `asignado: boolean`. Esto facilita popular
+ * los checkboxes del modal de edición.
+ *
+ * Solo accesible por sudo_erp.
+ */
+export const getUserPermissions = (
+    idUsuario: number,
+    idEmpresa: number,
+): Promise<PermisoUsuarioItem[]> => {
+    const query = new URLSearchParams({ id_empresa: String(idEmpresa) });
+    return apiFetch<PermisoUsuarioItem[]>(
+        `/admin-erp/users/${idUsuario}/permissions?${query.toString()}`,
+    );
+};
+
+
+/**
+ * Reemplaza el set completo de permisos de un usuario en una empresa.
+ *
+ * Importante: el frontend envía el SET COMPLETO (no diffs). El backend
+ * hace DELETE-then-INSERT en una transacción. Lista vacía es válida —
+ * significa "quitarle todos los permisos".
+ *
+ * Solo accesible por sudo_erp.
+ */
+export const updateUserPermissions = (
+    idUsuario: number,
+    body: ActualizarPermisosUsuarioBody,
+): Promise<ActualizarPermisosUsuarioResponse> =>
+    apiFetch<ActualizarPermisosUsuarioResponse>(
+        `/admin-erp/users/${idUsuario}/permissions`,
+        { method: "PUT", body },
+    );
