@@ -125,6 +125,7 @@ export const MapsView = () => {
             onToggleTraffic={() => mapCanvasRef.current?.toggleTraffic()}
             onClearMap={() => mapCanvasRef.current?.clearMap()}
             onFocusMap={() => mapCanvasRef.current?.focusMexico()}
+            onMyLocation={() => mapCanvasRef.current?.focusUserLocation()}
             onFullscreen={() => mapCanvasRef.current?.toggleFullscreen()}
             onTogglePoisDrawer={() => toggleDrawer("pois")}
             onToggleUnitsDrawer={() => toggleDrawer("units")}

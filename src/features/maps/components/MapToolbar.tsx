@@ -9,6 +9,7 @@ import {
   TrafficCone,
   Eraser,
   Focus,
+  LocateFixed,
   Maximize,
   Save,
 } from "lucide-react";
@@ -25,11 +26,13 @@ interface MapToolbarProps {
   onToggleTraffic: () => void;
   onClearMap: () => void;
   onFocusMap: () => void;
+  onMyLocation: () => void;
   onFullscreen: () => void;
   onTogglePoisDrawer: () => void;
   onToggleUnitsDrawer: () => void;
   onToggleTripsDrawer: () => void;
 }
+
 
 /**
  * Barra superior del módulo de mapas.
@@ -40,6 +43,7 @@ export const MapToolbar = ({
   onToggleTraffic,
   onClearMap,
   onFocusMap,
+  onMyLocation,
   onFullscreen,
   onTogglePoisDrawer,
   onToggleUnitsDrawer,
@@ -147,6 +151,16 @@ export const MapToolbar = ({
           onClick={onFocusMap}
         >
           <Focus className="h-4 w-4" />
+        </button>
+
+        <button
+          type="button"
+          className={toolbarButtonClass}
+          title="Mi ubicación"
+          aria-label="Centrar el mapa en mi ubicación actual"
+          onClick={onMyLocation}
+        >
+          <LocateFixed className="h-4 w-4" />
         </button>
 
         <button

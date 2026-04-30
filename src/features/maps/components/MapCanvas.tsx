@@ -11,6 +11,7 @@ import { useMapRoute } from "../hooks/useMapRoute";
 // interno — patrón forwardRef + useImperativeHandle.
 export interface MapCanvasHandle {
   focusMexico: () => void;
+  focusUserLocation: () => void;
   toggleTraffic: () => void;
   clearMap: () => void;
   searchAddress: (address: string) => Promise<void>;
@@ -55,6 +56,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     mapRef,
     infoWindowRef,
     focusMexico,
+    focusUserLocation,
     toggleTraffic,
     searchAddress,
     toggleFullscreen,
@@ -85,6 +87,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
   // ── API imperativa hacia MapsView ─────────────────────────────
   useImperativeHandle(ref, () => ({
     focusMexico,
+    focusUserLocation,
     toggleTraffic,
     searchAddress,
     toggleFullscreen,

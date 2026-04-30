@@ -19,6 +19,8 @@ export interface UseMapInitReturn {
     isTrafficVisible: boolean;
     // Centra el mapa en México con zoom nacional
     focusMexico: () => void;
+    // Centra el mapa en la ubicacion del usuario
+    focusUserLocation: () => void;
     // Activa o desactiva la capa de tráfico
     toggleTraffic: () => void;
     // Busca una dirección y centra el mapa en el resultado
@@ -80,13 +82,15 @@ export const useMapInit = (): UseMapInitReturn => {
     const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null);
     const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
     const searchMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+    const userHasInteractedRef = useRef(false);
+    const mapInteractionCleanupRef = useRef<(() => void) | null>(null);
+
 
     const [isTrafficVisible, setIsTrafficVisible] = useState(false);
 
     // ── Inicialización del mapa al montar el componente ──────────
     useEffect(() => {
         let isMounted = true;
-        let watchId: number | null = null;
 
         const initializeMap = async () => {
             await loadGoogleMaps();
@@ -118,6 +122,33 @@ export const useMapInit = (): UseMapInitReturn => {
             });
 
             mapRef.current = map;
+            // Detectar la primera interacción manual del usuario.
+            // dragend cubre el panning con dedo/mouse.
+            // zoom_changed cubre cuando el usuario usa controles de zoom
+            // o gesto de pinch en mobile.
+            // Una vez detectada, NO seguimos escuchando — el listener se
+            // remueve a sí mismo para no consumir CPU innecesariamente.
+            const markUserInteraction = () => {
+                userHasInteractedRef.current = true;
+            };
+            const dragListener = map.addListener("dragend", markUserInteraction);
+            const zoomListener = map.addListener(
+                "zoom_changed",
+                markUserInteraction,
+            );
+
+            // Limpiar listeners al desmontar para evitar memory leaks.
+            // Los listeners de Google Maps NO se limpian solos al destruir
+            // el mapa.
+            const cleanupInteractionListeners = () => {
+                window.google?.maps?.event?.removeListener(dragListener);
+                window.google?.maps?.event?.removeListener(zoomListener);
+            };
+
+            // Guardar el cleanup en una closure que el useEffect ejecutará
+            // al desmontar.
+            mapInteractionCleanupRef.current = cleanupInteractionListeners;
+
             geocoderRef.current = new window.google.maps.Geocoder();
             trafficLayerRef.current = new window.google.maps.TrafficLayer();
             infoWindowRef.current = new window.google.maps.InfoWindow({
@@ -152,12 +183,9 @@ export const useMapInit = (): UseMapInitReturn => {
                 }
             };
 
-            // Solicitar ubicación en segundo plano — no bloquea el render del mapa.
-            // watchPosition actualiza la posición continuamente, lo que resuelve
-            // el problema de "no actualiza al instante": en cuanto el navegador
-            // tiene la ubicación (aunque tarde 1-2s), el mapa se mueve solo.
+
             if (navigator.geolocation) {
-                watchId = navigator.geolocation.watchPosition(
+                navigator.geolocation.getCurrentPosition(
                     (position) => {
                         if (!isMounted || !mapRef.current) return;
 
@@ -166,14 +194,16 @@ export const useMapInit = (): UseMapInitReturn => {
                             lng: position.coords.longitude,
                         };
 
-                        // Guardar en caché para la próxima carga — resuelve el
-                        // problema de Firefox pidiendo permisos en cada recarga
+                        // Guardar en caché para la próxima carga — resuelve
+                        // el problema de Firefox pidiendo permisos en cada
+                        // recarga del navegador.
                         setCachedLocation(location.lat, location.lng);
 
-                        // Solo mover el mapa si el usuario no lo ha movido manualmente.
-                        // Si el zoom es el de ciudad (≥ 14) y no hay cached previa,
-                        // es la primera ubicación — centrar el mapa.
-                        if (!cached) {
+                        // Solo centrar si el usuario NO ha interactuado con
+                        // el mapa todavía. Si ya hizo pan o zoom manual, su
+                        // intención es ver lo que está viendo — no la
+                        // sobreescribimos.
+                        if (!userHasInteractedRef.current && !cached) {
                             mapRef.current.panTo(location);
                             mapRef.current.setZoom(USER_LOCATION_ZOOM);
                         }
@@ -181,8 +211,9 @@ export const useMapInit = (): UseMapInitReturn => {
                         createOrMoveUserMarker(location);
                     },
                     () => {
-                        // Permiso denegado — el mapa ya está visible,
-                        // no hay nada que hacer.
+                        // Permiso denegado o timeout — el mapa ya está
+                        // visible con la ubicación cached o con el centro
+                        // por defecto. No hay nada que hacer.
                     },
                     { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 },
                 );
@@ -193,10 +224,9 @@ export const useMapInit = (): UseMapInitReturn => {
 
         return () => {
             isMounted = false;
-            // Cancelar el watcher al desmontar para evitar memory leaks
-            if (watchId !== null) {
-                navigator.geolocation.clearWatch(watchId);
-            }
+            // En su lugar, limpiamos los listeners del mapa.
+            mapInteractionCleanupRef.current?.();
+            mapInteractionCleanupRef.current = null;
         };
     }, []);
 
@@ -207,6 +237,35 @@ export const useMapInit = (): UseMapInitReturn => {
         if (!map) return;
         map.panTo(DEFAULT_CENTER);
         map.setZoom(DEFAULT_ZOOM);
+    };
+
+    const focusUserLocation = () => {
+        const map = mapRef.current;
+        if (!map) return;
+
+        if (!navigator.geolocation) {
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                if (!mapRef.current) return;
+                const location = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                };
+                mapRef.current.panTo(location);
+                mapRef.current.setZoom(USER_LOCATION_ZOOM);
+                setCachedLocation(location.lat, location.lng);
+            },
+            () => {
+                // Si el usuario denegó permisos antes y aquí intenta de
+                // nuevo, el navegador volverá a preguntar. Si vuelve a
+                // denegar, no hay nada que hacer — silenciar es mejor
+                // que mostrar error porque el botón es discreto.
+            },
+            { enableHighAccuracy: true, timeout: 5000 },
+        );
     };
 
     const toggleTraffic = () => {
@@ -277,6 +336,7 @@ export const useMapInit = (): UseMapInitReturn => {
         infoWindowRef,
         isTrafficVisible,
         focusMexico,
+        focusUserLocation,
         toggleTraffic,
         searchAddress,
         toggleFullscreen,
