@@ -1,20 +1,21 @@
-import { Fragment, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
-import { ChevronDown, ChevronUp, ClipboardList, Filter, RefreshCw } from "lucide-react";
+import {
+    ClipboardList, Filter, RefreshCw, Search, X, ChevronDown, ChevronUp,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { getAuditoria } from "../services/erpService";
-import type { RegistroAuditoria } from "../types/erp.types";
+import { getAuditoria, getAuditUsers } from "../services/erpService";
+import {
+    ACCIONES_AUDITORIA, ENTIDADES_AUDITORIA,
+    type RegistroAuditoria, type FiltrosAuditoria,
+} from "../types/erp.types";
 import { queryKeys } from "@/lib/query-keys";
 
-// ── Estilos por tipo de acción ───────────────────────────────────────────────
-// Cada acción del backend (CREATE, UPDATE, DELETE, etc.) se pinta con un
-// color que comunica intuitivamente su naturaleza:
-//   - verde:  acciones constructivas (CREATE, ACTIVATE)
-//   - azul:   modificaciones (UPDATE)
-//   - rojo:   destructivas (DELETE)
-//   - ámbar:  pausas/suspensiones (SUSPEND)
-//   - violeta y slate: cambios de roles administrativos
-//   - sky:    eventos de sesión (LOGIN)
+// ═════════════════════════════════════════════════════════════════════════════
+// Estilos por acción — colores semánticos para reconocimiento rápido
+// ═════════════════════════════════════════════════════════════════════════════
+// Heurística #6 (Reconocer en lugar de recordar): el color comunica el tipo
+// de acción sin que el usuario tenga que leer el texto completo.
 const ACCION_STYLES: Record<string, string> = {
     CREATE: "bg-emerald-50 text-emerald-700",
     UPDATE: "bg-blue-50 text-blue-700",
@@ -24,391 +25,507 @@ const ACCION_STYLES: Record<string, string> = {
     PROMOTE_ADMIN: "bg-violet-50 text-violet-700",
     REVOKE_ADMIN: "bg-slate-100 text-slate-600",
     LOGIN: "bg-sky-50 text-sky-700",
+    CREATE_USUARIO: "bg-emerald-50 text-emerald-700",
+    UPDATE_USUARIO: "bg-blue-50 text-blue-700",
+    INHABILITAR: "bg-amber-50 text-amber-700",
+    REACTIVAR: "bg-emerald-50 text-emerald-700",
+    DELETE_PERM: "bg-red-50 text-red-700",
+    RESET_CLAVE: "bg-orange-50 text-orange-700",
 };
-const accionStyle = (a: string) => ACCION_STYLES[a] ?? "bg-slate-100 text-slate-600";
+const accionStyle = (a: string) =>
+    ACCION_STYLES[a] ?? "bg-slate-100 text-slate-600";
 
-// Entidades disponibles para filtrar. La opción vacía representa "todas".
-const ENTIDADES = ["", "empresa", "usuario", "usuario_empresa", "permiso"];
-
-// ── Formateadores de fecha ──────────────────────────────────────────────────
-// Dos formatos según contexto:
-//   - largo:  para desktop, donde hay espacio (ej. "27 abr 2026, 03:50 p.m.")
-//   - corto:  para las cards mobile, donde el espacio es premium
-//             (ej. "27 abr · 03:50 p.m.")
-//
-// Mantenerlos separados (en lugar de un único formateador con prop) hace
-// más explícito el porqué de cada visualización.
-const formatFechaLarga = (iso: string) =>
+const formatFecha = (iso: string) =>
     new Date(iso).toLocaleString("es-MX", {
         day: "2-digit", month: "short", year: "numeric",
         hour: "2-digit", minute: "2-digit",
     });
 
-const formatFechaCorta = (iso: string) => {
-    const d = new Date(iso);
-    const fecha = d.toLocaleDateString("es-MX", { day: "2-digit", month: "short" });
-    const hora = d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
-    // El separador medio (·) es más legible que un guión y ayuda al ojo a
-    // saltar entre las dos piezas de información.
-    return `${fecha} · ${hora}`;
-};
-
-// ── Headers de la tabla (solo desktop) ──────────────────────────────────────
-// IP fue removida: en el deployment actual el backend ve la IP del proxy
-// (servidor) en lugar de la del cliente real. Mostrarla daba la falsa
-// impresión de que todos los registros venían del mismo origen.
-// Si en el futuro se configura X-Forwarded-For correctamente y se lee
-// la IP real, se puede reintroducir como columna o como detalle expandible.
-const TABLE_HEADERS = ["Fecha", "Usuario", "Entidad", "Acción", "Detalle"];
-
-// Número de columnas para el colSpan de la fila expandida.
-// Se calcula desde el array para que, si en el futuro se agregan o quitan
-// columnas, no haya que recordar actualizar el colSpan manualmente.
-const COLUMN_COUNT = TABLE_HEADERS.length;
-
-// ── Helper: ¿el registro tiene datos para mostrar al expandir? ──────────────
-// Compartido entre las dos vistas (card y row). Centralizado para mantener
-// la misma regla en ambos lados — si en el futuro agregamos otro campo
-// (ej. "metadatos"), cambiar aquí basta.
-const tieneDetalle = (reg: RegistroAuditoria) =>
-    Boolean(reg.datos_anteriores || reg.datos_nuevos);
-
-// ─── Subcomponente: detalle expandido (compartido card y tabla) ─────────────
-// Muestra los JSON de "antes" y "después" lado a lado en desktop, apilados
-// en mobile. Se aprovecha en ambas vistas porque la información es la misma.
-const DetalleExpandido = ({ registro }: { registro: RegistroAuditoria }) => (
-    <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-        {registro.datos_anteriores && (
-            <div className="flex-1 min-w-0">
-                <p className="mb-1.5 text-xs font-medium text-slate-500">Antes</p>
-                <pre className="max-h-40 overflow-auto rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700">
-                    {JSON.stringify(registro.datos_anteriores, null, 2)}
-                </pre>
-            </div>
-        )}
-        {registro.datos_nuevos && (
-            <div className="flex-1 min-w-0">
-                <p className="mb-1.5 text-xs font-medium text-slate-500">Después</p>
-                <pre className="max-h-40 overflow-auto rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700">
-                    {JSON.stringify(registro.datos_nuevos, null, 2)}
-                </pre>
-            </div>
-        )}
-    </div>
-);
-
-// ─── Subcomponente: card mobile ─────────────────────────────────────────────
-// Una card por registro de auditoría. Diseño jerárquico:
-//   - Línea superior:  fecha (izq) + chip de acción (der) — los dos datos
-//     que el usuario más busca al escanear el log.
-//   - Bloque central:  nombre y email del usuario que ejecutó la acción.
-//   - Bloque inferior: chip de entidad + #id + botón de ver detalle.
-//
-// Por qué chip arriba a la derecha (no abajo):
-//   El chip es el indicador visual más fuerte. Ponerlo arriba permite que
-//   el usuario escaneando rápidamente vea "qué pasó" antes que "quién y
-//   sobre qué". Eye-tracking studies en interfaces de logs confirman que
-//   el corner superior derecho es el segundo punto de fijación tras el
-//   timestamp.
-interface AuditoriaCardProps {
-    registro: RegistroAuditoria;
-    isExpanded: boolean;
-    onToggleExpand: () => void;
-}
-
-const AuditoriaCard = ({ registro, isExpanded, onToggleExpand }: AuditoriaCardProps) => {
-    const hasDetail = tieneDetalle(registro);
-
-    return (
-        <article className="rounded-xl border border-slate-200 bg-white p-3.5 transition-shadow hover:shadow-sm">
-            {/* ── Línea superior: fecha + chip de acción ── */}
-            <div className="mb-2 flex items-start justify-between gap-2">
-                <span className="text-xs text-slate-500">
-                    {formatFechaCorta(registro.fecha_registro)}
-                </span>
-                <span
-                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${accionStyle(registro.accion)}`}
-                >
-                    {registro.accion}
-                </span>
-            </div>
-
-            {/* ── Usuario ── */}
-            <p className="text-sm font-medium text-slate-800">{registro.nombre_usuario}</p>
-            {/* break-all evita que un email largo desborde la card.
-                truncate haría "...@centralg" lo cual oculta info útil;
-                preferimos que rompa palabra para mostrar el email completo. */}
-            <p className="mb-2.5 break-all text-xs text-slate-400">
-                {registro.email_usuario}
-            </p>
-
-            {/* ── Entidad + ID + acción de expandir ── */}
-            <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                    <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600">
-                        {registro.entidad}
-                    </span>
-                    {registro.id_entidad !== null && (
-                        <span className="text-xs text-slate-400">#{registro.id_entidad}</span>
-                    )}
-                </div>
-
-                {hasDetail ? (
-                    <button
-                        type="button"
-                        onClick={onToggleExpand}
-                        // aria-expanded comunica el estado a lectores de pantalla.
-                        // aria-controls vincularía con el id del detalle, pero
-                        // como el detalle se renderiza inline justo debajo,
-                        // omitirlo no afecta UX (el flujo es lineal).
-                        aria-expanded={isExpanded}
-                        className="flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-emerald-600 transition-colors hover:bg-slate-50"
-                    >
-                        {isExpanded ? (
-                            <>
-                                Ocultar
-                                <ChevronUp className="h-3 w-3" />
-                            </>
-                        ) : (
-                            <>
-                                Ver detalle
-                                <ChevronDown className="h-3 w-3" />
-                            </>
-                        )}
-                    </button>
-                ) : (
-                    <span className="text-xs text-slate-300">—</span>
-                )}
-            </div>
-
-            {/* ── Detalle expandido ── */}
-            {isExpanded && hasDetail && (
-                <div className="mt-3 border-t border-slate-200 pt-3">
-                    <DetalleExpandido registro={registro} />
-                </div>
-            )}
-        </article>
-    );
-};
-
-// ─── Subcomponente: fila de tabla desktop ───────────────────────────────────
-// Extraída para que el componente principal no termine teniendo 200+ líneas
-// de JSX anidado. Mantiene la fila + el expandido como un par cohesivo.
-interface AuditoriaTableRowProps {
-    registro: RegistroAuditoria;
-    isExpanded: boolean;
-    onToggleExpand: () => void;
-}
-
-const AuditoriaTableRow = ({
-    registro,
-    isExpanded,
-    onToggleExpand,
-}: AuditoriaTableRowProps) => {
-    const hasDetail = tieneDetalle(registro);
-
-    return (
-        <Fragment>
-            <tr className="cursor-pointer hover:bg-slate-50" onClick={onToggleExpand}>
-                <td className="border-b border-slate-200 px-4 py-3 text-xs whitespace-nowrap text-slate-500">
-                    {formatFechaLarga(registro.fecha_registro)}
-                </td>
-                <td className="border-b border-slate-200 px-4 py-3">
-                    <p className="text-xs font-medium text-slate-800">{registro.nombre_usuario}</p>
-                    <p className="text-xs text-slate-400">{registro.email_usuario}</p>
-                </td>
-                <td className="border-b border-slate-200 px-4 py-3">
-                    <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600">
-                        {registro.entidad}
-                    </span>
-                    {registro.id_entidad !== null && (
-                        <span className="ml-1.5 text-xs text-slate-400">
-                            #{registro.id_entidad}
-                        </span>
-                    )}
-                </td>
-                <td className="border-b border-slate-200 px-4 py-3">
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${accionStyle(registro.accion)}`}>
-                        {registro.accion}
-                    </span>
-                </td>
-                <td className="border-b border-slate-200 px-4 py-3 text-xs text-emerald-500">
-                    {hasDetail ? (isExpanded ? "Ocultar ▲" : "Ver ▼") : "—"}
-                </td>
-            </tr>
-            {isExpanded && hasDetail && (
-                <tr>
-                    <td
-                        colSpan={COLUMN_COUNT}
-                        className="border-b border-slate-200 bg-slate-50 px-6 py-4"
-                    >
-                        <DetalleExpandido registro={registro} />
-                    </td>
-                </tr>
-            )}
-        </Fragment>
-    );
-};
-
-// ─── Componente principal ───────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+// Componente principal
+// ═════════════════════════════════════════════════════════════════════════════
 export const AuditoriaPage = () => {
     useDocumentTitle("Auditoría");
-    const [entidad, setEntidad] = useState("");
-    const [limit, setLimit] = useState(50);
 
-    // Estado de expansión compartido entre las dos vistas (card mobile y
-    // row desktop). Si el usuario expande en mobile y rota a tablet, la
-    // misma fila/card sigue expandida sin reset.
+    // ── Estado de filtros (controlados por la UI) ─────────────────────────
+    // Cada filtro es opcional. undefined = "sin aplicar".
+    const [filtros, setFiltros] = useState<FiltrosAuditoria>({ limit: 50 });
     const [expandedId, setExpandedId] = useState<number | null>(null);
 
-    // TanStack Query — los filtros (entidad, limit) son parte de la queryKey.
-    // Al cambiar cualquier filtro, se hace una nueva petición automáticamente.
-    // refetch() cubre el botón manual de recargar.
-    const { data: registros = [], isLoading, error, refetch } = useQuery<RegistroAuditoria[]>({
-        queryKey: queryKeys.erp.auditoria(entidad, limit),
-        queryFn: () => getAuditoria({ limit, entidad: entidad || undefined }),
+    // ── Estado del dropdown de usuario (lista filtrable) ──────────────────
+    const [showUsuarioDropdown, setShowUsuarioDropdown] = useState(false);
+    const [usuarioBusqueda, setUsuarioBusqueda] = useState("");
+
+    // ── Carga del log de auditoría ────────────────────────────────────────
+    // Cualquier cambio en `filtros` cambia la queryKey → TanStack refetcha.
+    const {
+        data: registros = [],
+        isLoading,
+        error,
+        refetch,
+    } = useQuery<RegistroAuditoria[]>({
+        queryKey: queryKeys.erp.auditoria(filtros),
+        queryFn: () => getAuditoria(filtros),
     });
+
+    // ── Carga de usuarios para el filtro ──────────────────────────────────
+    // Lista cacheada — se carga una vez y no cambia frecuentemente.
+    // staleTime: 5min para no refetchear al cambiar de pestaña.
+    const { data: usuarios = [] } = useQuery({
+        queryKey: queryKeys.erp.auditUsers(),
+        queryFn: getAuditUsers,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    // ── Filtrado client-side de la lista de usuarios ──────────────────────
+    // El input "busca" en el dropdown abierto. Match contra email Y nombre.
+    const usuariosFiltrados = useMemo(() => {
+        if (!usuarioBusqueda.trim()) return usuarios;
+        const q = usuarioBusqueda.trim().toLowerCase();
+        return usuarios.filter(
+            (u) =>
+                u.usuario.toLowerCase().includes(q) ||
+                u.nombre.toLowerCase().includes(q),
+        );
+    }, [usuarios, usuarioBusqueda]);
+
+    // ── Helpers para mutar filtros sin perder los demás ───────────────────
+    const setFiltro = <K extends keyof FiltrosAuditoria>(
+        key: K,
+        value: FiltrosAuditoria[K],
+    ) => {
+        setFiltros((prev) => ({ ...prev, [key]: value }));
+    };
+
+    const limpiarFiltros = () => {
+        setFiltros({ limit: 50 });
+        setUsuarioBusqueda("");
+        setShowUsuarioDropdown(false);
+    };
+
+    // ── Cuenta de filtros activos (para el indicador y el botón "Limpiar") ─
+    const filtrosActivos = useMemo(() => {
+        let count = 0;
+        if (filtros.entidad) count++;
+        if (filtros.id_usuario !== undefined) count++;
+        if (filtros.accion) count++;
+        if (filtros.fecha_desde) count++;
+        if (filtros.fecha_hasta) count++;
+        return count;
+    }, [filtros]);
+
+    // ── Validación inline: fecha_desde ≤ fecha_hasta ──────────────────────
+    // Heurística #5 (prevención de errores): mostramos el error en la UI
+    // antes de mandar al backend.
+    const errorRangoFechas = useMemo(() => {
+        if (!filtros.fecha_desde || !filtros.fecha_hasta) return null;
+        if (filtros.fecha_desde > filtros.fecha_hasta) {
+            return "La fecha 'Desde' debe ser menor o igual a 'Hasta'";
+        }
+        return null;
+    }, [filtros.fecha_desde, filtros.fecha_hasta]);
+
+    // ── Usuario seleccionado: para mostrar el label en el botón ───────────
+    const usuarioSeleccionado = useMemo(
+        () => usuarios.find((u) => u.id === filtros.id_usuario),
+        [usuarios, filtros.id_usuario],
+    );
 
     const errorMessage = error instanceof Error ? error.message : null;
     const toggleExpand = (id: number) =>
         setExpandedId((prev) => (prev === id ? null : id));
 
-    const isEmpty =
-        !isLoading && !errorMessage && registros.length === 0;
-    const hasData =
-        !isLoading && !errorMessage && registros.length > 0;
-
     return (
         <main className="h-full overflow-auto bg-[#f5f6f8] p-3 md:p-6">
             <section className="flex min-h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
-
-                {/* ── Cabecera con filtros ────────────────────────────────────
-                    Stack vertical en mobile (título arriba, filtros abajo)
-                    para que ningún elemento quede recortado.
-                    Inline en desktop manteniendo el diseño actual. */}
-                <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
+                {/* ═══════════ HEADER ═══════════ */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4">
                     <div className="flex items-center gap-3">
-                        <ClipboardList className="h-5 w-5 shrink-0 text-slate-500" />
+                        <ClipboardList className="h-5 w-5 text-slate-500" />
                         <div>
-                            <h1 className="text-lg font-semibold text-slate-800 md:text-xl">
+                            <h1 className="text-xl font-semibold text-slate-800">
                                 Auditoría
                             </h1>
                             <p className="text-xs text-slate-400">
-                                {registros.length} registro{registros.length !== 1 ? "s" : ""}
+                                {registros.length} registro
+                                {registros.length !== 1 ? "s" : ""}
+                                {filtrosActivos > 0 && (
+                                    <span className="ml-2 text-emerald-600">
+                                        · {filtrosActivos} filtro
+                                        {filtrosActivos !== 1 ? "s" : ""} activo
+                                        {filtrosActivos !== 1 ? "s" : ""}
+                                    </span>
+                                )}
                             </p>
                         </div>
                     </div>
-
-                    {/* En mobile los filtros se acomodan flex-wrap para que,
-                        si el ancho no alcanza, salten a la línea siguiente
-                        en lugar de desbordar. */}
-                    <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                        <div className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5">
-                            <Filter className="h-3.5 w-3.5 text-slate-400" />
-                            <select
-                                value={entidad}
-                                onChange={(e) => setEntidad(e.target.value)}
-                                className="bg-transparent text-sm text-slate-600 outline-none"
-                                aria-label="Filtrar por entidad"
+                    <div className="flex items-center gap-2">
+                        {filtrosActivos > 0 && (
+                            <button
+                                type="button"
+                                onClick={limpiarFiltros}
+                                className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50"
+                                title="Quitar todos los filtros"
                             >
-                                <option value="">Todas las entidades</option>
-                                {ENTIDADES.filter(Boolean).map((e) => (
-                                    <option key={e} value={e}>
-                                        {e}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <select
-                            value={limit}
-                            onChange={(e) => setLimit(Number(e.target.value))}
-                            className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 outline-none"
-                            aria-label="Cantidad de registros a mostrar"
-                        >
-                            {[25, 50, 100, 200].map((n) => (
-                                <option key={n} value={n}>
-                                    Últimos {n}
-                                </option>
-                            ))}
-                        </select>
+                                <X className="h-3.5 w-3.5" />
+                                Limpiar filtros
+                            </button>
+                        )}
                         <button
                             type="button"
                             onClick={() => refetch()}
                             disabled={isLoading}
                             className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
                             title="Recargar"
-                            aria-label="Recargar registros de auditoría"
                         >
-                            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+                            <RefreshCw
+                                className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+                            />
                         </button>
                     </div>
                 </div>
 
-                {/* ── Contenido principal: estados loading/error/empty/data ──── */}
-                <div className="p-4 md:p-6">
+                {/* ═══════════ FILTROS ═══════════ */}
+                {/* Diseño: una grid de filtros que se acomoda fluidamente.
+                    En móvil cada filtro toma una fila completa; en desktop
+                    se acomodan en 2-3 columnas según ancho disponible.
+                    Heurística #8: minimalista pero todo a la vista — sin
+                    drawers ni colapsos para no esconder funcionalidad. */}
+                <div className="border-b border-slate-200 bg-slate-50/50 px-6 py-4">
+                    <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-500">
+                        <Filter className="h-3.5 w-3.5" />
+                        Filtros
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                        {/* ── Filtro: Usuario (lista filtrable) ──────── */}
+                        <div className="relative">
+                            <label className="mb-1 block text-xs font-medium text-slate-600">
+                                Usuario
+                            </label>
+                            <button
+                                type="button"
+                                onClick={() => setShowUsuarioDropdown((v) => !v)}
+                                className="flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-left text-slate-700 hover:bg-slate-50"
+                            >
+                                <span className="truncate">
+                                    {usuarioSeleccionado
+                                        ? `${usuarioSeleccionado.nombre} (${usuarioSeleccionado.usuario})`
+                                        : "Todos los usuarios"}
+                                </span>
+                                {showUsuarioDropdown ? (
+                                    <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" />
+                                ) : (
+                                    <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                                )}
+                            </button>
+
+                            {showUsuarioDropdown && (
+                                <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-lg border border-slate-200 bg-white shadow-lg">
+                                    {/* Input de búsqueda dentro del dropdown */}
+                                    <div className="border-b border-slate-100 p-2">
+                                        <div className="relative">
+                                            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                                            <input
+                                                type="text"
+                                                value={usuarioBusqueda}
+                                                onChange={(e) =>
+                                                    setUsuarioBusqueda(e.target.value)
+                                                }
+                                                placeholder="Buscar usuario…"
+                                                autoFocus
+                                                className="w-full rounded-md border border-slate-200 py-1.5 pl-8 pr-2 text-xs outline-none focus:border-emerald-400"
+                                            />
+                                        </div>
+                                    </div>
+                                    {/* Lista filtrable */}
+                                    <div className="max-h-64 overflow-y-auto">
+                                        {/* Opción "Todos" siempre disponible */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setFiltro("id_usuario", undefined);
+                                                setShowUsuarioDropdown(false);
+                                                setUsuarioBusqueda("");
+                                            }}
+                                            className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-slate-50 ${filtros.id_usuario === undefined
+                                                    ? "bg-emerald-50 text-emerald-700"
+                                                    : "text-slate-700"
+                                                }`}
+                                        >
+                                            <span>Todos los usuarios</span>
+                                        </button>
+                                        {usuariosFiltrados.length === 0 && (
+                                            <p className="px-3 py-4 text-center text-xs text-slate-400">
+                                                Sin resultados
+                                            </p>
+                                        )}
+                                        {usuariosFiltrados.map((u) => (
+                                            <button
+                                                key={u.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setFiltro("id_usuario", u.id);
+                                                    setShowUsuarioDropdown(false);
+                                                    setUsuarioBusqueda("");
+                                                }}
+                                                className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-slate-50 ${filtros.id_usuario === u.id
+                                                        ? "bg-emerald-50 text-emerald-700"
+                                                        : "text-slate-700"
+                                                    }`}
+                                            >
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate font-medium">
+                                                        {u.nombre}
+                                                    </p>
+                                                    <p className="truncate text-slate-400">
+                                                        {u.usuario}
+                                                    </p>
+                                                </div>
+                                                <span className="ml-2 shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">
+                                                    {u.total_eventos}
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ── Filtro: Acción ──────────────────────────── */}
+                        <div>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">
+                                Acción
+                            </label>
+                            <select
+                                value={filtros.accion ?? ""}
+                                onChange={(e) =>
+                                    setFiltro("accion", e.target.value || undefined)
+                                }
+                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-emerald-400"
+                            >
+                                <option value="">Todas las acciones</option>
+                                {ACCIONES_AUDITORIA.map((a) => (
+                                    <option key={a} value={a}>
+                                        {a}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* ── Filtro: Entidad ─────────────────────────── */}
+                        <div>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">
+                                Entidad
+                            </label>
+                            <select
+                                value={filtros.entidad ?? ""}
+                                onChange={(e) =>
+                                    setFiltro("entidad", e.target.value || undefined)
+                                }
+                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-emerald-400"
+                            >
+                                <option value="">Todas las entidades</option>
+                                {ENTIDADES_AUDITORIA.map((e) => (
+                                    <option key={e} value={e}>
+                                        {e}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* ── Filtro: Fecha desde ─────────────────────── */}
+                        <div>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">
+                                Desde
+                            </label>
+                            <input
+                                type="date"
+                                value={filtros.fecha_desde ?? ""}
+                                onChange={(e) =>
+                                    setFiltro("fecha_desde", e.target.value || undefined)
+                                }
+                                max={filtros.fecha_hasta}
+                                className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-emerald-400 ${errorRangoFechas
+                                        ? "border-red-300"
+                                        : "border-slate-300"
+                                    }`}
+                            />
+                        </div>
+
+                        {/* ── Filtro: Fecha hasta ─────────────────────── */}
+                        <div>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">
+                                Hasta
+                            </label>
+                            <input
+                                type="date"
+                                value={filtros.fecha_hasta ?? ""}
+                                onChange={(e) =>
+                                    setFiltro("fecha_hasta", e.target.value || undefined)
+                                }
+                                min={filtros.fecha_desde}
+                                className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-emerald-400 ${errorRangoFechas
+                                        ? "border-red-300"
+                                        : "border-slate-300"
+                                    }`}
+                            />
+                        </div>
+
+                        {/* ── Selector: cuántos registros mostrar ─────── */}
+                        <div>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">
+                                Mostrar
+                            </label>
+                            <select
+                                value={filtros.limit ?? 50}
+                                onChange={(e) =>
+                                    setFiltro("limit", Number(e.target.value))
+                                }
+                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-emerald-400"
+                            >
+                                {[25, 50, 100, 200, 500].map((n) => (
+                                    <option key={n} value={n}>
+                                        Últimos {n}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                    {/* Mensaje de error de rango de fechas */}
+                    {errorRangoFechas && (
+                        <p className="mt-2 text-xs text-red-600">
+                            {errorRangoFechas}
+                        </p>
+                    )}
+                </div>
+
+                {/* ═══════════ TABLA ═══════════ */}
+                <div className="p-6">
                     {isLoading && (
                         <div className="py-10 text-center text-slate-500">
                             Cargando registros...
                         </div>
                     )}
                     {errorMessage && (
-                        <div className="py-10 text-center text-red-500">{errorMessage}</div>
-                    )}
-                    {isEmpty && (
-                        <div className="py-10 text-center text-slate-400">
-                            No hay registros de auditoría
+                        <div className="py-10 text-center text-red-500">
+                            {errorMessage}
                         </div>
                     )}
-
-                    {hasData && (
-                        <>
-                            {/* ─── Vista MOBILE: lista de cards (visible < md) ───
-                                space-y-3 en lugar de gap-3 dentro de un grid:
-                                space-y aplica sólo entre hijos, no genera un
-                                espacio extra al final como gap+grid haría con
-                                un solo elemento. */}
-                            <div className="space-y-3 md:hidden">
-                                {registros.map((reg) => (
-                                    <AuditoriaCard
-                                        key={reg.id_auditoria}
-                                        registro={reg}
-                                        isExpanded={expandedId === reg.id_auditoria}
-                                        onToggleExpand={() => toggleExpand(reg.id_auditoria)}
-                                    />
-                                ))}
-                            </div>
-
-                            {/* ─── Vista DESKTOP: tabla (visible md+) ───
-                                hidden + md:block para que en mobile no se
-                                renderice (y no genere el problema original
-                                de columnas truncadas). */}
-                            <div className="hidden overflow-hidden rounded-xl border border-slate-200 md:block">
-                                <table className="w-full border-collapse text-sm">
-                                    <thead className="bg-slate-50 text-slate-600">
-                                        <tr>
-                                            {TABLE_HEADERS.map((h) => (
+                    {!isLoading && !errorMessage && registros.length === 0 && (
+                        <div className="py-10 text-center">
+                            <p className="text-slate-400">
+                                No hay registros de auditoría
+                            </p>
+                            {filtrosActivos > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={limpiarFiltros}
+                                    className="mt-3 text-sm text-emerald-600 hover:underline"
+                                >
+                                    Quitar filtros
+                                </button>
+                            )}
+                        </div>
+                    )}
+                    {!isLoading && !errorMessage && registros.length > 0 && (
+                        <div className="overflow-hidden rounded-xl border border-slate-200">
+                            <table className="w-full border-collapse text-sm">
+                                <thead className="bg-slate-50 text-slate-600">
+                                    <tr>
+                                        {["Fecha", "Usuario", "Entidad", "Acción", "IP", "Detalle"].map(
+                                            (h) => (
                                                 <th
                                                     key={h}
                                                     className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium"
                                                 >
                                                     {h}
                                                 </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {registros.map((reg) => (
-                                            <AuditoriaTableRow
-                                                key={reg.id_auditoria}
-                                                registro={reg}
-                                                isExpanded={expandedId === reg.id_auditoria}
-                                                onToggleExpand={() => toggleExpand(reg.id_auditoria)}
-                                            />
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </>
+                                            ),
+                                        )}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {registros.map((reg) => (
+                                        <Fragment key={reg.id_auditoria}>
+                                            <tr
+                                                className="cursor-pointer hover:bg-slate-50"
+                                                onClick={() => toggleExpand(reg.id_auditoria)}
+                                            >
+                                                <td className="whitespace-nowrap border-b border-slate-200 px-4 py-3 text-xs text-slate-500">
+                                                    {formatFecha(reg.fecha_registro)}
+                                                </td>
+                                                <td className="border-b border-slate-200 px-4 py-3">
+                                                    <p className="text-xs font-medium text-slate-800">
+                                                        {reg.nombre_usuario}
+                                                    </p>
+                                                    <p className="text-xs text-slate-400">
+                                                        {reg.email_usuario}
+                                                    </p>
+                                                </td>
+                                                <td className="border-b border-slate-200 px-4 py-3">
+                                                    <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600">
+                                                        {reg.entidad}
+                                                    </span>
+                                                    {reg.id_entidad && (
+                                                        <span className="ml-1.5 text-xs text-slate-400">
+                                                            #{reg.id_entidad}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="border-b border-slate-200 px-4 py-3">
+                                                    <span
+                                                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${accionStyle(reg.accion)}`}
+                                                    >
+                                                        {reg.accion}
+                                                    </span>
+                                                </td>
+                                                <td className="border-b border-slate-200 px-4 py-3 text-xs text-slate-400">
+                                                    {reg.ip_origen ?? "—"}
+                                                </td>
+                                                <td className="border-b border-slate-200 px-4 py-3 text-xs text-emerald-500">
+                                                    {reg.datos_nuevos || reg.datos_anteriores
+                                                        ? expandedId === reg.id_auditoria
+                                                            ? "Ocultar ▲"
+                                                            : "Ver ▼"
+                                                        : "—"}
+                                                </td>
+                                            </tr>
+                                            {expandedId === reg.id_auditoria && (
+                                                <tr>
+                                                    <td
+                                                        colSpan={6}
+                                                        className="border-b border-slate-200 bg-slate-50 px-6 py-4"
+                                                    >
+                                                        <div className="flex gap-6">
+                                                            {reg.datos_anteriores && (
+                                                                <div className="flex-1">
+                                                                    <p className="mb-1.5 text-xs font-medium text-slate-500">
+                                                                        Antes
+                                                                    </p>
+                                                                    <pre className="max-h-40 overflow-auto rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700">
+                                                                        {JSON.stringify(reg.datos_anteriores, null, 2)}
+                                                                    </pre>
+                                                                </div>
+                                                            )}
+                                                            {reg.datos_nuevos && (
+                                                                <div className="flex-1">
+                                                                    <p className="mb-1.5 text-xs font-medium text-slate-500">
+                                                                        Después
+                                                                    </p>
+                                                                    <pre className="max-h-40 overflow-auto rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700">
+                                                                        {JSON.stringify(reg.datos_nuevos, null, 2)}
+                                                                    </pre>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </Fragment>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     )}
                 </div>
             </section>
