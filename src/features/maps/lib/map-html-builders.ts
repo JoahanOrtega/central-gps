@@ -137,11 +137,6 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
   );
 
   // ── Tiempo acumulado en estado actual ────────────────────────────────
-  // Consumimos `segundos_en_estado_actual` calculado por el backend con
-  // una sola query batch (utils.engine_state + telemetry_service).
-  // El backend lo expone a nivel de unidad y también dentro de telemetry;
-  // preferimos el de la unidad porque el backend lo pobló explícitamente
-  // para este caso de uso.
   const segundosEnEstado =
     unit.segundos_en_estado_actual ??
     telemetry?.segundos_en_estado_actual ??
@@ -162,11 +157,6 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
     const inicio = viajeInicio ? new Date(viajeInicio).getTime() : null;
     const fin = viajeFin ? new Date(viajeFin).getTime() : null;
     if (!inicio || !fin || fin <= inicio) return null;
-    // formatDurationHms → "HH:MM:SS" con zero-padding. Coherente con la
-    // duración que se muestra en el TripDrawer y en los InfoWindows de la
-    // polilínea del recorrido. Aquí SÍ queremos precisión de segundos:
-    // un "último viaje" puede ser corto (3 minutos) y redondear ocultaría
-    // información útil.
     return formatDurationHms(Math.floor((fin - inicio) / 1000));
   })();
 
@@ -183,8 +173,6 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
   const marcaModelo = [unit.marca, unit.modelo].filter(Boolean).join(" ").trim();
 
   // ── URL de Google Maps ───────────────────────────────────────────────
-  // Formato estándar Google Maps (convención Jakob): ?q=lat,lng
-  // encodeURIComponent defiende contra valores inesperados (aunque sean números).
   const lat = telemetry?.latitud;
   const lng = telemetry?.longitud;
   const mapsUrl =
@@ -196,24 +184,26 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
   const mostrarVelocidad = engineState === "on";
 
   // ─────────────────────────────────────────────────────────────────────
-  // Plantilla HTML — estilo inline para portabilidad dentro del iframe
+  // Plantilla HTML — estilos inline para portabilidad dentro del
+  // InfoWindow de Google Maps (no podemos importar CSS desde acá).
   // ─────────────────────────────────────────────────────────────────────
 
   const rowStyle =
-    "display:flex; justify-content:space-between; align-items:baseline; " +
-    "padding:7px 0; border-bottom:1px solid #f1f5f9; gap:16px;";
+    "display:flex; justify-content:space-between; align-items:flex-start; " +
+    "padding:6px 0; border-bottom:1px solid #f1f5f9; gap:12px;";
   const rowStyleLast = rowStyle.replace(
     "border-bottom:1px solid #f1f5f9; ",
     "",
   );
   const labelStyle =
-    "font-size:10px; color:#94a3b8; text-transform:uppercase; " +
-    "letter-spacing:0.05em; font-weight:500; flex-shrink:0;";
+    "font-size:9.5px; color:#64748b; text-transform:uppercase; " +
+    "letter-spacing:0.04em; font-weight:600; flex-shrink:0; " +
+    "padding-top:1px; line-height:1.2;";
   const valueStyle =
-    "font-size:13px; color:#0f172a; text-align:right; " +
-    "font-variant-numeric:tabular-nums; line-height:1.3;";
+    "font-size:12.5px; color:#0f172a; text-align:right; " +
+    "font-variant-numeric:tabular-nums; line-height:1.35; flex:1;";
   const valueSecondary =
-    "display:block; font-size:10px; color:#94a3b8; margin-top:2px; " +
+    "display:block; font-size:10px; color:#94a3b8; margin-top:1px; " +
     "font-variant-numeric:tabular-nums;";
 
   // Construcción progresiva de las filas (orden semántico)
@@ -254,7 +244,6 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
     </div>`
     : "";
 
-  // Botón: abre Google Maps en nueva pestaña (rel noopener para seguridad)
   const botonMaps = mapsUrl
     ? `
     <a
@@ -263,16 +252,17 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
       rel="noopener noreferrer"
       style="
         display:flex; align-items:center; justify-content:center; gap:6px;
-        margin-top:12px; padding:8px 12px;
-        background:#f8fafc;
-        border:1px solid #e2e8f0;
+        margin-top:10px; padding:10px 12px;
+        background:#eff6ff;
+        border:1px solid #bfdbfe;
         border-radius:6px;
         font-size:12px; font-weight:500;
-        color:#334155; text-decoration:none;
+        color:#1d4ed8; text-decoration:none;
         transition:background 0.15s ease;
+        cursor:pointer;
       "
-      onmouseover="this.style.background='#f1f5f9'"
-      onmouseout="this.style.background='#f8fafc'"
+      onmouseover="this.style.background='#dbeafe'"
+      onmouseout="this.style.background='#eff6ff'"
       aria-label="Abrir ubicación en Google Maps"
     >
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -285,13 +275,16 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
 
   return `
     <div style="
-      min-width:250px;
-      max-width:290px;
-      padding:4px 2px;
+      width:100%;
+      min-width:240px;
+      max-width:280px;
+      box-sizing:border-box;
+      padding:4px 8px 4px 8px;
+      margin:0;
       font-family:'Poppins', system-ui, -apple-system, sans-serif;
     ">
-      <!-- Encabezado: dot de estado + número de unidad -->
-      <div style="display:flex; align-items:center; gap:8px; margin-bottom:${marcaModelo ? "4" : "12"}px;">
+      <!-- Encabezado: dot de estado + número + marca/modelo en línea -->
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:${marcaModelo ? "2" : "10"}px;">
         <span
           aria-hidden="true"
           style="
@@ -309,30 +302,39 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
           color:#0f172a;
           line-height:1.2;
           letter-spacing:-0.01em;
+          flex:1;
+          min-width:0;
+          overflow:hidden;
+          text-overflow:ellipsis;
+          white-space:nowrap;
         ">${escapeHtml(unit.numero || "Sin nombre")}</span>
       </div>
-
+ 
       ${marcaModelo
       ? `<div style="
-            font-size:12px;
+            font-size:11.5px;
             color:#64748b;
-            margin:0 0 10px 18px;
+            margin:0 0 8px 18px;
             line-height:1.3;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            white-space:nowrap;
           ">${escapeHtml(marcaModelo)}</div>`
       : ""}
-
+ 
       <!-- Datos clave (Ley de Proximidad + Similitud) -->
-      <div style="border-top:1px solid #f1f5f9;">
+      <div style="border-top:1px solid #e2e8f0;">
         ${rowEstado}
         ${rowReporte}
         ${rowVelocidad}
         ${rowViaje}
       </div>
-
+ 
       ${botonMaps}
     </div>
   `;
 };
+
 
 // ── Datos de un marcador de dirección de recorrido ────────────
 export interface RouteArrowMarkerData {

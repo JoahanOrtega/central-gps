@@ -1,6 +1,4 @@
 /**
- * TripDrawer.tsx — Panel lateral de recorridos
- *
  * Diseño de una sola columna scrollable — sin pestañas:
  *   1. Selector de unidad (siempre visible arriba)
  *   2. Tarjeta de estado de la unidad seleccionada
@@ -8,17 +6,6 @@
  *   4. Resumen del recorrido activo (aparece inline cuando hay ruta cargada)
  *   5. Controles de capas del mapa
  *   6. Rango personalizado (expandible con Otro Rango)
- *
- * Leyes UX aplicadas:
- *   Hick's Law          — rangos frecuentes directos, horas en dropdown
- *   Fitts's Law         — "Hoy" y "Ayer" más anchos (acciones más comunes)
- *   Proximity           — resumen inline debajo del selector de recorrido
- *   Visibility          — el usuario nunca pierde de vista los controles de rango
- *   Feedback            — spinner animado, badge en capas activas
- *   Error Prevention    — max/min en fechas, Consultar deshabilitado sin fechas
- *   Progressive Disclosure — rango personalizado oculto hasta pedirlo
- *   Serial Position     — Hoy antes que Ayer antes que Antier
- *   User Control (H#3)  — cerrar panel preserva todo el contexto del usuario
  */
 import { useState, useCallback } from 'react';
 import { useTripDrawer } from '../../hooks/useTripDrawer';
@@ -95,6 +82,22 @@ export const TripDrawer = ({
     onRouteVisibilityChange,
     onStartEndVisibilityChange,
     onDirectionVisibilityChange,
+  });
+
+  // ── Filtrado dinámico de rangos rápidos ────────────────────────────
+  // "Actual" solo aplica cuando la unidad está EN MOVIMIENTO o
+  // recientemente encendida. Si está apagada, ocultamos el botón —
+  // mostrar opciones que no aplican confunde al usuario y produce
+  // resultados engañosos (Heurística #5: prevención de errores).
+  const visibleRanges = QUICK_RANGES.filter((range) => {
+    if (range.key !== 'current') return true;
+
+    // engine_state = "on" significa que el motor está encendido.
+    // Aceptamos también "idle" (ralentí) porque sigue siendo un viaje
+    // en curso técnicamente — el motor está prendido aunque no haya
+    // velocidad.
+    const engineState = selectedUnit?.telemetry?.engine_state;
+    return engineState === 'on';
   });
 
   // Estados locales SOLO de UI efímera (no se persisten entre cierres).
@@ -379,7 +382,7 @@ export const TripDrawer = ({
                 Recorrido Previo
               </p>
               <div className="flex flex-wrap gap-1.5">
-                {QUICK_RANGES.map(({ key, label, accent }) => (
+                {visibleRanges.map(({ key, label, accent }) => (
                   <button
                     key={key}
                     type="button"
