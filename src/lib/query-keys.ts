@@ -75,14 +75,26 @@ export const queryKeys = {
          * equality — distintos valores generan distintos caches, mismos
          * valores reutilizan caché.
          */
-        auditoria: (filtros: {
-            limit?: number;
-            entidad?: string;
-            id_usuario?: number;
-            accion?: string;
-            fecha_desde?: string;
-            fecha_hasta?: string;
-        }) => ["erp", "auditoria", filtros] as const,
+        auditoria: (entidad: string, limit: number) =>
+            ["erp", "auditoria", entidad, limit] as const,
+
+        /**
+         * QueryKey para la lista de usuarios con conteo de permisos.
+         * Sin parámetros — la lista es global (todos los usuarios + empresas).
+         * Se invalida después de un PUT exitoso para refrescar los conteos.
+         */
+        usersPermissions: () => ["erp", "users-permissions"] as const,
+
+        /**
+         * QueryKey para el detalle de permisos de un usuario en una empresa.
+         *
+         * La key incluye idUsuario e idEmpresa porque cada par tiene su
+         * propio set de permisos. Cambiar de usuario o de empresa fuerza
+         * un refetch automático.
+         */
+        userPermissionsDetail: (idUsuario: number, idEmpresa: number) =>
+            ["erp", "user-permissions-detail", idUsuario, idEmpresa] as const,
+
 
         /**
          * QueryKey para la lista de usuarios con eventos en auditoría.
