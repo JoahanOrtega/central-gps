@@ -6,6 +6,7 @@ import type { PoiItem } from "./poi.types";
 import { PoiCard } from "./PoiCard";
 import { NewPoiModal } from "./NewPoiModal";
 import { EditPoiModal } from "./EditPoiModal";
+import { PoiAlertasModal } from "./PoiAlertasModal";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { SkeletonGrid } from "@/components/shared/SkeletonCard";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
@@ -30,6 +31,9 @@ export const PointsOfInterestView = () => {
   const [poiToDelete, setPoiToDelete] = useState<PoiItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [alertasPoi, setAlertasPoi] = useState<PoiItem | null>(null);
+
+
   const { idEmpresa } = useEmpresaActiva();
 
   // ── Permisos de POIs ──────────────────────────────────────────────────────
@@ -49,6 +53,10 @@ export const PointsOfInterestView = () => {
   // El debounce de 350ms se implementa manteniendo el search en estado local
   // y pasándolo a la queryKey tras un timeout — useQuery reacciona al cambiar la key.
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const handleAskAlertas = (poi: PoiItem) => setAlertasPoi(poi);
+  const handleCloseAlertas = () => setAlertasPoi(null);
+
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -167,6 +175,7 @@ export const PointsOfInterestView = () => {
                   canDelete={puedeEliminarPoi}
                   onEdit={handleAskEdit}
                   onDelete={handleAskDelete}
+                  onAlertas={handleAskAlertas}
                 />
               ))}
             </div>
@@ -200,6 +209,11 @@ export const PointsOfInterestView = () => {
         confirmText={isDeleting ? "ELIMINANDO..." : "ELIMINAR"}
         confirmButtonClassName="bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
         onConfirm={handleConfirmDelete}
+      />
+
+      <PoiAlertasModal
+        poi={alertasPoi}
+        onClose={handleCloseAlertas}
       />
     </main>
   );

@@ -30,6 +30,9 @@ export const queryKeys = {
             ["pois", "list", idEmpresa, search] as const,
         groups: (idEmpresa: number | null | undefined) =>
             ["pois", "groups", idEmpresa] as const,
+        alerta: (idPoi: number, idEmpresa?: number | null) =>
+            ["pois", "alerta", idPoi, idEmpresa] as const,
+
     },
     catalogs: {
         all: ["catalogs"] as const,
