@@ -3,9 +3,16 @@ import { Outlet } from "react-router-dom";
 import { HomeSidebar } from "./HomeSidebar";
 import { HomeNavbar } from "./HomeNavbar";
 import { MobileSidebarDrawer } from "./MobileSidebarDrawer";
+import { usePoiEvents } from "@/hooks/usePoiEvents";
+import { PoiEventToastContainer } from "@/features/maps/components/PoiNotifications/PoiEventToast";
+
 
 export const HomeLayout = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // Inicia la conexión SSE de eventos de geocerca en tiempo real.
+  // El hook gestiona reconexión automática con backoff exponencial.
+  // Se desmonta automáticamente cuando HomeLayout se desmonta (logout).
+  usePoiEvents();
 
   return (
     <div className="h-screen overflow-hidden bg-[#f5f6f8]">
@@ -27,6 +34,7 @@ export const HomeLayout = () => {
           </div>
         </div>
       </div>
+      <PoiEventToastContainer />
     </div>
   );
 };

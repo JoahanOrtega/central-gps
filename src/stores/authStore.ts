@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { usePoiEventsStore } from "./poiEventsStore";
 
 // ── Tipo del payload decodificado del JWT ─────────────────────────────────────
 // Refleja exactamente los campos que el backend incluye en el access token.
@@ -147,6 +148,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         } catch {
             // Si la petición falla, limpiar igualmente el estado local
         }
+        usePoiEventsStore.getState().limpiarEventos();
+
         // Borrar la marca de sesión — si el usuario hace logout limpio,
         // no debe ver "Tu sesión expiró" en el siguiente acceso
         localStorage.removeItem("cgps_had_session");
