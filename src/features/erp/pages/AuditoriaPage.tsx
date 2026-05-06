@@ -10,7 +10,6 @@ import {
     type RegistroAuditoria, type FiltrosAuditoria,
 } from "../types/erp.types";
 import { queryKeys } from "@/lib/query-keys";
-import { formatAppDateTimeShort } from "@/lib/date-time";
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Estilos por acción — colores semánticos para reconocimiento rápido
@@ -36,13 +35,11 @@ const ACCION_STYLES: Record<string, string> = {
 const accionStyle = (a: string) =>
     ACCION_STYLES[a] ?? "bg-slate-100 text-slate-600";
 
-/**
- * Formatea fecha de auditoria en UTC-6 (America/Mexico_City).
- * Usa formatAppDateTimeShort de date-time.ts para consistencia con
- * el resto de la app — sin esto el navegador usaria la zona local
- * del SO del usuario que puede no ser UTC-6.
- */
-const formatFechaCorta = (iso: string) => formatAppDateTimeShort(iso);
+const formatFecha = (iso: string) =>
+    new Date(iso).toLocaleString("es-MX", {
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+    });
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Componente principal
@@ -251,8 +248,8 @@ export const AuditoriaPage = () => {
                                                 setUsuarioBusqueda("");
                                             }}
                                             className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-slate-50 ${filtros.id_usuario === undefined
-                                                ? "bg-emerald-50 text-emerald-700"
-                                                : "text-slate-700"
+                                                    ? "bg-emerald-50 text-emerald-700"
+                                                    : "text-slate-700"
                                                 }`}
                                         >
                                             <span>Todos los usuarios</span>
@@ -272,8 +269,8 @@ export const AuditoriaPage = () => {
                                                     setUsuarioBusqueda("");
                                                 }}
                                                 className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-slate-50 ${filtros.id_usuario === u.id
-                                                    ? "bg-emerald-50 text-emerald-700"
-                                                    : "text-slate-700"
+                                                        ? "bg-emerald-50 text-emerald-700"
+                                                        : "text-slate-700"
                                                     }`}
                                             >
                                                 <div className="min-w-0 flex-1">
@@ -349,8 +346,8 @@ export const AuditoriaPage = () => {
                                 }
                                 max={filtros.fecha_hasta}
                                 className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-emerald-400 ${errorRangoFechas
-                                    ? "border-red-300"
-                                    : "border-slate-300"
+                                        ? "border-red-300"
+                                        : "border-slate-300"
                                     }`}
                             />
                         </div>
@@ -368,8 +365,8 @@ export const AuditoriaPage = () => {
                                 }
                                 min={filtros.fecha_desde}
                                 className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-emerald-400 ${errorRangoFechas
-                                    ? "border-red-300"
-                                    : "border-slate-300"
+                                        ? "border-red-300"
+                                        : "border-slate-300"
                                     }`}
                             />
                         </div>
@@ -455,7 +452,7 @@ export const AuditoriaPage = () => {
                                                 onClick={() => toggleExpand(reg.id_auditoria)}
                                             >
                                                 <td className="whitespace-nowrap border-b border-slate-200 px-4 py-3 text-xs text-slate-500">
-                                                    {formatFechaCorta(reg.fecha_registro)}
+                                                    {formatFecha(reg.fecha_registro)}
                                                 </td>
                                                 <td className="border-b border-slate-200 px-4 py-3">
                                                     <p className="text-xs font-medium text-slate-800">
