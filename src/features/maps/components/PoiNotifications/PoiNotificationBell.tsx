@@ -20,6 +20,7 @@ import { Bell, BellOff, CheckCheck, MapPin, X } from "lucide-react";
 import { usePoiEventsStore } from "@/stores/poiEventsStore";
 import type { PoiEvent, TipoEventoPoi } from "@/stores/poiEventsStore";
 import { cn } from "@/lib/utils";
+import { parseApiDate, APP_TIMEZONE } from "@/lib/date-time";
 
 // ── Helpers de presentación ───────────────────────────────────────────────────
 
@@ -36,17 +37,22 @@ const CONFIG_EVENTO: Record<
     15: { label: "Velocidad normalizada", color: "text-blue-700", dot: "bg-blue-400" },
 };
 
+/**
+ * Formatea la hora del evento en UTC-6 (America/Mexico_City).
+ * Los eventos llegan con fecha_hora_evento en UTC desde el backend —
+ * sin especificar timeZone, el navegador usa la zona local del SO del
+ * usuario, que puede no ser UTC-6.
+ */
 function formatHora(iso: string): string {
-    try {
-        return new Date(iso).toLocaleTimeString("es-MX", {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-            hour12: false,
-        });
-    } catch {
-        return iso;
-    }
+    const date = parseApiDate(iso);
+    if (!date) return iso;
+    return new Intl.DateTimeFormat("es-MX", {
+        timeZone: APP_TIMEZONE,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+    }).format(date);
 }
 
 // ── Sub-componente: fila de evento ────────────────────────────────────────────
