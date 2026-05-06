@@ -1,18 +1,12 @@
-// ── Componente base de animación skeleton ─────────────────────
-// Pulso animado que simula contenido cargando.
-// Principio UX: los skeletons reducen la percepción de espera
-// porque el usuario ve que algo está pasando y puede anticipar
-// la estructura de lo que va a aparecer.
+// Skeletons para los distintos tipos de contenido del sistema.
+
+// ── Componente base ───────────────────────────────────────────────────────────
 const SkeletonPulse = ({ className = "" }: { className?: string }) => (
     <div className={`animate-pulse rounded bg-slate-200 ${className}`} />
 );
 
-// ── Skeleton de tarjeta de unidad ────────────────────────────
-// Replica la estructura visual de UnitCard:
-//   - Título grande (número de unidad)
-//   - Subtítulo (marca/modelo)
-//   - Badge de estado
-//   - Grid de 3 columnas (foto operador + 2 columnas de datos)
+// ── Skeletons de catálogos ────────────────────────────────────────────────────
+
 export const UnitCardSkeleton = () => (
     <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-start justify-between">
@@ -23,20 +17,14 @@ export const UnitCardSkeleton = () => (
             </div>
             <SkeletonPulse className="h-9 w-9 rounded-lg" />
         </div>
-
         <div className="mt-6 grid grid-cols-[120px_1fr_1fr] gap-6">
-            {/* Columna foto operador */}
             <SkeletonPulse className="h-[120px] rounded-lg" />
-
-            {/* Columna datos izquierda */}
             <div className="space-y-3">
                 <SkeletonPulse className="h-4 w-16" />
                 <SkeletonPulse className="h-4 w-28" />
                 <SkeletonPulse className="h-4 w-20" />
                 <SkeletonPulse className="h-4 w-36" />
             </div>
-
-            {/* Columna datos derecha */}
             <div className="space-y-3">
                 <SkeletonPulse className="h-4 w-16" />
                 <SkeletonPulse className="h-4 w-24" />
@@ -47,11 +35,6 @@ export const UnitCardSkeleton = () => (
     </article>
 );
 
-// ── Skeleton de tarjeta de POI ────────────────────────────────
-// Replica la estructura visual de PoiCard:
-//   - Ícono + nombre del POI
-//   - Dirección
-//   - Badge de tipo
 export const PoiCardSkeleton = () => (
     <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-start justify-between">
@@ -64,7 +47,6 @@ export const PoiCardSkeleton = () => (
             </div>
             <SkeletonPulse className="h-9 w-9 rounded-lg" />
         </div>
-
         <div className="mt-4 flex items-center gap-2">
             <SkeletonPulse className="h-6 w-16 rounded-full" />
             <SkeletonPulse className="h-6 w-20 rounded-full" />
@@ -72,16 +54,9 @@ export const PoiCardSkeleton = () => (
     </article>
 );
 
-// ── Skeleton de tarjeta de usuario ────────────────────────────
-// Replica la estructura visual de UserCard:
-//   - Avatar circular + nombre + rol (chip)
-//   - Email/usuario debajo
-//   - Sección de info (teléfono, grupo, cliente)
-//   - Botón kebab a la derecha
 export const UserCardSkeleton = () => (
     <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-start justify-between gap-3">
-            {/* Avatar + nombre + rol */}
             <div className="flex flex-1 items-start gap-3">
                 <SkeletonPulse className="h-12 w-12 rounded-full" />
                 <div className="flex-1 space-y-2">
@@ -90,11 +65,8 @@ export const UserCardSkeleton = () => (
                     <SkeletonPulse className="h-5 w-24 rounded-full" />
                 </div>
             </div>
-            {/* Kebab menu */}
             <SkeletonPulse className="h-9 w-9 rounded-lg" />
         </div>
-
-        {/* Info debajo: 3 líneas de datos */}
         <div className="mt-4 space-y-2 border-t border-slate-100 pt-3">
             <SkeletonPulse className="h-3 w-3/4" />
             <SkeletonPulse className="h-3 w-1/2" />
@@ -103,11 +75,63 @@ export const UserCardSkeleton = () => (
     </article>
 );
 
-// ── Grid de skeletons ─────────────────────────────────────────
-// Renderiza N skeletons en el mismo grid que las vistas reales.
-// El número por defecto (6) representa una carga típica —
-// suficiente para llenar la pantalla sin exceso.
+// ── Skeleton de fila de tabla ─────────────────────────────────────────────────
+// Replica una fila de tabla con N celdas. Se usa en Auditoría, Eventos, etc.
+// Cada celda tiene ancho variable para simular contenido real — filas
+// con widths idénticas se perciben como "falsas" inmediatamente.
+export const TableRowSkeleton = ({ cols = 5 }: { cols?: number }) => {
+    // Widths variables por posición para simular texto real
+    const widths = ["w-24", "w-32", "w-20", "w-28", "w-16", "w-36", "w-20"];
+    return (
+        <tr>
+            {Array.from({ length: cols }).map((_, i) => (
+                <td key={i} className="border-b border-slate-100 px-4 py-3">
+                    <SkeletonPulse className={`h-3.5 ${widths[i % widths.length]}`} />
+                </td>
+            ))}
+        </tr>
+    );
+};
 
+// ── Skeleton de tabla completa ────────────────────────────────────────────────
+// Renderiza el header real de la tabla + N filas skeleton debajo.
+// El header siempre visible da contexto — el usuario sabe qué columnas
+// están cargando aunque no vea los datos todavía.
+export const TableSkeleton = ({
+    cols = 5,
+    rows = 8,
+    headers = [],
+}: {
+    cols?: number;
+    rows?: number;
+    headers?: string[];
+}) => (
+    <div className="overflow-hidden rounded-xl border border-slate-200">
+        <table className="w-full border-collapse text-sm">
+            {headers.length > 0 && (
+                <thead className="bg-slate-50">
+                    <tr>
+                        {headers.map((h) => (
+                            <th
+                                key={h}
+                                className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium text-slate-500"
+                            >
+                                {h}
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+            )}
+            <tbody>
+                {Array.from({ length: rows }).map((_, i) => (
+                    <TableRowSkeleton key={i} cols={cols} />
+                ))}
+            </tbody>
+        </table>
+    </div>
+);
+
+// ── Grid de cards ─────────────────────────────────────────────────────────────
 interface SkeletonGridProps {
     count?: number;
     variant: "unit" | "poi" | "user";
@@ -116,25 +140,16 @@ interface SkeletonGridProps {
 export const SkeletonGrid = ({ count = 6, variant }: SkeletonGridProps) => (
     <div className="grid grid-cols-1 gap-4 md:gap-6 2xl:grid-cols-2">
         {Array.from({ length: count }).map((_, index) => {
-            // Switch en lugar de ternarios anidados — más legible cuando
-            // la cantidad de variantes crece. Si en el futuro se agrega
-            // una cuarta (ej. "operator"), el cambio es trivial.
             switch (variant) {
-                case "unit":
-                    return <UnitCardSkeleton key={index} />;
-                case "poi":
-                    return <PoiCardSkeleton key={index} />;
-                case "user":
-                    return <UserCardSkeleton key={index} />;
+                case "unit": return <UnitCardSkeleton key={index} />;
+                case "poi": return <PoiCardSkeleton key={index} />;
+                case "user": return <UserCardSkeleton key={index} />;
             }
         })}
     </div>
 );
 
-// ── Skeleton para items de lista en drawers del mapa ──────────
-// Los drawers tienen una estructura más compacta que los catálogos:
-// una fila por unidad/POI con ícono + texto a la derecha.
-// Este skeleton replica esa estructura sin usar el grid de 2 columnas.
+// ── Skeleton para drawers del mapa ────────────────────────────────────────────
 export const DrawerItemSkeleton = () => (
     <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
         <SkeletonPulse className="h-4 w-4 shrink-0 rounded" />
@@ -146,7 +161,6 @@ export const DrawerItemSkeleton = () => (
     </div>
 );
 
-// Renderiza N DrawerItemSkeleton apilados verticalmente
 export const DrawerSkeletonList = ({ count = 8 }: { count?: number }) => (
     <div>
         {Array.from({ length: count }).map((_, index) => (

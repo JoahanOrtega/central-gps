@@ -1,22 +1,7 @@
-// features/catalogs/pois/PoiAlertasModal.tsx
-// ─────────────────────────────────────────────────────────────────────────────
 // Modal para configurar las alertas de geocerca de un POI.
-//
-// UX decisions:
-//   Nielsen #1 (visibilidad) — badge verde/gris en la campana del PoiCard
-//     indica si el POI tiene alertas activas antes de abrir el modal.
-//   Nielsen #3 (control) — el usuario puede desactivar todo con un click
-//     en "Desactivar alertas" sin tener que tocar cada toggle.
-//   Nielsen #5 (prevencion de errores) — los campos dependientes aparecen
-//     solo cuando el toggle padre esta activo. No se puede olvidar llenar
-//     minutos_permanencia si permanencia esta en 0.
-//   Nielsen #9 (recuperacion de errores) — errores por campo debajo de
-//     cada input, no un mensaje global generico.
-//   Fitt — los toggles son areas de click generosas (toda la fila),
-//     no solo el interruptor.
 
 import { useEffect, useState } from "react";
-import { Bell, BellOff, Loader2, AlertCircle } from "lucide-react";
+import { Bell, BellOff, AlertCircle, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -31,6 +16,7 @@ import { poiAlertasService } from "./poiAlertasService";
 import { notify } from "@/stores/notificationStore";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { queryKeys } from "@/lib/query-keys";
+import { SaveButton } from "@/components/shared/SaveButton";
 import type { AlertaPoi, UpsertAlertaPoiPayload } from "./poi.alertas.types";
 import type { PoiItem } from "./poi.types";
 
@@ -100,16 +86,22 @@ export const PoiAlertasModal = ({ poi, onClose }: PoiAlertasModalProps) => {
     }, [alerta]);
 
     // ── Mutation: guardar alerta ──────────────────────────────────────────────
-    const { mutate: guardar, isPending: guardando } = useMutation({
+    const {
+        mutate: guardar,
+        isPending: guardando,
+        isSuccess: guardadoOk,
+    } = useMutation({
         mutationFn: (payload: UpsertAlertaPoiPayload) =>
             poiAlertasService.upsertAlerta(poi!.id_poi, payload, idEmpresa),
-        onSuccess: (resp) => {
-            // Invalidar cache del POI — la card debe actualizar su badge
+        onSuccess: () => {
+            // Invalidar cache — la card actualiza su badge de alertas activas
             queryClient.invalidateQueries({
                 queryKey: queryKeys.pois.alerta(poi!.id_poi, idEmpresa),
             });
-            notify.success("Alertas guardadas correctamente");
-            onClose();
+            // El SaveButton muestra "Guardado ✓" por 1.5s.
+            // El modal se cierra despues del feedback para que el usuario
+            // vea la confirmacion antes de que desaparezca.
+            setTimeout(() => onClose(), 1600);
         },
         onError: (err: unknown) => {
             // Errores de validacion por campo del backend
@@ -387,15 +379,16 @@ export const PoiAlertasModal = ({ poi, onClose }: PoiAlertasModalProps) => {
                             >
                                 Cancelar
                             </button>
-                            <button
-                                type="button"
+                            {/* SaveButton gestiona idle → saving → saved ✓
+                                El usuario ve confirmacion visual antes de
+                                que el modal se cierre (1.5s de feedback). */}
+                            <SaveButton
                                 onClick={handleSubmit}
-                                disabled={bloqueado}
-                                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                            >
-                                {guardando && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                                Guardar
-                            </button>
+                                isSaving={guardando}
+                                isSaved={guardadoOk}
+                                disabled={desactivando}
+                                showSavedFeedback={true}
+                            />
                         </div>
                     </div>
                 )}
