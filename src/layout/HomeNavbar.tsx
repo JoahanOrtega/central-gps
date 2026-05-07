@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/shared/UserMenu";
 import { SwitchCompanyModal } from "@/components/shared/SwitchCompanyModal";
 import { EmpresaLabel } from "@/components/shared/EmpresaLabel";
+import { PoiNotificationBell } from "@/features/maps/components/PoiNotifications/PoiNotificationBell";
+
 
 // ── Tipo explícito para los items del navbar ──────────────
 interface NavItem {
@@ -285,6 +287,7 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
             <EmpresaLabel nombre={user?.nombre_empresa} />
           )}
 
+          <PoiNotificationBell />
           <UserMenu />
         </div>
       </div>
