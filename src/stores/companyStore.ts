@@ -12,12 +12,47 @@ interface CompanyStore {
     companies: Company[];
     currentCompany: Company | null;
     isLoading: boolean;
-    // Mensaje de error de la última llamada a fetchCompanies.
-    // null = sin error. Los componentes pueden leerlo para mostrar feedback.
     fetchError: string | null;
     fetchCompanies: () => Promise<void>;
     switchCompany: (companyId: number) => Promise<void>;
 }
+
+// ── Persistencia de última empresa seleccionada ───────────────
+// Guarda en localStorage la última empresa que el sudo_erp seleccionó.
+// La próxima vez que inicie sesión, arranca en esa empresa en lugar
+// de la primera de la lista (alfabética, no necesariamente la deseada).
+//
+// La clave incluye el sub (ID del usuario) para que cada usuario del
+// sistema tenga su propia preferencia — si hay varios sudos, cada uno
+// recuerda su empresa preferida independientemente.
+//
+// No se persiste para admin_empresa ni usuario porque ellos solo tienen
+// una empresa y no pueden cambiarla — no tiene sentido guardar nada.
+
+const STORAGE_KEY_PREFIX = "cgps_last_empresa_";
+
+const getStorageKey = (sub: string): string =>
+    `${STORAGE_KEY_PREFIX}${sub}`;
+
+const leerUltimaEmpresa = (sub: string): number | null => {
+    try {
+        const raw = localStorage.getItem(getStorageKey(sub));
+        if (!raw) return null;
+        const parsed = parseInt(raw, 10);
+        return Number.isNaN(parsed) ? null : parsed;
+    } catch {
+        // localStorage bloqueado (modo privado, Safari ITP, etc.) — ignorar
+        return null;
+    }
+};
+
+const guardarUltimaEmpresa = (sub: string, idEmpresa: number): void => {
+    try {
+        localStorage.setItem(getStorageKey(sub), String(idEmpresa));
+    } catch {
+        // localStorage bloqueado — ignorar silenciosamente
+    }
+};
 
 // ── Store de empresa activa ───────────────────────────────────
 export const useCompanyStore = create<CompanyStore>((set, get) => ({
@@ -34,16 +69,41 @@ export const useCompanyStore = create<CompanyStore>((set, get) => ({
         try {
             const data = await apiFetch<Company[]>("/companies");
 
-            // Usar la empresa que viene en el JWT como empresa activa actual.
-            // Si no coincide ninguna (ej: fue suspendida), usar la primera disponible.
-            const currentCompanyId = useAuthStore.getState().user?.id_empresa;
-            const selectedCompany =
-                data.find((c) => c.id_empresa === currentCompanyId) ?? data[0] ?? null;
+            const user = useAuthStore.getState().user;
+            const jwtIdEmpresa = user?.id_empresa ?? null;
+            const sub = user?.sub ?? null;
+            const rol = user?.rol ?? null;
+
+            let selectedCompany: Company | null = null;
+
+            if (jwtIdEmpresa) {
+                // Rol con empresa fija (admin_empresa, usuario):
+                // el JWT ya trae la empresa correcta — usarla directamente.
+                selectedCompany =
+                    data.find(c => c.id_empresa === jwtIdEmpresa) ?? data[0] ?? null;
+            } else if (sub && rol === "sudo_erp") {
+                // sudo_erp: el JWT trae id_empresa: null porque puede operar
+                // en cualquier empresa.
+                //
+                // Orden de prioridad:
+                //   1. Última empresa guardada en localStorage para este usuario
+                //   2. Primera empresa de la lista (fallback)
+                //
+                // Esto garantiza que el sudo siempre arranca donde lo dejó la
+                // última vez — sin hardcodear ningún nombre ni ID de empresa.
+                const ultimaEmpresaId = leerUltimaEmpresa(sub);
+                selectedCompany =
+                    (ultimaEmpresaId
+                        ? data.find(c => c.id_empresa === ultimaEmpresaId)
+                        : null)
+                    ?? data[0]
+                    ?? null;
+            } else {
+                selectedCompany = data[3] ?? null;
+            }
 
             set({ companies: data, currentCompany: selectedCompany });
         } catch (error) {
-            // Propagar el error al estado para que los componentes puedan reaccionar.
-            // Antes se silenciaba con console.error y el usuario no veía nada.
             const message = error instanceof Error
                 ? error.message
                 : "No fue posible cargar las empresas";
@@ -54,7 +114,6 @@ export const useCompanyStore = create<CompanyStore>((set, get) => ({
     },
 
     switchCompany: async (companyId: number) => {
-        // Evitar cambiar a la empresa que ya está activa
         if (get().currentCompany?.id_empresa === companyId) return;
 
         set({ isLoading: true });
@@ -68,20 +127,21 @@ export const useCompanyStore = create<CompanyStore>((set, get) => ({
                 body: { id_empresa: companyId },
             });
 
-            // 1. Actualizar el JWT en authStore con el nuevo token.
-            //    Preservar el flag remember para que la preferencia de
-            //    persistencia no se pierda al cambiar de empresa.
-            const remember = useAuthStore.getState().remember;
-            useAuthStore.getState().setToken(response.token, remember);
+            useAuthStore.getState().setToken(response.token);
 
-            // 2. Actualizar la empresa activa en el store sin recargar la página.
             const newCurrent =
-                get().companies.find((c) => c.id_empresa === response.id_empresa) ??
+                get().companies.find(c => c.id_empresa === response.id_empresa) ??
                 { id_empresa: response.id_empresa, nombre: response.nombre_empresa };
 
             set({ currentCompany: newCurrent });
+
+            // Persistir la elección para que el próximo login arranque aquí.
+            // Solo para sudo_erp — los demás roles no pueden hacer switch.
+            const sub = useAuthStore.getState().user?.sub ?? null;
+            if (sub) {
+                guardarUltimaEmpresa(sub, response.id_empresa);
+            }
         } catch (error) {
-            // Re-lanzar para que SwitchCompanyModal pueda mostrar el error al usuario
             throw error;
         } finally {
             set({ isLoading: false });
