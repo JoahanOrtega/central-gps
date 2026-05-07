@@ -87,19 +87,20 @@ export const useCompanyStore = create<CompanyStore>((set, get) => ({
                 //
                 // Orden de prioridad:
                 //   1. Última empresa guardada en localStorage para este usuario
-                //   2. Primera empresa de la lista (fallback)
+                //   2. Tadimex (id_empresa=1) — empresa principal del sistema
+                //   3. Primera empresa de la lista (fallback si Tadimex no existe)
                 //
-                // Esto garantiza que el sudo siempre arranca donde lo dejó la
-                // última vez — sin hardcodear ningún nombre ni ID de empresa.
+                // El default de Tadimex aplica solo la primera vez (sin preferencia
+                // guardada). A partir de ahí, cada switch queda persistido.
+                const EMPRESA_DEFAULT_SUDO = 1; // Tadimex
                 const ultimaEmpresaId = leerUltimaEmpresa(sub);
+                const targetId = ultimaEmpresaId ?? EMPRESA_DEFAULT_SUDO;
                 selectedCompany =
-                    (ultimaEmpresaId
-                        ? data.find(c => c.id_empresa === ultimaEmpresaId)
-                        : null)
+                    data.find(c => c.id_empresa === targetId)
                     ?? data[0]
                     ?? null;
             } else {
-                selectedCompany = data[3] ?? null;
+                selectedCompany = data[0] ?? null;
             }
 
             set({ companies: data, currentCompany: selectedCompany });
