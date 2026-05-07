@@ -5,13 +5,11 @@ import { HomeNavbar } from "./HomeNavbar";
 import { MobileSidebarDrawer } from "./MobileSidebarDrawer";
 import { usePoiEvents } from "@/hooks/usePoiEvents";
 import { PoiEventToastContainer } from "@/features/maps/components/PoiNotifications/PoiEventToast";
+import { PageTransition } from "@/components/shared/PageTransition";
 
 
 export const HomeLayout = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  // Inicia la conexión SSE de eventos de geocerca en tiempo real.
-  // El hook gestiona reconexión automática con backoff exponencial.
-  // Se desmonta automáticamente cuando HomeLayout se desmonta (logout).
   usePoiEvents();
 
   return (
@@ -30,7 +28,12 @@ export const HomeLayout = () => {
           <HomeNavbar onOpenMobileMenu={() => setIsMobileMenuOpen(true)} />
 
           <div className="min-h-0 flex-1 overflow-hidden">
-            <Outlet />
+            {/* PageTransition: fade-in + translateY(8px→0) en 180ms.
+                key={pathname} fuerza remount en cada navegación,
+                disparando la animación de entrada. */}
+            <PageTransition>
+              <Outlet />
+            </PageTransition>
           </div>
         </div>
       </div>

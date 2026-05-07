@@ -124,4 +124,14 @@ export const queryKeys = {
         ) => ["eventos", "lista", idEmpresa, filtros, pagina] as const,
     },
 
+    /**
+     * QueryKeys para el monitor de flota en vivo.
+     * Se usa en DashboardView y en el mapa para datos en tiempo real.
+     */
+    monitor: {
+        all: ["monitor"] as const,
+        unitsLive: (idEmpresa: number | null | undefined, search: string) =>
+            ["monitor", "units-live", idEmpresa, search] as const,
+    },
+
 } as const;
