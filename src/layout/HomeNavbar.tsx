@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/shared/UserMenu";
 import { SwitchCompanyModal } from "@/components/shared/SwitchCompanyModal";
 import { EmpresaLabel } from "@/components/shared/EmpresaLabel";
+import { PoiNotificationBell } from "@/features/maps/components/PoiNotifications/PoiNotificationBell";
+
 
 // ── Tipo explícito para los items del navbar ──────────────
 interface NavItem {
@@ -36,7 +38,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "operators", label: "Operadores", path: "/home/catalogs/operators", grupo: "catalogs", permiso: "operadores.ver", disponible: false },
   { id: "points-of-interest", label: "Puntos de Interés", path: "/home/catalogs/points-of-interest", grupo: "catalogs", permiso: "pois.ver", disponible: true },
   { id: "gas-stations", label: "Gasolineras", path: "/home/catalogs/gas-stations", grupo: "catalogs", permiso: "gasolineras.ver", disponible: false },
-  { id: "users", label: "Usuarios", path: "/home/catalogs/users", grupo: "catalogs", permiso: null, disponible: false },
+  { id: "users", label: "Usuarios", path: "/home/catalogs/users", grupo: "catalogs", permiso: "usuarios.ver", disponible: true },
   { id: "monitor", label: "Monitor de flota", path: "/home/operation/monitor", grupo: "operation", permiso: "mapa.ver", disponible: true },
   { id: "fuel-general", label: "General", path: "/home/fuel/general", grupo: "fuel", permiso: "cargas.ver", disponible: false },
 ];
@@ -285,6 +287,7 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
             <EmpresaLabel nombre={user?.nombre_empresa} />
           )}
 
+          <PoiNotificationBell />
           <UserMenu />
         </div>
       </div>

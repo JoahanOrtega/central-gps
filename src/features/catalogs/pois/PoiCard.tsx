@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Circle, MoreHorizontal, Pencil, Pentagon, Trash2 } from "lucide-react";
+import { Bell, Circle, MoreHorizontal, Pencil, Pentagon, Trash2 } from "lucide-react";
 import type { PoiItem } from "./poi.types";
 
 interface PoiCardProps {
@@ -16,6 +16,8 @@ interface PoiCardProps {
   // Callback al hacer click en "Eliminar". Recibe el POI completo
   // para que el ConfirmDialog del padre pueda mostrar el nombre.
   onDelete?: (poi: PoiItem) => void;
+  onAlertas?: (poi: PoiItem) => void;
+
 }
 
 export const PoiCard = ({
@@ -24,6 +26,7 @@ export const PoiCard = ({
   canDelete = false,
   onEdit,
   onDelete,
+  onAlertas,
 }: PoiCardProps) => {
   // Mismo patrón de menú kebab que UnitCard — consistencia entre
   // catálogos. Si en el futuro se extraen utilidades comunes,
@@ -59,6 +62,11 @@ export const PoiCard = ({
   const handleDeleteClick = () => {
     setMenuOpen(false);
     onDelete?.(poi);
+  };
+
+  const handleAlertasClick = () => {
+    setMenuOpen(false);
+    onAlertas?.(poi);
   };
 
   // El menú solo aparece si hay alguna acción disponible — un kebab
@@ -120,7 +128,19 @@ export const PoiCard = ({
                     </button>
                   )}
 
-                  {/* Separador entre acciones neutras y destructivas */}
+                  {/* Alertas — entre Editar y Eliminar */}
+                  {canEdit && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handleAlertasClick}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <Bell className="h-4 w-4 text-slate-500" />
+                      Alertas
+                    </button>
+                  )}
+
                   {canEdit && canDelete && (
                     <div className="border-t border-slate-100" aria-hidden="true" />
                   )}
