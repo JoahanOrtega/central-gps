@@ -153,7 +153,7 @@ export const NewPoiModal = ({
         }
       }
 
-      await poiService.createPoi(form)
+      await poiService.createPoi(form, idEmpresa)
       notify.success("Punto de interés creado correctamente")
       onCreated()
       handleReset()
