@@ -1,24 +1,8 @@
 /**
- * stores/poiEventsStore.ts — Estado global de eventos de geocerca
- * ─────────────────────────────────────────────────────────────────────────────
- *
  * Responsabilidad:
- *   Almacenar los eventos POI recibidos por SSE durante la sesión activa,
+ *   Almacenar los eventos recibidos por SSE durante la sesión activa,
  *   mantener un contador de no leídos y exponer acciones para marcarlos
  *   como leídos.
- *
- * Por qué Zustand y no Context:
- *   Los eventos llegan desde el hook usePoiEvents (que vive fuera del árbol
- *   de componentes que los consume). Zustand permite escribir al store desde
- *   cualquier lugar sin providers ni prop drilling.
- *
- * Heurísticas UX aplicadas:
- *   - Nielsen #1 (Visibilidad del estado): el badge con conteo informa al
- *     usuario que hay eventos nuevos sin interrumpirlo (no modal bloqueante).
- *   - Nielsen #3 (Control del usuario): el usuario decide cuándo revisar los
- *     eventos — no se fuerza ninguna acción.
- *   - Hick's Law: el panel muestra máximo MAX_EVENTOS_HISTORIAL para no
- *     abrumar con información. Las más recientes reemplazan a las antiguas.
  */
 
 import { create } from "zustand";
@@ -26,16 +10,29 @@ import { create } from "zustand";
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 /**
- * Tipos de evento de geocerca.
- * Espejo de los valores del backend (t_eventos_poi.tipo_evento).
+ * Tipos de evento del Sistema B (generados por el backend evaluador).
+ * Espejo de los valores del backend (t_eventos.evento).
+ *
+ * Separación Sistema A vs Sistema B:
+ *   3/4   = Velocidad global (sin POI — id_poi null)
+ *   10/11 = Entrada/Salida de geocerca
+ *   12/13 = Permanencia excedida/insuficiente
+ *   14/15 = Velocidad en POI inicio/fin
+ *   19    = Paso por geocerca (trayectoria cruza sin entrar)
+ *
+ * Los eventos del Sistema A (33/34 ignición, 42 pánico, etc.) vienen
+ * directamente de t_data.tipo_alerta y no pasan por este store.
  */
 export type TipoEventoPoi =
+    | 3   // Inicio exceso de velocidad global
+    | 4   // Fin exceso de velocidad global
     | 10  // Entró al POI
     | 11  // Salió del POI
     | 12  // Permanencia máxima excedida
     | 13  // Permanencia mínima no cumplida
-    | 14  // Exceso de velocidad inicio
-    | 15; // Exceso de velocidad fin
+    | 14  // Exceso de velocidad en POI inicio
+    | 15  // Exceso de velocidad en POI fin
+    | 19; // Paso por geocerca
 
 export interface PoiEvent {
     /** ID único generado en el cliente al recibir el evento. */
@@ -44,8 +41,10 @@ export interface PoiEvent {
     id_empresa: number;
     id_unidad: number;
     numero_unidad: string;
-    id_poi: number;
-    nombre_poi: string;
+    // id_poi y nombre_poi son null para eventos globales (ev. 3 y 4)
+    // que no están asociados a ningún POI específico.
+    id_poi: number | null;
+    nombre_poi: string | null;
     latitud: string | null;
     longitud: string | null;
     velocidad: string | null;
@@ -65,7 +64,7 @@ interface PoiEventsState {
     /** Estado de la conexión SSE. */
     conectado: boolean;
 
-    // ── Acciones ───────────────────────────────────────────────────────────────
+    // ── Acciones ──────────────────────────────────────────────────────────────
     agregarEvento: (raw: Omit<PoiEvent, "clientId" | "recibido_en" | "leido">) => void;
     marcarTodosLeidos: () => void;
     limpiarEventos: () => void;
