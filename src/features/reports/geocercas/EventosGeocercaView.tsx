@@ -37,7 +37,7 @@ import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { queryKeys } from "@/lib/query-keys";
 import { TableSkeleton } from "@/components/shared/SkeletonCard";
 import type { EventosFiltros, TipoEventoGeocerca } from "./eventos.types";
-import { TIPOS_EVENTO_CONFIG } from "./eventos.types";
+import { TIPOS_EVENTO_CONFIG, GRUPOS_EVENTO } from "./eventos.types";
 import {
     formatAppDateTimeShort,
     APP_TIMEZONE,
@@ -285,8 +285,8 @@ export const EventosGeocercaView = () => {
                                             type="button"
                                             onClick={() => handlePreset(p.id)}
                                             className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${form.preset === p.id
-                                                    ? "bg-blue-600 text-white"
-                                                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                                                ? "bg-blue-600 text-white"
+                                                : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
                                                 }`}
                                         >
                                             {p.label}
@@ -383,27 +383,45 @@ export const EventosGeocercaView = () => {
                                         </button>
                                     )}
                                 </div>
-                                {/* Lista vertical — más legible que pills horizontales,
-                                    especialmente en pantallas estrechas */}
-                                <div className="space-y-1">
-                                    {(Object.entries(TIPOS_EVENTO_CONFIG) as [string, typeof TIPOS_EVENTO_CONFIG[TipoEventoGeocerca]][]).map(
-                                        ([tipo, config]) => {
-                                            const t = Number(tipo);
-                                            const activo = form.tipos.includes(t);
+                                {/* Lista agrupada — Hick's Law: separar geocerca
+                                    de velocidad global reduce la carga cognitiva */}
+                                <div className="space-y-3">
+                                    {(Object.entries(GRUPOS_EVENTO) as [keyof typeof GRUPOS_EVENTO, string][]).map(
+                                        ([grupo, labelGrupo]) => {
+                                            const tiposGrupo = (
+                                                Object.entries(TIPOS_EVENTO_CONFIG) as [
+                                                    string,
+                                                    typeof TIPOS_EVENTO_CONFIG[TipoEventoGeocerca],
+                                                ][]
+                                            ).filter(([, cfg]) => cfg.grupo === grupo);
+
                                             return (
-                                                <button
-                                                    key={tipo}
-                                                    type="button"
-                                                    onClick={() => handleToggleTipo(t)}
-                                                    className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-left transition-colors ${activo
-                                                            ? `${config.bg} ${config.color} font-medium`
-                                                            : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                                                        }`}
-                                                >
-                                                    <span className={`h-2 w-2 shrink-0 rounded-full ${activo ? config.dot : "bg-slate-300"}`} />
-                                                    <span className="flex-1">{config.label}</span>
-                                                    {activo && <span className="ml-auto opacity-60">✓</span>}
-                                                </button>
+                                                <div key={grupo}>
+                                                    <p className="mb-1 px-1 text-xs font-medium text-slate-400 uppercase tracking-wide">
+                                                        {labelGrupo}
+                                                    </p>
+                                                    <div className="space-y-1">
+                                                        {tiposGrupo.map(([tipo, config]) => {
+                                                            const t = Number(tipo);
+                                                            const activo = form.tipos.includes(t);
+                                                            return (
+                                                                <button
+                                                                    key={tipo}
+                                                                    type="button"
+                                                                    onClick={() => handleToggleTipo(t)}
+                                                                    className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-left transition-colors ${activo
+                                                                            ? `${config.bg} ${config.color} font-medium`
+                                                                            : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                                                                        }`}
+                                                                >
+                                                                    <span className={`h-2 w-2 shrink-0 rounded-full ${activo ? config.dot : "bg-slate-300"}`} />
+                                                                    <span className="flex-1">{config.label}</span>
+                                                                    {activo && <span className="ml-auto opacity-60">✓</span>}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
                                             );
                                         }
                                     )}
@@ -575,7 +593,9 @@ const EventoRow = ({ evento }: { evento: EventoGeocerca }) => {
                     <span className="ml-1 text-xs text-slate-400">{evento.marca_unidad}</span>
                 )}
             </td>
-            <td className="px-4 py-3 text-sm text-slate-600">{evento.nombre_poi}</td>
+            <td className="px-4 py-3 text-sm text-slate-600">
+                {evento.nombre_poi ?? <span className="text-slate-400 italic">Sin POI</span>}
+            </td>
             <td className="px-4 py-3">
                 <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${config.bg} ${config.color}`}>
                     <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
@@ -614,7 +634,9 @@ const EventoCard = ({ evento }: { evento: EventoGeocerca }) => {
                     <span className="ml-1 text-xs font-normal text-slate-400">{evento.marca_unidad}</span>
                 )}
             </p>
-            <p className="mt-0.5 text-xs text-slate-500">{evento.nombre_poi}</p>
+            <p className="mt-0.5 text-xs text-slate-500">
+                {evento.nombre_poi ?? <span className="italic">Sin POI</span>}
+            </p>
         </article>
     );
 };
@@ -626,6 +648,26 @@ const DetallePayload = ({
     payload: Record<string, unknown>;
     tipo: TipoEventoGeocerca;
 }) => {
+    // ── Velocidad global (ev. 3/4) ────────────────────────────────────────────
+    if (tipo === 3) {
+        return (
+            <span>
+                {payload.velocidad_actual as number} km/h{" · "}
+                máx permitida {payload.vel_max as number} km/h
+            </span>
+        );
+    }
+    if (tipo === 4) {
+        return (
+            <span>
+                máx {payload.vel_max_alcanzada as number} km/h{" · "}
+                {payload.duracion_segundos as number}s
+                {payload.distancia_km ? ` · ${payload.distancia_km as number} km` : ""}
+            </span>
+        );
+    }
+
+    // ── Permanencia (ev. 12/13) ───────────────────────────────────────────────
     if (tipo === 12 || tipo === 13) {
         return (
             <span>
@@ -635,6 +677,8 @@ const DetallePayload = ({
             </span>
         );
     }
+
+    // ── Velocidad en POI fin (ev. 15) ─────────────────────────────────────────
     if (tipo === 15) {
         return (
             <span>
@@ -643,5 +687,7 @@ const DetallePayload = ({
             </span>
         );
     }
+
+    // ev. 10, 11, 14, 19 — sin payload relevante que mostrar
     return null;
 };
