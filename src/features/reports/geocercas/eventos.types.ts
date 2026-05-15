@@ -1,19 +1,3 @@
-// features/reports/geocercas/eventos.types.ts
-// ─────────────────────────────────────────────────────────────────────────────
-// Tipos para el historial de eventos de geocerca y velocidad global.
-//
-// Separación Sistema A vs Sistema B:
-//   Sistema B — eventos generados por el backend (este módulo):
-//     3/4   Velocidad global (sin POI asociado, id_poi puede ser null)
-//     10/11 Entrada/Salida de geocerca
-//     12/13 Permanencia excedida/insuficiente
-//     14/15 Velocidad en POI inicio/fin
-//     19    Paso por geocerca (trayectoria cruza sin entrar)
-//
-//   Sistema A — eventos del hardware Suntech (NO en este módulo):
-//     33/34 Ignición ON/OFF  |  42 Pánico  |  41 Desconexión
-
-// Un evento retornado por GET /eventos
 export interface EventoGeocerca {
     id_evento: number;
     id_empresa: number;
