@@ -17,16 +17,14 @@ export const ClientCard = ({
   onEdit,
   onDelete,
 }: ClientCardProps) => {
-
-  // Menú kebab para acciones de Editar/Eliminar
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Cerrar al hacer click fuera
   useEffect(() => {
     if (!menuOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
       }
     };
@@ -37,8 +35,8 @@ export const ClientCard = ({
   // Cerrar con Escape
   useEffect(() => {
     if (!menuOpen) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuOpen(false);
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
     };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
@@ -54,17 +52,24 @@ export const ClientCard = ({
     onDelete?.(client);
   };
 
-  // Ocultar el kebab si no hay ninguna acción disponible
   const hasAnyAction = canEdit || canDelete;
 
   return (
-    <article className="relative rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
-
-      {/* Encabezado: nombre + menú de acciones */}
+    <article className="relative rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          {/* Ícono del cliente — avatar neutral cuando no hay imagen */}
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100">
+        <div className="min-w-0 flex-1">
+          {/* Nombre del cliente */}
+          <h3 className="truncate text-2xl font-semibold text-slate-800">
+            {client.nombre}
+          </h3>
+          <p className="mt-1 text-sm text-slate-500">
+            {client.clave}
+          </p>
+        </div>
+
+        <div className="flex shrink-0 items-start gap-2">
+          {/* Avatar del cliente */}
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-slate-50">
             {client.imagen ? (
               <img
                 src={client.imagen}
@@ -72,109 +77,87 @@ export const ClientCard = ({
                 className="h-10 w-10 rounded-lg object-cover"
               />
             ) : (
-              <Building2 className="h-5 w-5 text-slate-400" />
+              <Building2 className="h-4 w-4 text-slate-500" />
             )}
           </div>
-          <div className="min-w-0">
-            {/* truncate evita que nombres largos */}
-            <h3 className="truncate text-base font-semibold text-slate-800">
-              {client.nombre}
-            </h3>
-            <p className="text-xs text-slate-400">{client.clave}</p>
-          </div>
-        </div>
 
-        {/* Menú kebab */}
-        {hasAnyAction && (
-          <div ref={menuRef} className="relative shrink-0">
-            <button
-              type="button"
-              aria-label="Acciones del cliente"
-              aria-haspopup="true"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((prev) => !prev)}
-              className="rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
-            >
-              <MoreHorizontal className="h-5 w-5" />
-            </button>
-
-            {menuOpen && (
-              <div
-                role="menu"
-                className="absolute right-0 top-full z-10 mt-1 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+          {hasAnyAction && (
+            <div className="relative" ref={menuRef}>
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                aria-label={`Acciones de ${client.nombre}`}
+                onClick={() => setMenuOpen((prev) => !prev)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
               >
-                {canEdit && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={handleEditClick}
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    <Pencil className="h-4 w-4 text-slate-500" />
-                    Editar
-                  </button>
-                )}
+                <MoreHorizontal className="h-5 w-5" />
+              </button>
 
-                {/* Separador visual entre acción neutral y destructiva */}
-                {canEdit && canDelete && (
-                  <div className="border-t border-slate-100" aria-hidden="true" />
-                )}
+              {menuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full z-10 mt-1 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+                >
+                  {canEdit && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handleEditClick}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <Pencil className="h-4 w-4 text-slate-500" />
+                      Editar
+                    </button>
+                  )}
 
-                {canDelete && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={handleDeleteClick}
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Eliminar
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+                  {/* Separador visual entre acción neutral y destructiva */}
+                  {canEdit && canDelete && (
+                    <div className="border-t border-slate-100" aria-hidden="true" />
+                  )}
+
+                  {canDelete && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handleDeleteClick}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Eliminar
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Datos de contacto */}
-      <div className="mt-4 space-y-2">
+      <div className="mt-5 grid grid-cols-2 gap-4 text-sm text-slate-700">
+        <div>
+          <p className="font-medium">Contacto</p>
+          <p>{client.contacto || "---"}</p>
+        </div>
+
+        <div>
+          <p className="font-medium">Teléfono</p>
+          <p>{client.telefono || "---"}</p>
+        </div>
+
+        <div className="col-span-2">
+          <p className="font-medium">Email</p>
+          <p className="truncate">{client.email || "---"}</p>
+        </div>
+
         {client.direccion && (
-          <div className="flex items-start gap-2 text-sm text-slate-600">
-            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-            <span className="line-clamp-2" title={client.direccion}>
-              {client.direccion}
-            </span>
+          <div className="col-span-2 flex items-start gap-1.5">
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <p className="line-clamp-2 text-slate-500">{client.direccion}</p>
           </div>
-        )}
-
-        {client.telefono && (
-          <div className="flex items-center gap-2 text-sm text-slate-600">
-            <Phone className="h-4 w-4 shrink-0 text-slate-400" />
-            <span>{client.telefono}</span>
-          </div>
-        )}
-
-        {client.email && (
-          <div className="flex items-center gap-2 text-sm text-slate-600">
-            <Mail className="h-4 w-4 shrink-0 text-slate-400" />
-            {/* truncate para emails largos */}
-            <span className="truncate">{client.email}</span>
-          </div>
-        )}
-
-        {/* Placeholder cuando el cliente no tiene datos de contacto */}
-        {!client.direccion && !client.telefono && !client.email && (
-          <p className="text-sm text-slate-400">Sin datos de contacto</p>
         )}
       </div>
-
-      {/* Contacto si existe */}
-      {client.contacto && (
-        <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
-          Contacto: <span className="text-slate-700">{client.contacto}</span>
-        </p>
-      )}
     </article>
   );
 };
