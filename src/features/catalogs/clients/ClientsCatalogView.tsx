@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Building2, Plus, Search, X } from "lucide-react";
+import { Building2, Plus, Search } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { clientService } from "./clientService";
 import type { ClientItem } from "./client.types";
@@ -14,28 +14,22 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { notify } from "@/stores/notificationStore";
 import { queryKeys } from "@/lib/query-keys";
 
-const CLIENT_SKELETON_VARIANT = "poi" as const;
-
 export const ClientsCatalogView = () => {
   const queryClient = useQueryClient();
   const { idEmpresa } = useEmpresaActiva();
 
-  // Estados de UI
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-
-  // clientToDelete guarda el objeto completo (no solo el id) para que el
-  // ConfirmDialog muestre el nombre del cliente antes de confirmar.
   const [clientToDelete, setClientToDelete] = useState<ClientItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Permisos — el backend también valida, esto es solo UX
+  // Permisos
   const puedeCrear    = usePermiso("clientes.crear");
   const puedeEditar   = usePermiso("clientes.editar");
   const puedeEliminar = usePermiso("clientes.eliminar");
 
-  // Debounce de búsqueda — 350ms, mismo valor que UnitsCatalogView
+  // Debounce de 350ms
   const handleSearchChange = (value: string) => {
     setSearch(value);
     clearTimeout(
@@ -45,7 +39,6 @@ export const ClientsCatalogView = () => {
       setTimeout(() => setDebouncedSearch(value), 350);
   };
 
-  // Query principal
   const {
     data: clients = [],
     isLoading,
@@ -64,7 +57,6 @@ export const ClientsCatalogView = () => {
   const handleAskDelete = (client: ClientItem) => setClientToDelete(client);
 
   const handleCancelDelete = () => {
-    // No cerrar si está en medio de un DELETE
     if (!isDeleting) setClientToDelete(null);
   };
 
@@ -93,99 +85,89 @@ export const ClientsCatalogView = () => {
       <section className="flex min-h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
 
         {/* Encabezado */}
-        <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100">
+        <div className="border-b border-slate-200 px-4 py-4 md:px-6">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex items-center gap-3">
               <Building2 className="h-5 w-5 text-slate-500" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold text-slate-800">
+              <h1 className="text-xl font-semibold text-slate-800 md:text-2xl">
                 Catálogo de Clientes
               </h1>
-              <p className="text-sm text-slate-500">
-                {clients.length > 0
-                  ? `${clients.length} cliente${clients.length !== 1 ? "s" : ""} registrado${clients.length !== 1 ? "s" : ""}`
-                  : "Sin clientes registrados"}
-              </p>
             </div>
-          </div>
 
-          {/* Búsqueda + botón agregar */}
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Buscar cliente..."
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-8 text-sm text-slate-700 placeholder-slate-400 focus:border-slate-400 focus:outline-none sm:w-64"
-              />
-              {search && (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              {/* Botón agregar */}
+              {puedeCrear && (
                 <button
                   type="button"
-                  aria-label="Limpiar búsqueda"
-                  onClick={() => { setSearch(""); setDebouncedSearch(""); }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="flex h-10 w-full items-center justify-center rounded-lg border border-emerald-400 bg-white text-emerald-500 hover:bg-emerald-50 sm:w-12"
+                  title="Agregar cliente"
                 >
-                  <X className="h-4 w-4" />
+                  <Plus className="h-4 w-4" />
                 </button>
               )}
-            </div>
 
-            {puedeCrear && (
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(true)}
-                className="flex items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 active:scale-95"
-              >
-                <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Agregar</span>
-              </button>
-            )}
+              {/* Campo de busqueda */}
+              <div className="flex w-full items-center rounded-lg border border-slate-300 bg-white sm:w-auto">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center border-r border-slate-300 text-emerald-500">
+                  <Search className="h-4 w-4" />
+                </div>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  placeholder="buscar..."
+                  aria-label="Buscar clientes"
+                  className="h-10 w-full min-w-0 rounded-r-lg px-3 text-sm outline-none sm:w-56"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Contenido */}
-        <div className="flex-1 p-5">
+        <div className="p-4 md:p-6">
 
+          {/* Skeleton */}
+          {showSkeleton && <SkeletonGrid variant="poi" count={6} />}
+
+          {/* Estado de error */}
           {errorMessage && (
-            <div className="mb-4 flex items-center justify-between rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-              <span>{errorMessage}</span>
-              <button
-                type="button"
-                onClick={() => refetch()}
-                className="ml-4 font-medium underline hover:no-underline"
-              >
-                Reintentar
-              </button>
-            </div>
-          )}
-
-          {/* Esqueleto */}
-          {showSkeleton && (
-            <SkeletonGrid count={6} variant={CLIENT_SKELETON_VARIANT} />
-          )}
-
-          {/* Estado vacío */}
-          {!showSkeleton && !errorMessage && clients.length === 0 && (
             <EmptyState
               icon={Building2}
-              title={
-                debouncedSearch
-                  ? "Sin resultados para esa búsqueda"
-                  : "Sin clientes registrados"
-              }
-              description={
-                debouncedSearch
-                  ? "Intenta con otro término de búsqueda."
-                  : "Agrega el primer cliente con el botón de arriba."
-              }
+              title="No se pudieron cargar los clientes"
+              description={errorMessage}
+              actionLabel="Reintentar"
+              onAction={() => refetch()}
+              variant="error"
             />
           )}
 
-          {!showSkeleton && clients.length > 0 && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {/* Estado vacío — diferencia entre sin datos y sin resultados */}
+          {!showSkeleton && !errorMessage && clients.length === 0 && (
+            debouncedSearch ? (
+              <EmptyState
+                icon={Building2}
+                title="Sin resultados"
+                description={`No se encontraron clientes que coincidan con "${debouncedSearch}".`}
+                actionLabel="Limpiar búsqueda"
+                onAction={() => { setSearch(""); setDebouncedSearch(""); }}
+                variant="search"
+              />
+            ) : (
+              <EmptyState
+                icon={Building2}
+                title="No hay clientes registrados"
+                description="Agrega el primer cliente para comenzar a organizar tu cartera."
+                actionLabel="+ Agregar cliente"
+                onAction={() => setIsCreateModalOpen(true)}
+              />
+            )
+          )}
+
+          {/* Grid de cards */}
+          {!showSkeleton && !errorMessage && clients.length > 0 && (
+            <div className="grid grid-cols-1 gap-4 md:gap-6 2xl:grid-cols-2">
               {clients.map((client) => (
                 <ClientCard
                   key={client.id_cliente}
@@ -204,31 +186,29 @@ export const ClientsCatalogView = () => {
         </div>
       </section>
 
-      {isCreateModalOpen && (
-        <NewClientModal
-          onClose={() => setIsCreateModalOpen(false)}
-          onSuccess={() => {
-            setIsCreateModalOpen(false);
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.catalogs.clients(idEmpresa),
-            });
-          }}
-        />
-      )}
+      <NewClientModal
+        open={isCreateModalOpen}
+        onOpenChange={setIsCreateModalOpen}
+        onSuccess={() => {
+          setIsCreateModalOpen(false);
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.catalogs.clients(idEmpresa),
+          });
+        }}
+      />
 
-      {/* Diálogo de confirmación */}
+      {/* Confirm de eliminación */}
       <ConfirmDialog
-        open={!!clientToDelete}
-        onOpenChange={(open) => { if (!open) handleCancelDelete(); }}
+        open={clientToDelete !== null}
+        onOpenChange={(open) => !open && handleCancelDelete()}
         title="Eliminar cliente"
         description={
           clientToDelete
-            ? `¿Estás seguro de que deseas eliminar a "${clientToDelete.nombre}"? Esta acción no se puede deshacer.`
+            ? `¿Estás seguro de eliminar "${clientToDelete.nombre}"? Esta acción no se puede deshacer desde la interfaz.`
             : ""
         }
-        confirmText="Eliminar"
-        cancelText="Cancelar"
-        confirmButtonClassName="bg-red-600 text-white hover:bg-red-700"
+        confirmText={isDeleting ? "ELIMINANDO..." : "ELIMINAR"}
+        confirmButtonClassName="bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
         onConfirm={handleConfirmDelete}
       />
     </main>
