@@ -29,6 +29,7 @@ export interface CreateClientPayload {
   observaciones?: string | null;
   id_poi?:       number | null;
   imagen?:       string | null;
+  id_empresa?: number | null;
 }
 
 export interface UpdateClientPayload {
