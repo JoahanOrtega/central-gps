@@ -18,7 +18,7 @@ import { EmpresaLabel } from "@/components/shared/EmpresaLabel";
 import { PoiNotificationBell } from "@/features/maps/components/PoiNotifications/PoiNotificationBell";
 
 
-// ── Tipo explícito para los items del navbar ──────────────
+// Tipo explícito para los items del navbar
 interface NavItem {
   id: string;
   label: string;
@@ -30,11 +30,11 @@ interface NavItem {
   disponible?: boolean;
 }
 
-// ── Catálogo de items del navbar ──────────────────────────
+// Catálogo de items del navbar
 const NAV_ITEMS: NavItem[] = [
   // Catálogos — claves modulares <modulo>.ver
   { id: "units", label: "Unidades", path: "/home/catalogs/units", grupo: "catalogs", permiso: "unidades.ver", disponible: true },
-  { id: "clients", label: "Clientes", path: "/home/catalogs/clients", grupo: "catalogs", permiso: "clientes.ver", disponible: false },
+  { id: "clients", label: "Clientes", path: "/home/catalogs/clients", grupo: "catalogs", permiso: "clientes.ver", disponible: true },
   { id: "operators", label: "Operadores", path: "/home/catalogs/operators", grupo: "catalogs", permiso: "operadores.ver", disponible: false },
   { id: "points-of-interest", label: "Puntos de Interés", path: "/home/catalogs/points-of-interest", grupo: "catalogs", permiso: "pois.ver", disponible: true },
   { id: "gas-stations", label: "Gasolineras", path: "/home/catalogs/gas-stations", grupo: "catalogs", permiso: "gasolineras.ver", disponible: false },
@@ -58,7 +58,7 @@ const GRUPOS_CONFIG = [
   { id: "fuel", label: "Combustible", icon: <Fuel className="h-4 w-4" /> },
 ];
 
-// ── Rutas del panel ERP (solo visibles para sudo_erp) ────
+// Rutas del panel ERP
 const ERP_NAV_ITEMS = [
   { id: "erp-empresas", label: "Empresas", path: "/home/admin-erp/empresas" },
   { id: "erp-permisos", label: "Permisos", path: "/home/admin-erp/permisos" },
@@ -84,9 +84,6 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
 
   useEffect(() => {
     // Cargar empresas solo para sudo_erp. Los demás roles tienen UNA empresa
-    // (leída directamente del JWT) — no hay lista que obtener del backend.
-    // Esto evita un request innecesario y, por consecuencia, evita que el
-    // label del cliente parpadee entre "—" y el nombre real.
     if (user && esSudoErp) fetchCompanies();
   }, [user, esSudoErp, fetchCompanies]);
 
@@ -101,9 +98,7 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
   return (
     <header className="border-b border-slate-200 bg-white">
 
-      {/* ── Banda indicadora de rol sudo ERP ─────────────────
-          Visible solo para sudo_erp. Sirve como recordatorio
-          constante de que está operando con privilegios totales. */}
+      {/* Banda indicadora de rol sudo ERP */}
       {esSudoErp && (
         <div className="flex items-center justify-center gap-2 bg-amber-50 border-b border-amber-200 px-4 py-1">
           <ShieldCheck className="h-3.5 w-3.5 text-amber-600 shrink-0" />
@@ -115,7 +110,7 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
 
       <div className="flex min-h-[72px] items-center justify-between gap-3 px-3 md:h-[88px] md:px-6">
 
-        {/* ── Navegación izquierda ── */}
+        {/* Navegación izquierda */}
         <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
           <button
             type="button"
@@ -142,11 +137,6 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      // Mobile (sm- ): solo el ícono visible para ahorrar espacio.
-                      // Desktop (sm+): se agrega el label visible.
-                      // aria-label asegura que en mobile el botón sea
-                      // identificable por lectores de pantalla aunque
-                      // el texto esté oculto.
                       aria-label={grupo.label}
                       className={cn(
                         "inline-flex shrink-0 items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors sm:px-3 md:px-4",
@@ -189,13 +179,7 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
               );
             })}
 
-            {/* ── Botón panel ERP — solo visible para sudo_erp ──
-                Comportamiento responsive:
-                  - Mobile: solo se ve el escudo (ShieldCheck) y el chevron.
-                    El borde amber se mantiene para que sea reconocible
-                    como acceso ERP aunque el texto esté oculto.
-                  - Desktop (sm+): se muestra "Panel ERP" como texto.
-                aria-label garantiza accesibilidad cuando el texto se oculta. */}
+            {/* Botón panel ERP */}
             {esSudoErp && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -238,16 +222,11 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
           </div>
         </div>
 
-        {/* ── Acciones derecha ── */}
+        {/* Acciones derecha */}
         <div className="flex shrink-0 items-center gap-2 md:gap-3">
           {esSudoErp ? (
             <>
-              {/*
-                Selector de empresa — SOLO para sudo_erp.
-                Los clientes pertenecen a UNA empresa y no pueden cambiar.
-                El modal SwitchCompanyModal se monta junto al botón para
-                que el estado switchModalOpen quede encapsulado en esta rama.
-              */}
+              {/* Selector de empresa (sudo_erp): dropdown que muestra todas las empresas disponibles */}
               <button
                 onClick={() => setSwitchModalOpen(true)}
                 aria-label={
@@ -263,10 +242,6 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
                 )}
               >
                 <Building2 className={cn("h-4 w-4 shrink-0", fetchError ? "text-red-400" : "text-blue-500")} />
-                {/* En mobile el nombre de la empresa se oculta para
-                    dejar más espacio al menú de navegación. El usuario
-                    aún puede tocar el botón (es lo suficientemente
-                    grande para tap) y abrir el selector. */}
                 <span className="hidden max-w-[120px] truncate sm:inline sm:max-w-[180px] lg:max-w-[240px]">
                   {fetchError ? "Error al cargar" : (currentCompany?.nombre || "Cargando...")}
                 </span>
@@ -279,14 +254,8 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
               />
             </>
           ) : (
-            /*
-              Clientes (admin_empresa, usuario): solo ven su empresa como
-              label informativo, sin posibilidad de cambiar. Se lee del JWT
-              directamente (user.nombre_empresa) — no depende de companyStore.
-            */
             <EmpresaLabel nombre={user?.nombre_empresa} />
           )}
-
           <PoiNotificationBell />
           <UserMenu />
         </div>

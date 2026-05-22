@@ -1,4 +1,4 @@
-// ── Query keys centralizadas ──────────────────────────────────────────────────
+// Query keys centralizadas para TanStack Query (React Query).
 //
 // Convenciones:
 //   - <recurso>.all: invalidar TODAS las queries del recurso
@@ -44,8 +44,8 @@ export const queryKeys = {
         clients: (idEmpresa: number | null | undefined) =>
             ["catalogs", "clients", idEmpresa] as const,
 
-        // ─── Catálogos > Usuarios ───────────────────────────────────
-        // El módulo nuevo del PR 4. La key incluye solo "users" como
+        //  Catálogos > Usuarios 
+        // La key incluye solo "users" como
         // segundo nivel — TanStack Query usa subcoincidencia de prefix,
         // así invalidar `["catalogs", "users"]` borra list + detail
         // automáticamente.

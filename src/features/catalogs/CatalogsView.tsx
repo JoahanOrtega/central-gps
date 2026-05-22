@@ -1,4 +1,6 @@
 import { UnitsCatalogView } from "./units/components/UnitsCatalogView";
+import { ClientsCatalogView } from "./clients/ClientsCatalogView";
+
 
 interface CatalogsViewProps {
   activeItem: string;
@@ -7,6 +9,10 @@ interface CatalogsViewProps {
 export const CatalogsView = ({ activeItem }: CatalogsViewProps) => {
   if (activeItem === "units") {
     return <UnitsCatalogView />;
+  }
+
+  if (activeItem === "clients") {
+    return <ClientsCatalogView />;
   }
 
   return (
