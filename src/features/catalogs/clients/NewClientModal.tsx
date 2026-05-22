@@ -70,6 +70,7 @@ export const NewClientModal = ({ onClose, onSuccess }: NewClientModalProps) => {
         telefono:      form.telefono.trim()      || null,
         email:         form.email.trim()         || null,
         observaciones: form.observaciones.trim() || null,
+        id_empresa:    idEmpresa ?? undefined,
       });
 
       notify.success(`Cliente "${form.nombre}" creado correctamente`);
