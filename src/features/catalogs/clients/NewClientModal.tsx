@@ -1,16 +1,24 @@
 import { useState } from "react";
-import { X, Building2, Loader2 } from "lucide-react";
+import { Building2, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { clientService } from "./clientService";
 import type { ClientFieldErrors } from "./client.types";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { notify } from "@/stores/notificationStore";
 
 interface NewClientModalProps {
-  onClose:   () => void;
-  onSuccess: () => void;
+  open:          boolean;
+  onOpenChange:  (open: boolean) => void;
+  onSuccess:     () => void;
 }
 
-// Valores iniciales del form
+// Valores iniciales centralizados
 const EMPTY_FORM = {
   clave:         "",
   nombre:        "",
@@ -20,14 +28,27 @@ const EMPTY_FORM = {
   observaciones: "",
 };
 
-export const NewClientModal = ({ onClose, onSuccess }: NewClientModalProps) => {
+export const NewClientModal = ({
+  open,
+  onOpenChange,
+  onSuccess,
+}: NewClientModalProps) => {
   const { idEmpresa } = useEmpresaActiva();
 
-  const [form, setForm]           = useState(EMPTY_FORM);
-  const [errors, setErrors]       = useState<ClientFieldErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [form, setForm]                   = useState(EMPTY_FORM);
+  const [errors, setErrors]               = useState<ClientFieldErrors>({});
+  const [isSubmitting, setIsSubmitting]   = useState(false);
 
-  // Actualizar campo del form y limpiar error de ese campo (si existía)
+  // Resetear el form al cerrar
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
+      setForm(EMPTY_FORM);
+      setErrors({});
+    }
+    onOpenChange(next);
+  };
+
+  // Un solo handler para todos los inputs
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
@@ -38,25 +59,18 @@ export const NewClientModal = ({ onClose, onSuccess }: NewClientModalProps) => {
     }
   };
 
-  // Validación del lado del cliente antes de enviar el request.
+  // Validación del lado del cliente antes de enviar la solicitud. Solo validamos que los campos requeridos
   const validate = (): boolean => {
     const newErrors: ClientFieldErrors = {};
-
-    if (!form.clave.trim()) {
-      newErrors.clave = ["La clave es requerida"];
-    }
-    if (!form.nombre.trim()) {
-      newErrors.nombre = ["El nombre es requerido"];
-    }
+    if (!form.clave.trim())  newErrors.clave  = ["La clave es requerida"];
+    if (!form.nombre.trim()) newErrors.nombre = ["El nombre es requerido"];
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       newErrors.email = ["Ingresa un email válido"];
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
@@ -75,14 +89,14 @@ export const NewClientModal = ({ onClose, onSuccess }: NewClientModalProps) => {
 
       notify.success(`Cliente "${form.nombre}" creado correctamente`);
       onSuccess();
+      handleOpenChange(false);
 
     } catch (err) {
-      // 409 CLAVE_TAKEN
+      // 409 CLAVE_TAKEN — error en el campo específico
       if (err instanceof Error && err.message.includes("CLAVE_TAKEN")) {
         setErrors({ clave: ["Esta clave ya está en uso en tu empresa"] });
         return;
       }
-      // Cualquier otro error notificación global
       notify.error(
         err instanceof Error ? err.message : "No fue posible crear el cliente",
       );
@@ -91,51 +105,33 @@ export const NewClientModal = ({ onClose, onSuccess }: NewClientModalProps) => {
     }
   };
 
-  // Renderizado
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={(e) => {
-        // Solo cerrar si el click fue sobre el overlay, no el contenido
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="w-[95vw] max-w-lg overflow-hidden rounded-2xl p-0">
 
-        {/* Header del modal */}
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100">
-              <Building2 className="h-4 w-4 text-slate-500" />
-            </div>
-            <h2 id="modal-title" className="text-base font-semibold text-slate-800">
-              Nuevo Cliente
-            </h2>
+        {/* Header */}
+        <DialogHeader className="flex flex-row items-center gap-3 border-b border-slate-100 px-6 py-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100">
+            <Building2 className="h-4 w-4 text-slate-500" />
           </div>
-          <button
-            type="button"
-            aria-label="Cerrar modal"
-            onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+          <div>
+            <DialogTitle className="text-base font-semibold text-slate-800">
+              Nuevo Cliente
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Los campos con * son obligatorios
+            </DialogDescription>
+          </div>
+        </DialogHeader>
 
         {/* Formulario */}
         <form onSubmit={handleSubmit} noValidate>
           <div className="space-y-4 px-6 py-5">
 
-            {/* Clave + Nombre en la misma fila */}
+            {/* Clave + Nombre */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label
-                  htmlFor="clave"
-                  className="mb-1.5 block text-sm font-medium text-slate-700"
-                >
+                <label htmlFor="clave" className="mb-1.5 block text-sm font-medium text-slate-700">
                   Clave <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -146,10 +142,8 @@ export const NewClientModal = ({ onClose, onSuccess }: NewClientModalProps) => {
                   onChange={handleChange}
                   maxLength={50}
                   placeholder="Ej. CLI-001"
-                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 ${
-                    errors.clave
-                      ? "border-red-300 bg-red-50"
-                      : "border-slate-200 bg-white"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-300 ${
+                    errors.clave ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"
                   }`}
                 />
                 {errors.clave && (
@@ -158,10 +152,7 @@ export const NewClientModal = ({ onClose, onSuccess }: NewClientModalProps) => {
               </div>
 
               <div>
-                <label
-                  htmlFor="nombre"
-                  className="mb-1.5 block text-sm font-medium text-slate-700"
-                >
+                <label htmlFor="nombre" className="mb-1.5 block text-sm font-medium text-slate-700">
                   Nombre <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -172,10 +163,8 @@ export const NewClientModal = ({ onClose, onSuccess }: NewClientModalProps) => {
                   onChange={handleChange}
                   maxLength={200}
                   placeholder="Nombre del cliente"
-                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 ${
-                    errors.nombre
-                      ? "border-red-300 bg-red-50"
-                      : "border-slate-200 bg-white"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-300 ${
+                    errors.nombre ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"
                   }`}
                 />
                 {errors.nombre && (
@@ -186,10 +175,7 @@ export const NewClientModal = ({ onClose, onSuccess }: NewClientModalProps) => {
 
             {/* Contacto */}
             <div>
-              <label
-                htmlFor="contacto"
-                className="mb-1.5 block text-sm font-medium text-slate-700"
-              >
+              <label htmlFor="contacto" className="mb-1.5 block text-sm font-medium text-slate-700">
                 Contacto
               </label>
               <input
@@ -200,17 +186,14 @@ export const NewClientModal = ({ onClose, onSuccess }: NewClientModalProps) => {
                 onChange={handleChange}
                 maxLength={200}
                 placeholder="Nombre de la persona de contacto"
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-300"
               />
             </div>
 
-            {/* Teléfono + Email en la misma fila */}
+            {/* Teléfono + Email */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label
-                  htmlFor="telefono"
-                  className="mb-1.5 block text-sm font-medium text-slate-700"
-                >
+                <label htmlFor="telefono" className="mb-1.5 block text-sm font-medium text-slate-700">
                   Teléfono
                 </label>
                 <input
@@ -221,15 +204,12 @@ export const NewClientModal = ({ onClose, onSuccess }: NewClientModalProps) => {
                   onChange={handleChange}
                   maxLength={50}
                   placeholder="Ej. 449 123 4567"
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-300"
                 />
               </div>
 
               <div>
-                <label
-                  htmlFor="email"
-                  className="mb-1.5 block text-sm font-medium text-slate-700"
-                >
+                <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-slate-700">
                   Email
                 </label>
                 <input
@@ -240,10 +220,8 @@ export const NewClientModal = ({ onClose, onSuccess }: NewClientModalProps) => {
                   onChange={handleChange}
                   maxLength={100}
                   placeholder="correo@ejemplo.com"
-                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 ${
-                    errors.email
-                      ? "border-red-300 bg-red-50"
-                      : "border-slate-200 bg-white"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-300 ${
+                    errors.email ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"
                   }`}
                 />
                 {errors.email && (
@@ -254,10 +232,7 @@ export const NewClientModal = ({ onClose, onSuccess }: NewClientModalProps) => {
 
             {/* Observaciones */}
             <div>
-              <label
-                htmlFor="observaciones"
-                className="mb-1.5 block text-sm font-medium text-slate-700"
-              >
+              <label htmlFor="observaciones" className="mb-1.5 block text-sm font-medium text-slate-700">
                 Observaciones
               </label>
               <textarea
@@ -267,17 +242,16 @@ export const NewClientModal = ({ onClose, onSuccess }: NewClientModalProps) => {
                 onChange={handleChange}
                 rows={3}
                 placeholder="Notas adicionales sobre el cliente..."
-                className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-300"
               />
             </div>
-
           </div>
 
-          {/* Footer del modal */}
+          {/* Footer */}
           <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => handleOpenChange(false)}
               disabled={isSubmitting}
               className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
             >
@@ -288,14 +262,12 @@ export const NewClientModal = ({ onClose, onSuccess }: NewClientModalProps) => {
               disabled={isSubmitting}
               className="flex items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50 active:scale-95"
             >
-              {isSubmitting && (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              )}
+              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
               {isSubmitting ? "Guardando..." : "Guardar"}
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
