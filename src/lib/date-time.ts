@@ -25,17 +25,23 @@ export const parseApiDate = (value?: string | null): Date | null => {
   const normalized = value.trim();
 
   // Formato con offset de zona horaria: "2024-03-15T08:30:00-06:00"
-  // new Date() lo parsea correctamente — no modificar
   if (normalized.includes("+") || normalized.match(/-\d{2}:\d{2}$/)) {
     const date = new Date(normalized);
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
   // Formato ISO sin offset: "2024-03-15T14:30:00"
-  // Añadir "Z" para indicar UTC explícitamente
   if (normalized.includes("T")) {
     const withZ = normalized.endsWith("Z") ? normalized : `${normalized}Z`;
     const date = new Date(withZ);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  // Formato RFC 2822: "Mon, 25 May 2026 16:37:31 GMT"
+  // Lo devuelve Date.toString() y algunos backends HTTP.
+  // new Date() lo parsea directamente — solo verificar que sea válido.
+  if (normalized.includes(",") || normalized.endsWith("GMT") || normalized.endsWith("UTC")) {
+    const date = new Date(normalized);
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
