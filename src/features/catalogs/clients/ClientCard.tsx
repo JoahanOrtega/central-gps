@@ -1,29 +1,37 @@
-import { Building2, MapPin, Pencil, Trash2 } from "lucide-react";
-import { KebabMenu } from "@/components/shared/KebabMenu";
+import { Building2, MapPin, Bell, Pencil, Trash2 } from "lucide-react";
+import { KebabMenu } from "@/components/shared";
 import type { ClientItem } from "./client.types";
 
 interface ClientCardProps {
   client: ClientItem;
-  canEdit?:   boolean;
-  canDelete?: boolean;
-  onEdit?:    (idCliente: number) => void;
-  onDelete?:  (client: ClientItem) => void;
+  canEdit?:    boolean;
+  canDelete?:  boolean;
+  onEdit?:     (idCliente: number) => void;
+  onDelete?:   (client: ClientItem) => void;
+  onAlertas?:  (client: ClientItem) => void;
 }
 
 export const ClientCard = ({
   client,
-  canEdit   = false,
-  canDelete = false,
+  canEdit    = false,
+  canDelete  = false,
   onEdit,
   onDelete,
+  onAlertas,
 }: ClientCardProps) => {
-  // Solo construir el array de acciones que aplican según permisos
   const menuItems = [
     canEdit && {
       id: "edit",
       label: "Editar",
       icon: Pencil,
       onClick: () => onEdit?.(client.id_cliente),
+    },
+    // Alertas solo disponibles si el cliente tiene ubicación configurada.
+    canEdit && {
+      id: "alertas",
+      label: "Alertas",
+      icon: Bell,
+      onClick: () => onAlertas?.(client),
     },
     canDelete && {
       id: "delete",
