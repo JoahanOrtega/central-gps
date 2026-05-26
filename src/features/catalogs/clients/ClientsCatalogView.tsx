@@ -5,13 +5,12 @@ import { clientService } from "./clientService";
 import type { ClientItem } from "./client.types";
 import { ClientCard } from "./ClientCard";
 import { NewClientModal } from "./NewClientModal";
+import { ClientAlertasModal } from "./ClientAlertasModal";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { usePermiso } from "@/hooks/usePermiso";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
-import { queryKeys } from "@/lib/query-keys";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-
-// "Cajas negras"
+import { queryKeys } from "@/lib/query-keys";
 import {
   CatalogLayout,
   CatalogHeader,
@@ -24,13 +23,16 @@ export const ClientsCatalogView = () => {
   const queryClient = useQueryClient();
   const { idEmpresa } = useEmpresaActiva();
 
-  const [search, setSearch]           = useState("");
-  const [modalOpen, setModalOpen]     = useState(false);
+  const [search, setSearch] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+
+  // alertasClient guarda el cliente completo
+  const [alertasClient, setAlertasClient] = useState<ClientItem | null>(null);
 
   const debouncedSearch = useDebounce(search);
 
-  const puedeCrear    = usePermiso("clientes.crear");
-  const puedeEditar   = usePermiso("clientes.editar");
+  const puedeCrear = usePermiso("clientes.crear");
+  const puedeEditar = usePermiso("clientes.editar");
   const puedeEliminar = usePermiso("clientes.eliminar");
 
   const { data: clients = [], isLoading, error, refetch } = useQuery<ClientItem[]>({
@@ -39,8 +41,8 @@ export const ClientsCatalogView = () => {
     enabled: !!idEmpresa,
   });
 
-  const showSkeleton   = useDelayedLoading(isLoading);
-  const errorMessage   = error instanceof Error ? error.message : null;
+  const showSkeleton = useDelayedLoading(isLoading);
+  const errorMessage = error instanceof Error ? error.message : null;
 
   const { itemToDelete, isDeleting, askDelete, cancelDelete, confirmDelete } =
     useDeleteConfirm<ClientItem>({
@@ -81,6 +83,7 @@ export const ClientsCatalogView = () => {
               canDelete={puedeEliminar}
               onEdit={(id) => console.log("Editar cliente", id)} // TODO: EditClientModal
               onDelete={askDelete}
+              onAlertas={setAlertasClient}
             />
           )}
           keyExtractor={(client) => client.id_cliente}
@@ -104,6 +107,12 @@ export const ClientsCatalogView = () => {
             queryKey: queryKeys.catalogs.clients(idEmpresa),
           });
         }}
+      />
+
+      {/* Modal de alertas */}
+      <ClientAlertasModal
+        client={alertasClient}
+        onClose={() => setAlertasClient(null)}
       />
 
       <ConfirmDialog
