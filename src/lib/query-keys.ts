@@ -43,6 +43,8 @@ export const queryKeys = {
         avlModels: () => ["catalogs", "avl-models"] as const,
         clients: (idEmpresa: number | null | undefined) =>
             ["catalogs", "clients", idEmpresa] as const,
+        clientAlerta: (idCliente: number, idEmpresa?: number | null) =>
+            ["catalogs", "clients", "alerta", idCliente, idEmpresa] as const,
 
         //  Catálogos > Usuarios 
         // La key incluye solo "users" como
