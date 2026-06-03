@@ -5,6 +5,7 @@ import { clientService } from "./clientService";
 import type { ClientItem } from "./client.types";
 import { ClientCard } from "./ClientCard";
 import { NewClientModal } from "./NewClientModal";
+import { EditClientModal } from "./EditClientModal";
 import { ClientAlertasModal } from "./ClientAlertasModal";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { usePermiso } from "@/hooks/usePermiso";
@@ -25,6 +26,7 @@ export const ClientsCatalogView = () => {
 
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<number | null>(null);
 
   // alertasClient guarda el cliente completo
   const [alertasClient, setAlertasClient] = useState<ClientItem | null>(null);
@@ -81,7 +83,7 @@ export const ClientsCatalogView = () => {
               client={client}
               canEdit={puedeEditar}
               canDelete={puedeEliminar}
-              onEdit={(id) => console.log("Editar cliente", id)} // TODO: EditClientModal
+              onEdit={(id) => setEditingClient(id)}
               onDelete={askDelete}
               onAlertas={setAlertasClient}
             />
@@ -103,6 +105,17 @@ export const ClientsCatalogView = () => {
         onOpenChange={setModalOpen}
         onSuccess={() => {
           setModalOpen(false);
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.catalogs.clients(idEmpresa),
+          });
+        }}
+      />
+
+      <EditClientModal
+        idCliente={editingClient}
+        onClose={() => setEditingClient(null)}
+        onSuccess={() => {
+          setEditingClient(null);
           queryClient.invalidateQueries({
             queryKey: queryKeys.catalogs.clients(idEmpresa),
           });
