@@ -23,7 +23,7 @@ export const clientService = {
   ): Promise<ClientItem[]> {
     const params = new URLSearchParams();
     if (search.trim()) params.set("search", search.trim());
-    if (idEmpresa)     params.set("id_empresa", String(idEmpresa));
+    if (idEmpresa) params.set("id_empresa", String(idEmpresa));
 
     const query = params.toString()
       ? `/catalogs/clients?${params.toString()}`
@@ -31,6 +31,18 @@ export const clientService = {
 
     return apiFetch<ClientItem[]>(query, { method: "GET", signal });
   },
+
+  getById(
+    idCliente: number,
+    idEmpresa?: number | null,
+  ): Promise<ClientItem> {
+    const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
+    return apiFetch<ClientItem>(
+      `/catalogs/clients/${idCliente}${query}`,
+      { method: "GET" },
+    );
+  },
+
 
   /**
    * Crea un nuevo cliente.
