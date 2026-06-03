@@ -1,6 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import { SkeletonGrid } from "@/components/shared/SkeletonCard";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { Pagination } from "@/components/shared/Pagination";
+import type { PaginationInfo } from "@/hooks/usePagination";
 import type { ComponentProps } from "react";
 
 type SkeletonVariant = ComponentProps<typeof SkeletonGrid>["variant"];
@@ -37,12 +39,19 @@ interface CatalogGridProps<T> {
 
   // Columnas del grid — por defecto 2 en pantallas grandes
   gridCols?: "1" | "2" | "3";
+
+  // Paginación (opcional) — si se pasa, muestra controles debajo del grid.
+  // Viene del hook usePagination. Si no se pasa, el grid renderiza todo.
+  pagination?: PaginationInfo;
 }
 
 /**
- * Grid estándar de catálogos con skeleton, empty state y manejo de error
- * integrados. Elimina el bloque repetido de condiciones que existe en
- * UnitsCatalogView, PointsOfInterestView, UsersCatalogView y ClientsCatalogView.
+ * Grid estándar de catálogos con skeleton, empty state, manejo de error
+ * y paginación opcionales.
+ *
+ * Para agregar paginación a un catálogo:
+ *   const { paginatedItems, pagination } = usePagination(items, 12);
+ *   <CatalogGrid items={paginatedItems} pagination={pagination} />
  */
 export const CatalogGrid = <T,>({
   isLoading,
@@ -64,6 +73,7 @@ export const CatalogGrid = <T,>({
   errorTitle = "No se pudieron cargar los registros",
   onRetry,
   gridCols = "2",
+  pagination,
 }: CatalogGridProps<T>) => {
   // Mapa de clases de grid
   const gridClass = {
@@ -89,7 +99,10 @@ export const CatalogGrid = <T,>({
     );
   }
 
-  if (items.length === 0) {
+  // Para el empty state, revisar el total real (no la página actual)
+  const totalItems = pagination?.totalItems ?? items.length;
+
+  if (totalItems === 0) {
     // Sin resultados de búsqueda
     if (activeSearch) {
       return (
@@ -120,10 +133,15 @@ export const CatalogGrid = <T,>({
   }
 
   return (
-    <div className={gridClass}>
-      {items.map((item) => (
-        <div key={keyExtractor(item)}>{renderItem(item)}</div>
-      ))}
+    <div>
+      <div className={gridClass}>
+        {items.map((item) => (
+          <div key={keyExtractor(item)}>{renderItem(item)}</div>
+        ))}
+      </div>
+
+      {/* Controles de paginación — solo si se pasó el prop */}
+      {pagination && <Pagination pagination={pagination} />}
     </div>
   );
 };
