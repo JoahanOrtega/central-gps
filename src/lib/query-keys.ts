@@ -117,6 +117,14 @@ export const queryKeys = {
         clientsByEmpresa: (idEmpresa: number) =>
             ["erp", "clients", idEmpresa] as const,
     },
+    operation: {
+        routesAll: ["operation", "routes"] as const,
+        routes: (idEmpresa: number | null | undefined, search = "") =>
+            ["operation", "routes", idEmpresa, search] as const,
+        routeDetail: (idRuta: number, idEmpresa: number | null | undefined) =>
+            ["operation", "routes", "detail", idRuta, idEmpresa] as const,
+    },
+
     eventos: {
         all: ["eventos"] as const,
         lista: (
