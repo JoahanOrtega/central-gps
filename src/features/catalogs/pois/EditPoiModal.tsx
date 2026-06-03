@@ -1,332 +1,375 @@
-// Modal para editar los datos básicos de un POI.
-//
-// Alcance intencional — solo campos textuales:
-//   - nombre (obligatorio)
-//   - direccion
-//   - observaciones
-//
-// NO incluye geometría (lat/lng/radio/polígono).
-//
-// Razones del scope reducido:
-//   1. UX: editar geometría con mapa interactivo es complejo y propenso
-//      a accidentes (el usuario arrastra sin querer, mueve un POI clave).
-//   2. Seguridad operativa: si un usuario quiere mover un POI, eliminar
-//      y recrear es más explícito que un drag accidental.
-//   3. Consistencia con NewPoiModal: ese sí tiene mapa porque crear es
-//      la operación natural para definir geometría — editar geometría
-//      es el caso raro.
-//   4. Heurística #5 de Nielsen: prevenir errores. Mover puntos críticos
-//      (bodegas, puntos de control) accidentalmente con un click podría
-//      romper procesos operativos del cliente.
-//
-// Si en el futuro se necesita editar geometría, se puede agregar como
-// segunda pestaña dentro de este mismo modal (siguiendo el patrón de
-// EditUnitModal con tabs General/Adicional).
-
-import { useEffect, useRef, useState } from "react";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-} from "@/components/ui/dialog";
-import { MapPin, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { MapPinned } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { poiService } from "./poiService";
 import type { PoiItem, UpdatePoiPayload } from "./poi.types";
 import { notify } from "@/stores/notificationStore";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
-import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
-
-// ── Constantes de validación ─────────────────────────────────────────────────
-// Espejo del backend (CreatePoiSchema/UpdatePoiSchema): nombre min 1 max 100.
-const NOMBRE_MAX_LENGTH = 100;
-const DIRECCION_MAX_LENGTH = 200;
-const OBSERVACIONES_MAX_LENGTH = 500;
+import { ModalWithTabs } from "@/components/shared/ModalWithTabs";
+import { Field, RadioOption, inputClass } from "@/components/shared/form-helpers";
+import { GeoFenceTab, type GeoFenceValue } from "@/components/shared/GeoFenceTab";
 
 interface EditPoiModalProps {
-    // null = cerrado | PoiItem = abierto editando ese POI
+    /** null = cerrado | PoiItem = abierto editando ese POI */
     poi: PoiItem | null;
     onClose: () => void;
 }
 
-// ── Estado del formulario ────────────────────────────────────────────────────
-// Solo los 3 campos editables. Mantener la forma simple evita que en
-// el futuro alguien agregue un input nuevo y olvide que el payload
-// PATCH solo manda lo modificado.
-interface EditForm {
+// Estado del formulario
+interface PoiForm {
     nombre: string;
-    direccion: string;
     observaciones: string;
+    id_grupo_pois: number[];
+    // Geometría (GeoFenceTab)
+    tipo_poi: number;
+    direccion: string;
+    direccionEsAproximada: boolean;
+    lat: number | null;
+    lng: number | null;
+    radio: number;
+    bounds: string;
+    area: string;
+    polygon_path: string;
+    polygon_color: string;
+    radio_color: string;
+    // Marcador
+    tipo_marker: number;
+    url_marker: string;
+    marker_path: string;
+    marker_color: string;
+    icon: string;
+    icon_color: string;
 }
 
-const formFromPoi = (poi: PoiItem): EditForm => ({
+/** Convierte un PoiItem del listado al estado del formulario */
+const poiToForm = (poi: PoiItem): PoiForm => ({
     nombre: poi.nombre ?? "",
-    direccion: poi.direccion ?? "",
     observaciones: poi.observaciones ?? "",
+    id_grupo_pois: [],  // Se pre-seleccionarán cuando el backend lo soporte
+    tipo_poi: poi.tipo_poi ?? 1,
+    direccion: poi.direccion ?? "",
+    direccionEsAproximada: false,
+    lat: poi.lat,
+    lng: poi.lng,
+    radio: poi.radio ?? 50,
+    bounds: poi.bounds ?? "",
+    area: poi.area ?? "",
+    polygon_path: poi.polygon_path ?? "",
+    polygon_color: poi.polygon_color ?? "#5e6383",
+    radio_color: poi.radio_color ?? "#5e6383",
+    tipo_marker: poi.tipo_marker ?? 0,
+    url_marker: poi.url_marker ?? "pin.svg",
+    marker_path: poi.marker_path ?? "MAP_PIN",
+    marker_color: poi.marker_color ?? "#5e6383",
+    icon: poi.icon ?? "la la-industry",
+    icon_color: poi.icon_color ?? "#FFFFFF",
 });
 
+const safeParsePolygon = (polygonPath: string) => {
+    try {
+        const parsed = JSON.parse(polygonPath);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+};
+
 export const EditPoiModal = ({ poi, onClose }: EditPoiModalProps) => {
-    const queryClient = useQueryClient();
     const { idEmpresa } = useEmpresaActiva();
+    const queryClient = useQueryClient();
 
-    // Estado local del form. Se sincroniza con el POI cada vez que se
-    // abre el modal (poi cambia de null a un objeto). Se usa el id
-    // como dependencia del effect — si el usuario edita poi1 → cancela →
-    // abre poi2, queremos cargar los datos de poi2, no quedarnos con poi1.
-    const [form, setForm] = useState<EditForm>({
-        nombre: "",
-        direccion: "",
-        observaciones: "",
+    const [form, setForm] = useState<PoiForm | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [activeTab, setActiveTab] = useState("general");
+
+    // Grupos cacheados para el selector de asignación
+    const { data: groups = [], isLoading: isLoadingGroups } = useQuery({
+        queryKey: queryKeys.pois.groups(idEmpresa),
+        queryFn: () => poiService.getPoiGroups("", idEmpresa),
+        enabled: !!idEmpresa && poi !== null,
+        staleTime: 5 * 60 * 1000,
     });
-    const [saving, setSaving] = useState(false);
-    const [submitError, setSubmitError] = useState("");
 
-    // Ref para auto-focus al campo nombre al abrir.
-    const nombreRef = useRef<HTMLInputElement>(null);
-
-    // ── Sincronizar form cuando cambia el POI a editar ──────────────────────
+    // Sincronizar formulario cuando se abre con un POI distinto
     useEffect(() => {
         if (poi) {
-            setForm(formFromPoi(poi));
-            setSubmitError("");
-            // Auto-focus tras la animación del Dialog. setTimeout(0) deja
-            // que el dialog termine de renderizarse antes de mover focus.
-            const t = setTimeout(() => nombreRef.current?.focus(), 0);
-            return () => clearTimeout(t);
+            setForm(poiToForm(poi));
+            setActiveTab("general");
+            setError("");
         }
     }, [poi]);
 
-    // ── Validación local ────────────────────────────────────────────────────
-    // Errores que se calculan en cada render — sin estado intermedio.
-    // Solo se muestran cuando el usuario ya empezó a escribir y borró
-    // el contenido (length 0 después de haber tenido valor previo).
-    const nombreError = (() => {
-        if (form.nombre.trim().length === 0) {
-            return "El nombre no puede estar vacío";
-        }
-        if (form.nombre.length > NOMBRE_MAX_LENGTH) {
-            return `Máximo ${NOMBRE_MAX_LENGTH} caracteres`;
-        }
-        return null;
-    })();
+    const handleInputChange = (
+        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+    ) => {
+        const { name, value } = e.target;
+        const numericFields = ["tipo_poi", "tipo_marker", "radio"];
+        setForm((prev) =>
+            prev ? { ...prev, [name]: numericFields.includes(name) ? Number(value) : value } : prev,
+        );
+        if (error) setError("");
+    };
 
-    // ── Detectar cambios reales ─────────────────────────────────────────────
-    // Si el usuario abre el modal y no cambia nada, no tiene sentido enviar
-    // un PATCH vacío al backend (responde 400 "No hay campos para actualizar").
-    // canSubmit refleja "hay algo distinto al original Y es válido".
-    const hasChanges = poi
-        ? form.nombre !== (poi.nombre ?? "") ||
-        form.direccion !== (poi.direccion ?? "") ||
-        form.observaciones !== (poi.observaciones ?? "")
-        : false;
+    const handleGroupChange = (groupId: number) => {
+        setForm((prev) => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                id_grupo_pois: prev.id_grupo_pois.includes(groupId)
+                    ? prev.id_grupo_pois.filter((id) => id !== groupId)
+                    : [...prev.id_grupo_pois, groupId],
+            };
+        });
+    };
 
-    const canSubmit = !saving && !nombreError && hasChanges;
+    const handleReset = () => {
+        if (poi) setForm(poiToForm(poi));
+        setError("");
+        setActiveTab("general");
+    };
 
-    // ── Handlers ────────────────────────────────────────────────────────────
-    const handleField = (field: keyof EditForm) =>
-        (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-            setForm((prev) => ({ ...prev, [field]: e.target.value }));
-            // Cualquier edición limpia el error del submit anterior.
-            if (submitError) setSubmitError("");
-        };
+    const handleSubmit = async () => {
+        if (!form || !poi) return;
 
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        if (!canSubmit || !poi) return;
-
-        setSaving(true);
-        setSubmitError("");
-
+        setIsLoading(true);
+        setError("");
         try {
-            // Construir payload SOLO con campos modificados — el backend
-            // PATCH no inyecta defaults, los campos omitidos no se tocan.
-            // Comparamos con valores normalizados ("" en lugar de null)
-            // porque eso es lo que viene del form.
-            const payload: UpdatePoiPayload = {};
-
-            const nombreNormalizado = form.nombre.trim();
-            if (nombreNormalizado !== (poi.nombre ?? "")) {
-                payload.nombre = nombreNormalizado;
+            if (!form.nombre.trim()) {
+                setError("El nombre es requerido");
+                setActiveTab("general");
+                return;
+            }
+            if (!form.direccion.trim()) {
+                setError("Debes definir el domicilio del punto de interés");
+                setActiveTab("address");
+                return;
+            }
+            if (form.tipo_poi === 2) {
+                const parsed = safeParsePolygon(form.polygon_path);
+                if (parsed.length < 3) {
+                    setError("Para una geocerca poligonal debes marcar al menos 3 puntos");
+                    setActiveTab("address");
+                    return;
+                }
             }
 
-            const direccionNormalizada = form.direccion.trim();
-            if (direccionNormalizada !== (poi.direccion ?? "")) {
-                // Si quedó vacío, mandamos null para que en BD quede NULL,
-                // no string vacío. El backend acepta allow_none=True.
-                payload.direccion = direccionNormalizada || null;
-            }
-
-            const observacionesNormalizadas = form.observaciones.trim();
-            if (observacionesNormalizadas !== (poi.observaciones ?? "")) {
-                payload.observaciones = observacionesNormalizadas || null;
-            }
+            // Solo mandamos los campos que el backend acepta en PATCH
+            const payload: UpdatePoiPayload = {
+                nombre: form.nombre.trim(),
+                direccion: form.direccion.trim() || null,
+                observaciones: form.observaciones.trim() || null,
+                tipo_poi: form.tipo_poi,
+                lat: form.lat,
+                lng: form.lng,
+                radio: form.radio,
+                bounds: form.bounds || null,
+                polygon_path: form.polygon_path || null,
+                polygon_color: form.polygon_color,
+                radio_color: form.radio_color,
+                tipo_marker: form.tipo_marker,
+                url_marker: form.url_marker || null,
+                marker_path: form.marker_path || null,
+                marker_color: form.marker_color,
+                icon: form.icon || null,
+                icon_color: form.icon_color,
+                id_grupo_pois: form.id_grupo_pois,
+            };
 
             await poiService.updatePoi(poi.id_poi, payload, idEmpresa);
-
-            // Invalidar caché para que el listado refresque automáticamente.
-            // No usamos refetchQueries — invalidate es más eficiente: marca
-            // los datos como stale y solo refetcha si la query está activa
-            // (lo está si el modal se abrió desde PointsOfInterestView).
-            await queryClient.invalidateQueries({
-                queryKey: queryKeys.pois.all,
-            });
-
-            notify.success("POI actualizado correctamente");
+            await queryClient.invalidateQueries({ queryKey: queryKeys.pois.all });
+            notify.success(`Punto de interés "${form.nombre}" actualizado correctamente`);
             onClose();
         } catch (err) {
-            // El error 422 con campo "nombre" se mostraría como banner
-            // global aquí porque el modal solo edita un campo crítico.
-            // Si en el futuro se editan más campos, conviene capturar
-            // `fields` como en ChangePasswordModal.
-            setSubmitError(
-                err instanceof Error
-                    ? err.message
-                    : "No fue posible actualizar el POI",
-            );
+            setError(err instanceof Error ? err.message : "No fue posible actualizar el POI");
         } finally {
-            setSaving(false);
+            setIsLoading(false);
         }
     };
 
+    // GeoFenceValue para el tab de domicilio
+    const geoValue: GeoFenceValue | null = form
+        ? {
+            tipo_poi: form.tipo_poi,
+            direccion: form.direccion,
+            direccionEsAproximada: form.direccionEsAproximada,
+            lat: form.lat,
+            lng: form.lng,
+            radio: form.radio,
+            bounds: form.bounds,
+            area: form.area,
+            polygon_path: form.polygon_path,
+            polygon_color: form.polygon_color,
+            radio_color: form.radio_color,
+        }
+        : null;
+
+    const tabs = form
+        ? [
+            {
+                id: "general",
+                label: "Datos del Punto",
+                content: (
+                    <PoiGeneralTab
+                        form={form}
+                        groups={groups}
+                        isLoadingGroups={isLoadingGroups}
+                        onChange={handleInputChange}
+                        onGroupChange={handleGroupChange}
+                    />
+                ),
+            },
+            {
+                id: "address",
+                label: "Domicilio",
+                content: geoValue ? (
+                    <GeoFenceTab
+                        value={geoValue}
+                        onChange={(values) => setForm((prev) => (prev ? { ...prev, ...values } : prev))}
+                        required
+                        extraFields={
+                            <PoiExtraFields form={form} onChange={handleInputChange} />
+                        }
+                    />
+                ) : null,
+            },
+        ]
+        : [
+            {
+                id: "general",
+                label: "Datos del Punto",
+                content: (
+                    <div className="flex items-center justify-center py-16 text-sm text-slate-500">
+                        Cargando punto de interés...
+                    </div>
+                ),
+            },
+        ];
+
     return (
-        <Dialog open={poi !== null} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-md">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <MapPin className="h-5 w-5 text-slate-500" aria-hidden="true" />
-                        Editar punto de interés
-                    </DialogTitle>
-                    <DialogDescription>
-                        Actualiza los datos básicos. Si necesitas cambiar la ubicación
-                        en el mapa, elimina este punto y crea uno nuevo.
-                    </DialogDescription>
-                </DialogHeader>
-
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                    {/* Error global del submit */}
-                    {submitError && (
-                        <div
-                            role="alert"
-                            aria-live="assertive"
-                            className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
-                        >
-                            {submitError}
-                        </div>
-                    )}
-
-                    {/* ── Nombre ── */}
-                    <div className="flex flex-col gap-1.5">
-                        <label
-                            htmlFor="poi-nombre"
-                            className="text-sm font-medium text-slate-700"
-                        >
-                            Nombre <span className="text-rose-500">*</span>
-                        </label>
-                        <input
-                            id="poi-nombre"
-                            ref={nombreRef}
-                            type="text"
-                            value={form.nombre}
-                            onChange={handleField("nombre")}
-                            disabled={saving}
-                            maxLength={NOMBRE_MAX_LENGTH}
-                            aria-invalid={Boolean(nombreError && form.nombre.length > 0)}
-                            aria-describedby={
-                                nombreError && form.nombre.length === 0
-                                    ? "poi-nombre-error"
-                                    : undefined
-                            }
-                            className={`h-10 rounded-lg border px-3 text-sm outline-none transition-colors ${nombreError && form.nombre.trim().length === 0
-                                ? "border-rose-300 focus:border-rose-400"
-                                : "border-slate-300 focus:border-blue-400"
-                                }`}
-                        />
-                        {/* Solo mostramos error si es trim().length === 0 — el otro
-                            error (max length) lo previene maxLength del input. */}
-                        {nombreError && form.nombre.trim().length === 0 && (
-                            <p
-                                id="poi-nombre-error"
-                                role="alert"
-                                className="text-xs text-rose-600"
-                            >
-                                {nombreError}
-                            </p>
-                        )}
-                    </div>
-
-                    {/* ── Dirección ── */}
-                    <div className="flex flex-col gap-1.5">
-                        <label
-                            htmlFor="poi-direccion"
-                            className="text-sm font-medium text-slate-700"
-                        >
-                            Dirección
-                            <span className="ml-1 text-xs font-normal text-slate-400">
-                                (opcional)
-                            </span>
-                        </label>
-                        <input
-                            id="poi-direccion"
-                            type="text"
-                            value={form.direccion}
-                            onChange={handleField("direccion")}
-                            disabled={saving}
-                            maxLength={DIRECCION_MAX_LENGTH}
-                            placeholder="Calle, colonia, ciudad..."
-                            className="h-10 rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-blue-400"
-                        />
-                    </div>
-
-                    {/* ── Observaciones ── */}
-                    <div className="flex flex-col gap-1.5">
-                        <label
-                            htmlFor="poi-observaciones"
-                            className="text-sm font-medium text-slate-700"
-                        >
-                            Observaciones
-                            <span className="ml-1 text-xs font-normal text-slate-400">
-                                (opcional)
-                            </span>
-                        </label>
-                        <textarea
-                            id="poi-observaciones"
-                            value={form.observaciones}
-                            onChange={handleField("observaciones")}
-                            disabled={saving}
-                            maxLength={OBSERVACIONES_MAX_LENGTH}
-                            rows={3}
-                            placeholder="Notas adicionales sobre este punto..."
-                            className="resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-400"
-                        />
-                        {/* Contador como hint visual del límite */}
-                        <p className="self-end text-xs text-slate-400">
-                            {form.observaciones.length} / {OBSERVACIONES_MAX_LENGTH}
-                        </p>
-                    </div>
-
-                    {/* ── Footer ── */}
-                    <div className="flex items-center justify-end gap-2 border-t border-slate-200 pt-4">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            disabled={saving}
-                            className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={!canSubmit}
-                            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                            {saving ? "Guardando..." : "Guardar cambios"}
-                        </button>
-                    </div>
-                </form>
-            </DialogContent>
-        </Dialog>
+        <ModalWithTabs
+            open={poi !== null}
+            onOpenChange={(open) => !open && onClose()}
+            title="Editar Punto de Interés"
+            icon={MapPinned}
+            tabs={tabs}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            onSave={handleSubmit}
+            onReset={handleReset}
+            isLoading={isLoading}
+            saveLabel="Guardar cambios"
+            error={error}
+            confirmCloseDescription="Si cierras, perderás los cambios sin guardar. ¿Deseas cerrar?"
+        />
     );
 };
+
+// Tab Datos del Punto
+
+interface PoiGeneralTabProps {
+    form: PoiForm;
+    groups: { id_grupo_pois: number; nombre: string }[];
+    isLoadingGroups: boolean;
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+    onGroupChange: (groupId: number) => void;
+}
+
+const PoiGeneralTab = ({
+    form, groups, isLoadingGroups, onChange, onGroupChange,
+}: PoiGeneralTabProps) => (
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-8">
+        <section className="space-y-5">
+            <Field label="Nombre *">
+                <input name="nombre" value={form.nombre} onChange={onChange} className={inputClass} />
+            </Field>
+
+            <Field label="Asignar Grupos de POI">
+                <div className="rounded border border-slate-300 bg-white p-3">
+                    <div className="max-h-72 space-y-2 overflow-y-auto">
+                        {isLoadingGroups && <p className="text-sm text-slate-500">Cargando grupos...</p>}
+                        {!isLoadingGroups && groups.length === 0 && (
+                            <p className="text-sm text-slate-500">No hay grupos de POIs disponibles</p>
+                        )}
+                        {!isLoadingGroups && groups.map((group) => (
+                            <label key={group.id_grupo_pois} className="flex items-center gap-3 rounded px-2 py-2 hover:bg-slate-50">
+                                <input
+                                    type="checkbox"
+                                    checked={form.id_grupo_pois.includes(group.id_grupo_pois)}
+                                    onChange={() => onGroupChange(group.id_grupo_pois)}
+                                    className="h-4 w-4"
+                                />
+                                <span className="text-sm text-slate-700">{group.nombre}</span>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+            </Field>
+
+            <Field label="Observaciones">
+                <textarea
+                    name="observaciones"
+                    value={form.observaciones}
+                    onChange={onChange}
+                    className="min-h-32 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400"
+                />
+            </Field>
+        </section>
+
+        <aside className="rounded-xl border border-slate-200 bg-slate-50 p-4 md:p-5">
+            <h3 className="text-sm font-semibold text-slate-700">Resumen del punto</h3>
+            <div className="mt-4 space-y-3 text-sm text-slate-600">
+                <p><span className="font-medium text-slate-700">Nombre:</span> {form.nombre || "---"}</p>
+                <p><span className="font-medium text-slate-700">Grupos:</span> {form.id_grupo_pois.length}</p>
+                <p><span className="font-medium text-slate-700">Observaciones:</span> {form.observaciones || "---"}</p>
+            </div>
+        </aside>
+    </div>
+);
+
+// Campos del tab Domicilio (marcador y colores)
+
+interface PoiExtraFieldsProps {
+    form: PoiForm;
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
+const PoiExtraFields = ({ form, onChange }: PoiExtraFieldsProps) => (
+    <>
+        {form.tipo_poi === 1 && (
+            <>
+                <Field label="Marcador *">
+                    <div className="flex flex-wrap items-center gap-4 pt-2 md:gap-6">
+                        <RadioOption checked label="Predefinido" onClick={() => { }} />
+                        <RadioOption checked={false} label="Crear Nuevo" onClick={() => { }} />
+                    </div>
+                </Field>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_120px]">
+                    <Field label="Color">
+                        <input name="radio_color" value={form.radio_color} onChange={onChange} className={inputClass} />
+                    </Field>
+                </div>
+
+                <Field label="Marcador">
+                    <input name="url_marker" value={form.url_marker} onChange={onChange} className={inputClass} />
+                </Field>
+            </>
+        )}
+
+        {form.tipo_poi === 2 && (
+            <>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <Field label="Color">
+                        <input name="polygon_color" value={form.polygon_color} onChange={onChange} className={inputClass} />
+                    </Field>
+                </div>
+                <label className="flex items-center gap-3 text-sm text-slate-600">
+                    <input type="checkbox" className="h-4 w-4" />
+                    Ocultar líneas y marcador guía
+                </label>
+            </>
+        )}
+    </>
+);
