@@ -18,6 +18,7 @@ import {
   CatalogGrid,
   useDebounce,
   useDeleteConfirm,
+  usePagination,
 } from "@/components/shared";
 
 export const ClientsCatalogView = () => {
@@ -42,6 +43,8 @@ export const ClientsCatalogView = () => {
     queryFn: () => clientService.list(debouncedSearch, idEmpresa),
     enabled: !!idEmpresa,
   });
+
+  const { paginatedItems, pagination } = usePagination(clients, 10);
 
   const showSkeleton = useDelayedLoading(isLoading);
   const errorMessage = error instanceof Error ? error.message : null;
@@ -76,7 +79,8 @@ export const ClientsCatalogView = () => {
         <CatalogGrid
           isLoading={showSkeleton}
           errorMessage={errorMessage}
-          items={clients}
+          items={paginatedItems} 
+          pagination={pagination}
           activeSearch={debouncedSearch}
           renderItem={(client) => (
             <ClientCard
