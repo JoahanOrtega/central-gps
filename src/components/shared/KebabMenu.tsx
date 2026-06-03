@@ -6,8 +6,10 @@ export interface KebabMenuItem {
   id: string;
   label: string;
   icon: LucideIcon;
-  // "default" = texto slate normal | "destructive" = texto rojo
-  variant?: "default" | "destructive";
+  // "default"     = texto slate normal (editar, ver, etc.)
+  // "warning"     = texto ámbar (inhabilitar, suspender — reversible)
+  // "destructive" = texto rojo (eliminar — irreversible)
+  variant?: "default" | "warning" | "destructive";
   onClick: () => void;
 }
 
@@ -15,6 +17,13 @@ interface KebabMenuProps {
   items: KebabMenuItem[];
   entityName: string;
 }
+
+// Estilos por variante — separados para claridad y fácil extensión
+const VARIANT_STYLES: Record<string, { text: string; hover: string; icon: string }> = {
+  default:     { text: "text-slate-700", hover: "hover:bg-slate-50",  icon: "text-slate-500" },
+  warning:     { text: "text-amber-700", hover: "hover:bg-amber-50",  icon: "text-amber-500" },
+  destructive: { text: "text-red-600",   hover: "hover:bg-red-50",    icon: "text-red-500" },
+};
 
 // Menú de tres puntos (kebab) con cierre al hacer click fuera y con Escape.
 export const KebabMenu = ({ items, entityName }: KebabMenuProps) => {
@@ -45,8 +54,10 @@ export const KebabMenu = ({ items, entityName }: KebabMenuProps) => {
 
   if (items.length === 0) return null;
 
-  // Indice del primer item destructivo
-  const firstDestructiveIndex = items.findIndex((i) => i.variant === "destructive");
+  // Separador antes del primer item no-default (warning o destructive)
+  const firstNonDefaultIndex = items.findIndex(
+    (i) => i.variant === "warning" || i.variant === "destructive",
+  );
 
   return (
     <div className="relative" ref={ref}>
@@ -68,8 +79,9 @@ export const KebabMenu = ({ items, entityName }: KebabMenuProps) => {
         >
           {items.map((item, index) => {
             const Icon = item.icon;
-            const isDestructive = item.variant === "destructive";
-            const showSeparator = index === firstDestructiveIndex && index > 0;
+            const variant = item.variant ?? "default";
+            const styles = VARIANT_STYLES[variant] ?? VARIANT_STYLES.default;
+            const showSeparator = index === firstNonDefaultIndex && index > 0;
 
             return (
               <div key={item.id}>
@@ -83,13 +95,9 @@ export const KebabMenu = ({ items, entityName }: KebabMenuProps) => {
                     setOpen(false);
                     item.onClick();
                   }}
-                  className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm ${
-                    isDestructive
-                      ? "text-red-600 hover:bg-red-50"
-                      : "text-slate-700 hover:bg-slate-50"
-                  }`}
+                  className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm ${styles.text} ${styles.hover}`}
                 >
-                  <Icon className={`h-4 w-4 ${isDestructive ? "" : "text-slate-500"}`} />
+                  <Icon className={`h-4 w-4 ${styles.icon}`} />
                   {item.label}
                 </button>
               </div>
