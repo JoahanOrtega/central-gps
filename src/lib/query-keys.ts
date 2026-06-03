@@ -45,6 +45,8 @@ export const queryKeys = {
             ["catalogs", "clients", idEmpresa] as const,
         clientAlerta: (idCliente: number, idEmpresa?: number | null) =>
             ["catalogs", "clients", "alerta", idCliente, idEmpresa] as const,
+        clientDetail: (idCliente: number, idEmpresa?: number | null) =>
+            ["catalogs", "clients", "detail", idCliente, idEmpresa] as const,
 
         //  Catálogos > Usuarios 
         // La key incluye solo "users" como
