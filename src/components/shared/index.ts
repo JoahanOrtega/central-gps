@@ -18,3 +18,4 @@ export type { GeoFenceValue } from "./GeoFenceTab";
 // Hooks
 export { useDebounce } from "../../hooks/useDebounce";
 export { useDeleteConfirm } from "../../hooks/useDeleteConfirm";
+export { usePagination } from "../../hooks/usePagination";
