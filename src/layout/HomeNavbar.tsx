@@ -40,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "gas-stations", label: "Gasolineras", path: "/home/catalogs/gas-stations", grupo: "catalogs", permiso: "gasolineras.ver", disponible: false },
   { id: "users", label: "Usuarios", path: "/home/catalogs/users", grupo: "catalogs", permiso: "usuarios.ver", disponible: true },
   { id: "monitor", label: "Monitor de flota", path: "/home/operation/monitor", grupo: "operation", permiso: "mapa.ver", disponible: true },
+  { id: "routes", label: "Rutas", path: "/home/operation/routes", grupo: "operation", permiso: "rutas.ver", disponible: true },
   { id: "fuel-general", label: "General", path: "/home/fuel/general", grupo: "fuel", permiso: "cargas.ver", disponible: false },
 ];
 

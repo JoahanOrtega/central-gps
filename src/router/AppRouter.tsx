@@ -26,6 +26,7 @@ const PointsOfInterestPage = lazy(() => import("@/pages/PointsOfInterestPage").t
 const PoiGroupsPage = lazy(() => import("@/pages/PoiGroupsPage").then(m => ({ default: m.PoiGroupsPage })));
 const UsersPage = lazy(() => import("@/features/catalogs/users/pages/UsersPage").then(m => ({ default: m.UsersPage })));
 const ClientsPage = lazy(() => import("@/pages/ClientsPage").then(m => ({ default: m.ClientsPage })));
+const RoutesPage = lazy(() => import("@/pages/RoutesPage").then(m => ({ default: m.RoutesPage })));
 
 // Panel ERP — solo sudo_erp lo descarga
 const EmpresasPage = lazy(() => import("@/features/erp/pages/EmpresasPage").then(m => ({ default: m.EmpresasPage })));
@@ -84,7 +85,7 @@ export const appRouter = createBrowserRouter([
         element: <PermisoRoute permiso="unidades.ver"><LazyPage name="Unidades"><UnitsPage /></LazyPage></PermisoRoute>,
       },
       {
-        path: "catalogs/clients", 
+        path: "catalogs/clients",
         element: <PermisoRoute permiso="clientes.ver"><LazyPage name="Clientes"><ClientsPage /></LazyPage></PermisoRoute>,
       },
       {
@@ -102,6 +103,10 @@ export const appRouter = createBrowserRouter([
       {
         path: "operation/monitor",
         element: <PermisoRoute permiso="mapa.ver"><LazyPage name="Monitor de Flota"><MonitorPage /></LazyPage></PermisoRoute>,
+      },
+      {
+        path: "operation/routes",
+        element: <PermisoRoute permiso="rutas.ver"><LazyPage name="Rutas"><RoutesPage /></LazyPage></PermisoRoute>,
       },
       {
         path: "fuel/general",
