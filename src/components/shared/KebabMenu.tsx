@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useClickOutside } from "@/hooks/useClickOutside";
 
 export interface KebabMenuItem {
   id: string;
@@ -20,9 +22,9 @@ interface KebabMenuProps {
 
 // Estilos por variante — separados para claridad y fácil extensión
 const VARIANT_STYLES: Record<string, { text: string; hover: string; icon: string }> = {
-  default:     { text: "text-slate-700", hover: "hover:bg-slate-50",  icon: "text-slate-500" },
-  warning:     { text: "text-amber-700", hover: "hover:bg-amber-50",  icon: "text-amber-500" },
-  destructive: { text: "text-red-600",   hover: "hover:bg-red-50",    icon: "text-red-500" },
+  default: { text: "text-slate-700", hover: "hover:bg-slate-50", icon: "text-slate-500" },
+  warning: { text: "text-amber-700", hover: "hover:bg-amber-50", icon: "text-amber-500" },
+  destructive: { text: "text-red-600", hover: "hover:bg-red-50", icon: "text-red-500" },
 };
 
 // Menú de tres puntos (kebab) con cierre al hacer click fuera y con Escape.
@@ -30,27 +32,8 @@ export const KebabMenu = ({ items, entityName }: KebabMenuProps) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Cerrar al hacer click fuera
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  // Cerrar con Escape
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [open]);
+  useClickOutside(ref, () => setOpen(false), open);
+  useEscapeKey(() => setOpen(false), open);
 
   if (items.length === 0) return null;
 
