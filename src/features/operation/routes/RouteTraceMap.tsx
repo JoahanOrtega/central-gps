@@ -1,19 +1,27 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { Maximize2 } from "lucide-react";
 import type { LatLng, Parada } from "./route.types";
 import { loadGoogleMaps } from "@/lib/loadGoogleMaps";
 
 const DEFAULT_CENTER = { lat: 21.88234, lng: -102.28259 }; // Aguascalientes
 
-// Lo que el tab puede pedirle al mapa desde fuera
+// Resultado de generar un trazo automáticamente
+export interface GenerateTraceResult {
+    path: LatLng[];
+    distanceKm: number;
+}
+
 export interface RouteTraceMapHandle {
     // Centra el mapa en una coordenada y hace zoom
     panTo: (position: LatLng) => void;
-    // Geocodifica una dirección → coordenada + dirección formateada
     geocodeAddress: (
         address: string,
     ) => Promise<{ lat: number; lng: number; formattedAddress: string } | null>;
-    // Geocodificación inversa: coordenada → dirección legible
     reverseGeocode: (lat: number, lng: number) => Promise<string | null>;
+    generateTrace: (
+        stops: LatLng[],
+    ) => Promise<GenerateTraceResult | null>;
+    fitAll: () => void;
 }
 
 interface RouteTraceMapProps {
@@ -34,15 +42,14 @@ export const RouteTraceMap = forwardRef<RouteTraceMapHandle, RouteTraceMapProps>
         const mapInstanceRef = useRef<google.maps.Map | null>(null);
         const polylineRef = useRef<google.maps.Polyline | null>(null);
         const markersRef = useRef<google.maps.Marker[]>([]);
-        // Un círculo por cada parada circular — dibuja su geocerca (radio)
+        // Un círculo por cada parada circular
         const circlesRef = useRef<google.maps.Circle[]>([]);
         // Un solo infoWindow reutilizado para todas las paradas
         const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
         const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+        const directionsRef = useRef<google.maps.DirectionsService | null>(null);
         const clickListenerRef = useRef<google.maps.MapsEventListener | null>(null);
-
-        // Guardamos los callbacks en refs para que el listener de click
-        // siempre use la versión más reciente sin re-registrarse.
+        
         const placingRef = useRef(placingMode);
         const onClickRef = useRef(onMapClick);
         placingRef.current = placingMode;
@@ -60,12 +67,18 @@ export const RouteTraceMap = forwardRef<RouteTraceMapHandle, RouteTraceMapProps>
                     center: DEFAULT_CENTER,
                     zoom: 13,
                     mapTypeControl: true,
+                    mapTypeControlOptions: {
+                        // Mover el toggle Mapa/Satélite a la derecha para dejar
+                        // libre la esquina superior izquierda al botón Ajustar vista
+                        position: window.google.maps.ControlPosition.TOP_RIGHT,
+                    },
                     streetViewControl: false,
                     fullscreenControl: true,
                 });
 
                 mapInstanceRef.current = map;
                 geocoderRef.current = new window.google.maps.Geocoder();
+                directionsRef.current = new window.google.maps.DirectionsService();
                 infoWindowRef.current = new window.google.maps.InfoWindow();
 
                 // Click en el mapa — solo actúa si estamos en modo colocación
@@ -187,6 +200,16 @@ export const RouteTraceMap = forwardRef<RouteTraceMapHandle, RouteTraceMapProps>
 
             if (!bounds.isEmpty()) map.fitBounds(bounds);
         };
+        const fitToContent = () => {
+            const map = mapInstanceRef.current;
+            if (!map || !window.google?.maps) return;
+            const bounds = new window.google.maps.LatLngBounds();
+            path.forEach((p) => bounds.extend(p));
+            paradas
+                .filter((p) => p.latitud !== 0 && p.longitud !== 0)
+                .forEach((p) => bounds.extend({ lat: p.latitud, lng: p.longitud }));
+            if (!bounds.isEmpty()) map.fitBounds(bounds);
+        };
 
         // API expuesta al tab
         useImperativeHandle(ref, () => ({
@@ -225,6 +248,56 @@ export const RouteTraceMap = forwardRef<RouteTraceMapHandle, RouteTraceMapProps>
                     });
                 });
             },
+
+            fitAll: () => fitToContent(),
+
+            generateTrace: async (stops) => {
+                if (stops.length < 2) return null;
+
+                // ── API de Directions: genera el trazo siguiendo las calles ──
+                const service = directionsRef.current;
+                if (!service || !window.google?.maps) return null;
+
+                const MAX_POINTS = 25;
+                const fullPath: LatLng[] = [];
+                let totalMeters = 0;
+
+                for (let start = 0; start < stops.length - 1; start += MAX_POINTS - 1) {
+                    const chunk = stops.slice(start, start + MAX_POINTS);
+                    if (chunk.length < 2) break;
+
+                    const origin = chunk[0];
+                    const destination = chunk[chunk.length - 1];
+                    const waypoints = chunk.slice(1, -1).map((s) => ({
+                        location: new window.google.maps.LatLng(s.lat, s.lng),
+                        stopover: true,
+                    }));
+
+                    const result = await new Promise<google.maps.DirectionsResult | null>((resolve) => {
+                        service.route(
+                            {
+                                origin: new window.google.maps.LatLng(origin.lat, origin.lng),
+                                destination: new window.google.maps.LatLng(destination.lat, destination.lng),
+                                waypoints,
+                                travelMode: window.google.maps.TravelMode.DRIVING,
+                            },
+                            (res, status) => resolve(status === "OK" ? res : null),
+                        );
+                    });
+
+                    // Si un segmento falla, devolvemos null para que el tab avise
+                    if (!result?.routes[0]) return null;
+
+                    result.routes[0].legs.forEach((leg) => {
+                        totalMeters += leg.distance?.value ?? 0;
+                        leg.steps.forEach((step) => {
+                            step.path.forEach((p) => fullPath.push({ lat: p.lat(), lng: p.lng() }));
+                        });
+                    });
+                }
+
+                return { path: fullPath, distanceKm: totalMeters / 1000 };
+            },
         }));
 
         return (
@@ -234,12 +307,25 @@ export const RouteTraceMap = forwardRef<RouteTraceMapHandle, RouteTraceMapProps>
                         Haz click en el mapa para ubicar la parada, o arrastra su marcador para ajustarla.
                     </div>
                 )}
-                <div
-                    ref={mapRef}
-                    className="h-[420px] w-full rounded-lg"
-                    role="application"
-                    aria-label="Mapa del trazo de la ruta"
-                />
+                <div className="relative">
+                    <div
+                        ref={mapRef}
+                        className="h-[420px] w-full rounded-lg"
+                        role="application"
+                        aria-label="Mapa del trazo de la ruta"
+                    />
+                    {(path.length > 0 || paradas.some((p) => p.latitud !== 0)) && (
+                        <button
+                            type="button"
+                            onClick={fitToContent}
+                            title="Ver toda la ruta en pantalla"
+                            className="absolute left-2.5 top-2.5 z-10 flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/95 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm backdrop-blur hover:bg-white"
+                        >
+                            <Maximize2 className="h-3.5 w-3.5" />
+                            Ajustar vista
+                        </button>
+                    )}
+                </div>
             </div>
         );
     },
