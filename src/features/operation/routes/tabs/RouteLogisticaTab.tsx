@@ -1,14 +1,16 @@
 import { useRef, useState } from "react";
-import { Upload, MapPin, Trash2, Crosshair } from "lucide-react";
+import { Upload, MapPin, Trash2, Crosshair, MapPinned, Flag, CircleDot, Route, Loader2 } from "lucide-react";
 import type { Logistica, Parada, LatLng } from "../route.types";
 import { parseKmlRoute } from "../kml";
 import { notify } from "@/stores/notificationStore";
 import { Field, inputClass } from "@/components/shared/form-helpers";
 import { RouteTraceMap, type RouteTraceMapHandle } from "../RouteTraceMap";
+import { PoiSelectorModal } from "../PoiSelectorModal";
+import { PoiAddressInput } from "../PoiAddressInput";
 
 interface RouteLogisticaTabProps {
   logistica: Logistica;
-  onChange:  (logistica: Logistica) => void;
+  onChange: (logistica: Logistica) => void;
 }
 
 type SubTab = "datos" | "paradas" | "nueva";
@@ -16,10 +18,16 @@ type SubTab = "datos" | "paradas" | "nueva";
 export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProps) => {
   const [subTab, setSubTab] = useState<SubTab>("datos");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const mapRef       = useRef<RouteTraceMapHandle | null>(null);
+  const mapRef = useRef<RouteTraceMapHandle | null>(null);
 
   // Parada pendiente de ubicar con click en el mapa (modo colocación)
   const [placingParada, setPlacingParada] = useState<number | null>(null);
+  // Modal selector de POIs — guarda PARA QUÉ campo se abrió:
+  // "inicio"/"fin" = parada fija | "nueva" = parada intermedia
+  const [poiSelectorTarget, setPoiSelectorTarget] =
+    useState<"inicio" | "fin" | "nueva" | null>(null);
+  // Generación de trazo: estado de carga para feedback en la UI
+  const [generando, setGenerando] = useState(false);
 
   // Subir KML
   const handleKmlSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,13 +43,59 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
         return;
       }
 
+      // Marcamos la primera parada como Inicio y la última como Fin,
+      // igual que cuando se definen manualmente. Las de en medio quedan
+      // como intermedias.
+      const total = result.waypoints.length;
+      const paradas: Parada[] = result.waypoints.map((p, i) => {
+        const esInicio = i === 0;
+        const esFin = i === total - 1 && total > 1;
+        return {
+          ...p,
+          numero: i + 1,
+          nombre: esInicio ? "Inicio de ruta" : esFin ? "Fin de ruta" : p.nombre,
+          esFija: esInicio ? "inicio" : esFin ? "fin" : undefined,
+          radio: esInicio || esFin ? 200 : p.radio,
+        };
+      });
+
+      // Resolvemos la dirección de inicio/fin. Si el KML no trae dirección
+      // (lo común), la obtenemos geocodificando al revés las coordenadas.
+      // Así el campo de texto y la parada muestran exactamente lo mismo.
+      const inicioWp = result.waypoints[0];
+      const finWp = total > 1 ? result.waypoints[total - 1] : undefined;
+
+      let direccionInicio = inicioWp?.direccion ?? "";
+      let direccionFin = finWp?.direccion ?? "";
+
+      if (mapRef.current) {
+        if (!direccionInicio && inicioWp) {
+          direccionInicio =
+            (await mapRef.current.reverseGeocode(inicioWp.latitud, inicioWp.longitud)) ?? "";
+        }
+        if (!direccionFin && finWp) {
+          direccionFin =
+            (await mapRef.current.reverseGeocode(finWp.latitud, finWp.longitud)) ?? "";
+        }
+      }
+
+      // Reflejamos la dirección resuelta dentro de las paradas fijas
+      // para que la fila muestre lo mismo que el campo de arriba.
+      const paradasSincronizadas = paradas.map((p) => {
+        if (p.esFija === "inicio" && direccionInicio) return { ...p, direccion: direccionInicio };
+        if (p.esFija === "fin" && direccionFin) return { ...p, direccion: direccionFin };
+        return p;
+      });
+
       onChange({
         ...logistica,
         path: result.trace,
-        paradas: result.waypoints.map((p, i) => ({ ...p, numero: i + 1 })),
+        paradas: paradasSincronizadas,
+        direccion_inicio: direccionInicio || logistica.direccion_inicio,
+        direccion_fin: direccionFin || logistica.direccion_fin,
       });
       notify.success(
-        `KML importado: ${result.trace.length} puntos de trazo y ${result.waypoints.length} paradas.`,
+        `KML importado: ${result.trace.length} puntos de trazo y ${total} paradas (inicio y fin marcados).`,
       );
       setSubTab("paradas");
     } catch {
@@ -69,29 +123,105 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
     if (placingParada === numero) setPlacingParada(null);
   };
 
-  // Agregar parada: intenta geocodificar la dirección; si no hay, pide click en mapa
-  const handleAddParada = async (parada: Omit<Parada, "numero">) => {
-    const numero = logistica.paradas.length + 1;
-    let ubicada = { ...parada, numero };
+  const reordenarParadas = (paradas: Parada[]): Parada[] => {
+    const inicio = paradas.find((p) => p.esFija === "inicio");
+    const fin = paradas.find((p) => p.esFija === "fin");
+    const intermedias = paradas.filter((p) => !p.esFija);
+    const ordenadas = [
+      ...(inicio ? [inicio] : []),
+      ...intermedias,
+      ...(fin ? [fin] : []),
+    ];
+    return ordenadas.map((p, i) => ({ ...p, numero: i + 1 }));
+  };
 
-    if (parada.direccion.trim() && mapRef.current) {
+  const setParadaFija = (
+    rol: "inicio" | "fin",
+    datos: { nombre: string; direccion: string; latitud: number; longitud: number; id_poi?: number | null },
+  ) => {
+    const otras = logistica.paradas.filter((p) => p.esFija !== rol);
+    const fija: Parada = {
+      id: `fija-${rol}`,
+      numero: 0, // se recalcula en reordenarParadas
+      nombre: rol === "inicio" ? "Inicio de ruta" : "Fin de ruta",
+      direccion: datos.direccion,
+      latitud: datos.latitud,
+      longitud: datos.longitud,
+      tipo_geocerca: "circular",
+      radio: 200, // las paradas de inicio/fin usan radio amplio
+      esFija: rol,
+      id_poi: datos.id_poi ?? null,
+    };
+    onChange({
+      ...logistica,
+      [rol === "inicio" ? "direccion_inicio" : "direccion_fin"]: datos.direccion,
+      paradas: reordenarParadas([...otras, fija]),
+    });
+  };
+
+  // Geocodifica una dirección libre y la fija como inicio/fin
+  const resolverDireccionFija = async (rol: "inicio" | "fin", direccion: string) => {
+    if (!mapRef.current) return;
+    const geo = await mapRef.current.geocodeAddress(direccion);
+    if (!geo) {
+      notify.error("No se pudo ubicar esa dirección. Intenta ser más específico.");
+      return;
+    }
+    setParadaFija(rol, {
+      nombre: rol === "inicio" ? "Inicio de ruta" : "Fin de ruta",
+      direccion: geo.formattedAddress,
+      latitud: geo.lat,
+      longitud: geo.lng,
+    });
+    mapRef.current.panTo({ lat: geo.lat, lng: geo.lng });
+  };
+
+  // Agregar una parada intermedia (desde "Nuevo punto" o el selector)
+  const handleAddParada = async (parada: Omit<Parada, "numero">) => {
+    let ubicada = { ...parada, numero: 0 };
+
+    // Si ya viene con coordenadas (ej: desde un POI), no geocodificar
+    const yaUbicada = parada.latitud !== 0 && parada.longitud !== 0;
+
+    if (!yaUbicada && parada.direccion.trim() && mapRef.current) {
       const geo = await mapRef.current.geocodeAddress(parada.direccion);
       if (geo) {
         ubicada = { ...ubicada, latitud: geo.lat, longitud: geo.lng, direccion: geo.formattedAddress };
-        mapRef.current.panTo({ lat: geo.lat, lng: geo.lng });
       }
     }
 
-    onChange({ ...logistica, paradas: [...logistica.paradas, ubicada] });
+    // Insertar respetando el orden (queda entre inicio y fin)
+    const nuevas = reordenarParadas([...logistica.paradas, ubicada]);
+    onChange({ ...logistica, paradas: nuevas });
     setSubTab("paradas");
 
-    // Si no se pudo geocodificar, activar modo colocación para ubicarla con click
-    if (ubicada.latitud === 0 && ubicada.longitud === 0) {
-      setPlacingParada(numero);
-      notify.info("Ubica la parada haciendo click en el mapa.");
-    } else {
+    if (ubicada.latitud !== 0 && ubicada.longitud !== 0) {
+      mapRef.current?.panTo({ lat: ubicada.latitud, lng: ubicada.longitud });
       notify.success("Parada agregada y ubicada");
+    } else {
+      // numero real tras reordenar
+      const insertada = nuevas.find((p) => p.id === ubicada.id);
+      if (insertada) setPlacingParada(insertada.numero);
+      notify.info("Ubica la parada haciendo click en el mapa.");
     }
+  };
+
+  // El selector de POIs devuelve una parada; según para qué se abrió,
+  // la usamos como inicio, fin o parada intermedia.
+  const handlePoiSelected = (parada: Omit<Parada, "numero">) => {
+    if (poiSelectorTarget === "inicio" || poiSelectorTarget === "fin") {
+      setParadaFija(poiSelectorTarget, {
+        nombre: parada.nombre,
+        direccion: parada.direccion,
+        latitud: parada.latitud,
+        longitud: parada.longitud,
+        id_poi: parada.id_poi,
+      });
+      setSubTab("paradas");
+    } else {
+      handleAddParada(parada);
+    }
+    setPoiSelectorTarget(null);
   };
 
   // Click en el mapa estando en modo colocación
@@ -123,9 +253,53 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
     });
   };
 
+  // Genera el trazo de la ruta conectando las paradas ubicadas por carretera.
+  const handleGenerateTrace = async () => {
+    const ubicadas = logistica.paradas.filter(
+      (p) => p.latitud !== 0 && p.longitud !== 0,
+    );
+    if (ubicadas.length < 2) {
+      notify.error("Necesitas al menos 2 paradas ubicadas para generar el trazo.");
+      return;
+    }
+    if (!mapRef.current) return;
+
+    setGenerando(true);
+    try {
+      const stops = ubicadas.map((p) => ({ lat: p.latitud, lng: p.longitud }));
+      const result = await mapRef.current.generateTrace(stops, "driving");
+
+      if (!result || result.path.length === 0) {
+        notify.error(
+          "No se pudo generar el trazo por carretera. Verifica que las paradas tengan ubicación válida.",
+        );
+        return;
+      }
+
+      // Actualizamos el trazo y autocompletamos los kilómetros
+      onChange({
+        ...logistica,
+        path: result.path,
+        kilometros: Number(result.distanceKm.toFixed(2)),
+      });
+      notify.success(`Trazo generado: ${result.distanceKm.toFixed(2)} km siguiendo calles`);
+    } catch {
+      notify.error("Ocurrió un error al generar el trazo.");
+    } finally {
+      setGenerando(false);
+    }
+  };
+
+  const totalParadas = logistica.paradas.length;
+
+  // El rol de una parada viene de su flag esFija (no de su posición)
+  const getRolParada = (parada: Parada): "inicio" | "fin" | "intermedia" =>
+    parada.esFija ?? "intermedia";
+
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(360px,460px)_minmax(0,1fr)] xl:gap-8">
       <section>
+        {/* Barra de acciones */}
         <div className="mb-4 flex flex-wrap gap-2">
           <input
             ref={fileInputRef}
@@ -145,33 +319,53 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
         </div>
 
         <div className="mb-4 flex flex-wrap gap-1 border-b border-slate-200">
-          <SubTabButton active={subTab === "datos"}   onClick={() => setSubTab("datos")}>
+          <SubTabButton active={subTab === "datos"} onClick={() => setSubTab("datos")}>
             1. Datos generales
           </SubTabButton>
           <SubTabButton active={subTab === "paradas"} onClick={() => setSubTab("paradas")}>
             2. Puntos de abordaje
           </SubTabButton>
-          <SubTabButton active={subTab === "nueva"}   onClick={() => setSubTab("nueva")}>
+          <SubTabButton active={subTab === "nueva"} onClick={() => setSubTab("nueva")}>
             3. Nuevo punto
           </SubTabButton>
         </div>
 
         {subTab === "datos" && (
           <div className="space-y-5">
-            <Field label="Dirección de inicio">
-              <input
+            <Field label="Dirección de inicio *">
+              <PoiAddressInput
                 value={logistica.direccion_inicio}
-                onChange={(e) => onChange({ ...logistica, direccion_inicio: e.target.value })}
-                className={inputClass}
-                placeholder="Dirección donde inicia la ruta"
+                onChange={(address) => onChange({ ...logistica, direccion_inicio: address })}
+                onBrowsePois={() => setPoiSelectorTarget("inicio")}
+                onResolveText={(address) => resolverDireccionFija("inicio", address)}
+                onPoiSelect={(poi) =>
+                  setParadaFija("inicio", {
+                    nombre: poi.nombre,
+                    direccion: poi.direccion ?? poi.nombre,
+                    latitud: poi.lat ?? 0,
+                    longitud: poi.lng ?? 0,
+                    id_poi: poi.id_poi,
+                  })
+                }
+                placeholder="Busca un POI o escribe la dirección de inicio"
               />
             </Field>
-            <Field label="Dirección de fin">
-              <input
+            <Field label="Dirección de fin *">
+              <PoiAddressInput
                 value={logistica.direccion_fin}
-                onChange={(e) => onChange({ ...logistica, direccion_fin: e.target.value })}
-                className={inputClass}
-                placeholder="Dirección donde termina la ruta"
+                onChange={(address) => onChange({ ...logistica, direccion_fin: address })}
+                onBrowsePois={() => setPoiSelectorTarget("fin")}
+                onResolveText={(address) => resolverDireccionFija("fin", address)}
+                onPoiSelect={(poi) =>
+                  setParadaFija("fin", {
+                    nombre: poi.nombre,
+                    direccion: poi.direccion ?? poi.nombre,
+                    latitud: poi.lat ?? 0,
+                    longitud: poi.lng ?? 0,
+                    id_poi: poi.id_poi,
+                  })
+                }
+                placeholder="Busca un POI o escribe la dirección de fin"
               />
             </Field>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -211,10 +405,18 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
         )}
 
         {subTab === "paradas" && (
-          <div>
-            {logistica.paradas.length === 0 ? (
+          <div className="space-y-4">
+            {/* Panel para generar el trazo de la ruta */}
+            <TraceGeneratorPanel
+              paradasUbicadas={logistica.paradas.filter((p) => p.latitud !== 0 && p.longitud !== 0).length}
+              tieneTrazo={logistica.path.length > 0}
+              generando={generando}
+              onGenerate={handleGenerateTrace}
+            />
+
+            {totalParadas === 0 ? (
               <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
-                No hay paradas. Sube un KML o agrégalas desde la pestaña "Nuevo punto".
+                No hay paradas. Sube un KML, selecciónalas desde POIs o agrégalas en "Nuevo punto".
               </div>
             ) : (
               <div className="overflow-hidden rounded-lg border border-slate-200">
@@ -230,13 +432,29 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
                   <tbody>
                     {logistica.paradas.map((parada) => {
                       const sinUbicar = parada.latitud === 0 && parada.longitud === 0;
+                      const rol = getRolParada(parada);
+
                       return (
                         <tr key={parada.numero} className="border-t border-slate-100">
                           <td className="px-3 py-2 text-slate-500">{parada.numero}</td>
                           <td className="px-3 py-2">
+                            {/* Badge de inicio / fin */}
+                            {rol === "inicio" && (
+                              <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                                <CircleDot className="h-3 w-3" /> Inicio de ruta
+                              </span>
+                            )}
+                            {rol === "fin" && (
+                              <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700">
+                                <Flag className="h-3 w-3" /> Fin de ruta
+                              </span>
+                            )}
                             <p className="font-medium text-slate-700">{parada.nombre}</p>
                             {parada.direccion && (
                               <p className="text-xs text-slate-400">{parada.direccion}</p>
+                            )}
+                            {parada.id_poi && (
+                              <p className="text-[11px] text-cyan-600">Desde POI</p>
                             )}
                             {sinUbicar && (
                               <button
@@ -267,14 +485,21 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
                             </div>
                           </td>
                           <td className="px-3 py-2">
-                            <button
-                              type="button"
-                              onClick={() => removeParada(parada.numero)}
-                              className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                              aria-label={`Eliminar parada ${parada.numero}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {/* Inicio y fin no se pueden eliminar */}
+                            {rol === "intermedia" ? (
+                              <button
+                                type="button"
+                                onClick={() => removeParada(parada.numero)}
+                                className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                                aria-label={`Eliminar parada ${parada.numero}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            ) : (
+                              <span className="text-[11px] text-slate-300" title="Las paradas de inicio y fin no se pueden eliminar">
+                                fija
+                              </span>
+                            )}
                           </td>
                         </tr>
                       );
@@ -286,7 +511,12 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
           </div>
         )}
 
-        {subTab === "nueva" && <NewParadaForm onAdd={handleAddParada} />}
+        {subTab === "nueva" && (
+          <NewParadaForm
+            onAdd={handleAddParada}
+            onOpenPoiSelector={() => setPoiSelectorTarget("nueva")}
+          />
+        )}
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-slate-50 p-3 md:p-4">
@@ -300,6 +530,13 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
           onParadaMoved={handleParadaMoved}
         />
       </section>
+
+      {/* Modal selector de POIs (compartido por inicio, fin y nueva parada) */}
+      <PoiSelectorModal
+        open={poiSelectorTarget !== null}
+        onClose={() => setPoiSelectorTarget(null)}
+        onSelect={handlePoiSelected}
+      />
     </div>
   );
 };
@@ -312,25 +549,92 @@ const SubTabButton = ({
   <button
     type="button"
     onClick={onClick}
-    className={`rounded-t-lg px-3 py-2 text-sm font-medium ${
-      active
+    className={`rounded-t-lg px-3 py-2 text-sm font-medium ${active
         ? "border border-b-white border-slate-200 bg-white text-cyan-700"
         : "text-slate-500 hover:text-slate-700"
-    }`}
+      }`}
   >
     {children}
   </button>
 );
 
-interface NewParadaFormProps {
-  onAdd: (parada: Omit<Parada, "numero">) => void;
+interface TraceGeneratorPanelProps {
+  paradasUbicadas: number;
+  tieneTrazo: boolean;
+  generando: boolean;
+  onGenerate: () => void;
 }
 
-const NewParadaForm = ({ onAdd }: NewParadaFormProps) => {
-  const [nombre, setNombre]       = useState("");
+const TraceGeneratorPanel = ({
+  paradasUbicadas, tieneTrazo, generando, onGenerate,
+}: TraceGeneratorPanelProps) => {
+  const listo = paradasUbicadas >= 2;
+
+  if (!listo) {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+        <Route className="h-5 w-5 shrink-0 text-slate-400" />
+        <p>
+          Agrega al menos <span className="font-medium text-slate-600">2 paradas ubicadas</span> para
+          generar el trazo de la ruta automáticamente.
+        </p>
+      </div>
+    );
+  }
+
+  if (generando) {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-700">
+        <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
+        <p>Generando el trazo de la ruta, un momento...</p>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-cyan-200 bg-gradient-to-br from-cyan-50 to-white px-4 py-3.5">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-100 text-cyan-700">
+          <Route className="h-5 w-5" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-slate-700">
+            {tieneTrazo ? "Regenerar trazo" : "Generar trazo de la ruta"}
+          </p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {tieneTrazo
+              ? `Trazo existente. Vuelve a generarlo si modificaste las paradas.`
+              : `Conecta las ${paradasUbicadas} paradas ubicadas siguiendo las calles reales.`}
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onGenerate}
+              className="flex items-center gap-2 rounded-lg bg-cyan-500 px-3.5 py-2 text-sm font-medium text-white hover:bg-cyan-600"
+            >
+              <Route className="h-4 w-4" />
+              Generar trazo
+            </button>
+
+          </div>
+
+
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface NewParadaFormProps {
+  onAdd: (parada: Omit<Parada, "numero">) => void;
+  onOpenPoiSelector: () => void;
+}
+
+const NewParadaForm = ({ onAdd, onOpenPoiSelector }: NewParadaFormProps) => {
+  const [nombre, setNombre] = useState("");
   const [direccion, setDireccion] = useState("");
-  const [tipoGeo, setTipoGeo]     = useState<Parada["tipo_geocerca"]>("circular");
-  const [radio, setRadio]         = useState(50);
+  const [tipoGeo, setTipoGeo] = useState<Parada["tipo_geocerca"]>("circular");
+  const [radio, setRadio] = useState(50);
 
   const handleAdd = () => {
     if (!nombre.trim()) {
@@ -338,13 +642,14 @@ const NewParadaForm = ({ onAdd }: NewParadaFormProps) => {
       return;
     }
     onAdd({
-      id:            `manual-${Date.now()}`,
-      nombre:        nombre.trim(),
-      direccion:     direccion.trim(),
-      latitud:       0,
-      longitud:      0,
+      id: `manual-${Date.now()}`,
+      nombre: nombre.trim(),
+      direccion: direccion.trim(),
+      latitud: 0,
+      longitud: 0,
       tipo_geocerca: tipoGeo,
       radio,
+      id_poi: null,
     });
     setNombre("");
     setDireccion("");
@@ -353,6 +658,25 @@ const NewParadaForm = ({ onAdd }: NewParadaFormProps) => {
 
   return (
     <div className="space-y-5">
+      {/* Acceso directo al selector de POIs */}
+      <button
+        type="button"
+        onClick={onOpenPoiSelector}
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-cyan-300 bg-cyan-50/50 px-4 py-3 text-sm font-medium text-cyan-700 hover:bg-cyan-50"
+      >
+        <MapPinned className="h-4 w-4" />
+        Seleccionar desde un POI existente
+      </button>
+
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-slate-200" />
+        </div>
+        <div className="relative flex justify-center">
+          <span className="bg-white px-2 text-xs text-slate-400">o captura una nueva</span>
+        </div>
+      </div>
+
       <Field label="Nombre *">
         <input
           value={nombre}
@@ -385,9 +709,8 @@ const NewParadaForm = ({ onAdd }: NewParadaFormProps) => {
                 className="flex items-center gap-2 text-sm text-slate-700"
               >
                 <span
-                  className={`flex h-4 w-4 items-center justify-center rounded-full border ${
-                    tipoGeo === t ? "border-cyan-500" : "border-slate-300"
-                  }`}
+                  className={`flex h-4 w-4 items-center justify-center rounded-full border ${tipoGeo === t ? "border-cyan-500" : "border-slate-300"
+                    }`}
                 >
                   {tipoGeo === t && <span className="h-2 w-2 rounded-full bg-cyan-500" />}
                 </span>
