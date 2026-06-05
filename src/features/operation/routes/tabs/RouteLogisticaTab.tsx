@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Upload, MapPin, Trash2, Crosshair, MapPinned, Flag, CircleDot, Route, Loader2 } from "lucide-react";
+import { Upload, MapPin, Trash2, Crosshair, MapPinned, Flag, CircleDot, Route, Loader2, Pencil, Check, Ban } from "lucide-react";
 import type { Logistica, Parada, LatLng } from "../route.types";
 import { parseKmlRoute } from "../kml";
 import { notify } from "@/stores/notificationStore";
@@ -28,6 +28,8 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
     useState<"inicio" | "fin" | "nueva" | null>(null);
   // Generación de trazo: estado de carga para feedback en la UI
   const [generando, setGenerando] = useState(false);
+  // Parada que se está editando (por número); null = no se edita ninguna
+  const [editandoParada, setEditandoParada] = useState<number | null>(null);
 
   // Subir KML
   const handleKmlSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -123,6 +125,9 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
     if (placingParada === numero) setPlacingParada(null);
   };
 
+  // Agregar parada: intenta geocodificar la dirección; si no hay, pide click en mapa
+  // Reordena las paradas: la fija "inicio" siempre primero, la fija "fin"
+  // siempre al final, y las intermedias en medio. Renumera todo.
   const reordenarParadas = (paradas: Parada[]): Parada[] => {
     const inicio = paradas.find((p) => p.esFija === "inicio");
     const fin = paradas.find((p) => p.esFija === "fin");
@@ -135,6 +140,8 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
     return ordenadas.map((p, i) => ({ ...p, numero: i + 1 }));
   };
 
+  // Crea o reemplaza la parada fija de inicio/fin a partir de unos datos.
+  // Une el cambio de dirección y el de paradas en un solo onChange.
   const setParadaFija = (
     rol: "inicio" | "fin",
     datos: { nombre: string; direccion: string; latitud: number; longitud: number; id_poi?: number | null },
@@ -224,6 +231,29 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
     setPoiSelectorTarget(null);
   };
 
+  // Guardar los cambios de la parada en edición
+  const handleSaveParada = async (patch: Partial<Parada>) => {
+    if (editandoParada === null) return;
+
+    // Si cambió la dirección y no hay coordenadas nuevas, geocodificar
+    let finalPatch = { ...patch };
+    if (patch.direccion && patch.latitud === undefined && mapRef.current) {
+      const geo = await mapRef.current.geocodeAddress(patch.direccion);
+      if (geo) {
+        finalPatch = { ...finalPatch, latitud: geo.lat, longitud: geo.lng, direccion: geo.formattedAddress };
+      }
+    }
+
+    updateParada(editandoParada, finalPatch);
+    setEditandoParada(null);
+
+    // Si la parada quedó ubicada, centrar el mapa en ella
+    const lat = finalPatch.latitud;
+    const lng = finalPatch.longitud;
+    if (lat && lng) mapRef.current?.panTo({ lat, lng });
+    notify.success("Parada actualizada");
+  };
+
   // Click en el mapa estando en modo colocación
   const handleMapClick = async (position: LatLng) => {
     if (placingParada === null) return;
@@ -238,6 +268,11 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
     });
     setPlacingParada(null);
     notify.success("Parada ubicada");
+  };
+
+  // El usuario editó los vértices de una geocerca poligonal en el mapa
+  const handleParadaPolygonChanged = (numero: number, vertices: LatLng[]) => {
+    updateParada(numero, { poligono: vertices });
   };
 
   // Arrastrar el marcador de una parada ya ubicada
@@ -404,7 +439,15 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
           </div>
         )}
 
-        {subTab === "paradas" && (
+        {subTab === "paradas" && editandoParada !== null && (
+          <ParadaEditor
+            parada={logistica.paradas.find((p) => p.numero === editandoParada)!}
+            onSave={handleSaveParada}
+            onCancel={() => setEditandoParada(null)}
+          />
+        )}
+
+        {subTab === "paradas" && editandoParada === null && (
           <div className="space-y-4">
             {/* Panel para generar el trazo de la ruta */}
             <TraceGeneratorPanel
@@ -485,21 +528,34 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
                             </div>
                           </td>
                           <td className="px-3 py-2">
-                            {/* Inicio y fin no se pueden eliminar */}
-                            {rol === "intermedia" ? (
+                            <div className="flex items-center gap-1">
+                              {/* Editar (disponible para todas, incluidas inicio/fin) */}
                               <button
                                 type="button"
-                                onClick={() => removeParada(parada.numero)}
-                                className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                                aria-label={`Eliminar parada ${parada.numero}`}
+                                onClick={() => setEditandoParada(parada.numero)}
+                                className="rounded p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600"
+                                aria-label={`Editar parada ${parada.numero}`}
+                                title="Editar parada"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Pencil className="h-4 w-4" />
                               </button>
-                            ) : (
-                              <span className="text-[11px] text-slate-300" title="Las paradas de inicio y fin no se pueden eliminar">
-                                fija
-                              </span>
-                            )}
+                              {/* Inicio y fin no se pueden eliminar */}
+                              {rol === "intermedia" ? (
+                                <button
+                                  type="button"
+                                  onClick={() => removeParada(parada.numero)}
+                                  className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                                  aria-label={`Eliminar parada ${parada.numero}`}
+                                  title="Eliminar parada"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              ) : (
+                                <span className="px-1 text-[11px] text-slate-300" title="Las paradas de inicio y fin no se pueden eliminar">
+                                  fija
+                                </span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -528,6 +584,7 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
           placingMode={placingParada !== null}
           onMapClick={handleMapClick}
           onParadaMoved={handleParadaMoved}
+          onParadaPolygonChanged={handleParadaPolygonChanged}
         />
       </section>
 
@@ -558,6 +615,11 @@ const SubTabButton = ({
   </button>
 );
 
+// ── Panel para generar el trazo de la ruta ───────────────────────────────────
+// UX: cambia su contenido según el estado para guiar al usuario.
+//   - Pocas paradas → mensaje de ayuda (deshabilitado)
+//   - Listo para generar → llamada a la acción con dos modos
+//   - Trazo ya generado → confirmación + opción de regenerar
 interface TraceGeneratorPanelProps {
   paradasUbicadas: number;
   tieneTrazo: boolean;
@@ -570,6 +632,7 @@ const TraceGeneratorPanel = ({
 }: TraceGeneratorPanelProps) => {
   const listo = paradasUbicadas >= 2;
 
+  // Estado: aún no hay suficientes paradas
   if (!listo) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
@@ -582,6 +645,7 @@ const TraceGeneratorPanel = ({
     );
   }
 
+  // Estado: generando (spinner)
   if (generando) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-700">
@@ -590,6 +654,8 @@ const TraceGeneratorPanel = ({
       </div>
     );
   }
+
+  // Estado: listo para generar (o regenerar si ya hay trazo)
   return (
     <div className="rounded-xl border border-cyan-200 bg-gradient-to-br from-cyan-50 to-white px-4 py-3.5">
       <div className="flex items-start gap-3">
@@ -741,6 +807,148 @@ const NewParadaForm = ({ onAdd, onOpenPoiSelector }: NewParadaFormProps) => {
         <MapPin className="h-4 w-4" />
         Agregar parada
       </button>
+    </div>
+  );
+};
+
+// ── Editor de una parada individual ──────────────────────────────────────────
+// Permite cambiar nombre, dirección, tipo de geocerca y radio. La edición de
+// inicio/fin también pasa por aquí (conservan su rol). El dibujo de polígonos
+// en el mapa llegará en la Entrega 3; por ahora se conserva el polígono que
+// la parada ya tenga (ej: importado de un POI).
+interface ParadaEditorProps {
+  parada: Parada;
+  onSave: (patch: Partial<Parada>) => void;
+  onCancel: () => void;
+}
+
+const ParadaEditor = ({ parada, onSave, onCancel }: ParadaEditorProps) => {
+  const [nombre, setNombre] = useState(parada.nombre);
+  const [direccion, setDireccion] = useState(parada.direccion);
+  const [tipoGeo, setTipoGeo] = useState<Parada["tipo_geocerca"]>(parada.tipo_geocerca);
+  const [radio, setRadio] = useState(parada.radio);
+  // Coordenadas nuevas si el usuario elige un POI (si no, el padre geocodifica)
+  const [nuevasCoords, setNuevasCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  const esFija = parada.esFija !== undefined;
+  const vertices = parada.poligono?.length ?? 0;
+
+  const handleGuardar = () => {
+    if (!nombre.trim()) {
+      notify.error("La parada necesita un nombre");
+      return;
+    }
+    onSave({
+      nombre: nombre.trim(),
+      direccion: direccion.trim(),
+      tipo_geocerca: tipoGeo,
+      radio,
+      // Solo mandamos coords si vienen de un POI; si no, el padre geocodifica
+      ...(nuevasCoords ? { latitud: nuevasCoords.lat, longitud: nuevasCoords.lng } : {}),
+    });
+  };
+
+  return (
+    <div className="space-y-5 rounded-xl border border-cyan-200 bg-cyan-50/30 p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-100 text-sm font-semibold text-cyan-700">
+            {parada.numero}
+          </span>
+          <h3 className="text-sm font-semibold text-slate-700">
+            Editando {esFija ? (parada.esFija === "inicio" ? "Inicio de ruta" : "Fin de ruta") : "parada"}
+          </h3>
+        </div>
+        {esFija && (
+          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${parada.esFija === "inicio" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+            }`}>
+            {parada.esFija === "inicio" ? "Inicio" : "Fin"}
+          </span>
+        )}
+      </div>
+
+      <Field label="Nombre *">
+        <input
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          className={inputClass}
+          placeholder="Nombre de la parada"
+        />
+      </Field>
+
+      <Field label="Dirección">
+        <PoiAddressInput
+          value={direccion}
+          onChange={(addr) => {
+            setDireccion(addr);
+            setNuevasCoords(null); // edición manual: el padre geocodificará
+          }}
+          onPoiSelect={(poi) => {
+            setDireccion(poi.direccion ?? poi.nombre);
+            if (poi.lat && poi.lng) setNuevasCoords({ lat: poi.lat, lng: poi.lng });
+          }}
+          placeholder="Busca un POI o escribe la dirección"
+        />
+      </Field>
+
+      <Field label="Tipo de geocerca">
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          {(["circular", "poligonal", "rectangular"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTipoGeo(t)}
+              className="flex items-center gap-2 text-sm text-slate-700"
+            >
+              <span
+                className={`flex h-4 w-4 items-center justify-center rounded-full border ${tipoGeo === t ? "border-cyan-500" : "border-slate-300"
+                  }`}
+              >
+                {tipoGeo === t && <span className="h-2 w-2 rounded-full bg-cyan-500" />}
+              </span>
+              <span className="capitalize">{t}</span>
+            </button>
+          ))}
+        </div>
+      </Field>
+
+      {tipoGeo === "circular" ? (
+        <Field label="Radio en metros">
+          <input
+            type="number"
+            min={1}
+            value={radio}
+            onChange={(e) => setRadio(Number(e.target.value))}
+            className={inputClass}
+          />
+        </Field>
+      ) : (
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-500">
+          {vertices > 0
+            ? `Geocerca ${tipoGeo} con ${vertices} vértices. Puedes ajustar los vértices arrastrándolos directamente en el mapa.`
+            : `Geocerca ${tipoGeo} sin vértices definidos. Importa la parada desde un POI poligonal para editar su forma en el mapa.`}
+        </div>
+      )}
+
+      {/* Botones Descartar / Guardar */}
+      <div className="flex items-center gap-2 pt-1">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+        >
+          <Ban className="h-4 w-4" />
+          Descartar
+        </button>
+        <button
+          type="button"
+          onClick={handleGuardar}
+          className="flex items-center gap-1.5 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600"
+        >
+          <Check className="h-4 w-4" />
+          Guardar cambios
+        </button>
+      </div>
     </div>
   );
 };
