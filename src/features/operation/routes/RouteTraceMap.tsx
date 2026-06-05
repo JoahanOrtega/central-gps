@@ -11,16 +11,21 @@ export interface GenerateTraceResult {
     distanceKm: number;
 }
 
+// Lo que el tab puede pedirle al mapa desde fuera
 export interface RouteTraceMapHandle {
     // Centra el mapa en una coordenada y hace zoom
     panTo: (position: LatLng) => void;
+    // Geocodifica una dirección → coordenada + dirección formateada
     geocodeAddress: (
         address: string,
     ) => Promise<{ lat: number; lng: number; formattedAddress: string } | null>;
+    // Geocodificación inversa: coordenada → dirección legible
     reverseGeocode: (lat: number, lng: number) => Promise<string | null>;
+    // Genera el trazo de la ruta conectando las paradas por carretera (API de Directions).
     generateTrace: (
         stops: LatLng[],
     ) => Promise<GenerateTraceResult | null>;
+    // Ajusta el mapa para mostrar todas las paradas y el trazo en pantalla
     fitAll: () => void;
 }
 
@@ -34,26 +39,34 @@ interface RouteTraceMapProps {
     onMapClick?: (position: LatLng) => void;
     // Se llama cuando el usuario arrastra el marcador de una parada ya ubicada
     onParadaMoved?: (numero: number, position: LatLng) => void;
+    // Se llama cuando el usuario edita los vértices de una geocerca poligonal
+    onParadaPolygonChanged?: (numero: number, vertices: LatLng[]) => void;
 }
 
 export const RouteTraceMap = forwardRef<RouteTraceMapHandle, RouteTraceMapProps>(
-    ({ path, paradas, traceColor, placingMode = false, onMapClick, onParadaMoved }, ref) => {
+    ({ path, paradas, traceColor, placingMode = false, onMapClick, onParadaMoved, onParadaPolygonChanged }, ref) => {
         const mapRef = useRef<HTMLDivElement | null>(null);
         const mapInstanceRef = useRef<google.maps.Map | null>(null);
         const polylineRef = useRef<google.maps.Polyline | null>(null);
         const markersRef = useRef<google.maps.Marker[]>([]);
-        // Un círculo por cada parada circular
+        // Un círculo por cada parada circular — dibuja su geocerca (radio)
         const circlesRef = useRef<google.maps.Circle[]>([]);
+        // Un polígono por cada parada poligonal/rectangular — dibuja su geocerca
+        const polygonsRef = useRef<google.maps.Polygon[]>([]);
         // Un solo infoWindow reutilizado para todas las paradas
         const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
         const geocoderRef = useRef<google.maps.Geocoder | null>(null);
         const directionsRef = useRef<google.maps.DirectionsService | null>(null);
         const clickListenerRef = useRef<google.maps.MapsEventListener | null>(null);
-        
+
+        // Guardamos los callbacks en refs para que el listener de click
+        // siempre use la versión más reciente sin re-registrarse.
         const placingRef = useRef(placingMode);
         const onClickRef = useRef(onMapClick);
+        const onPolygonChangedRef = useRef(onParadaPolygonChanged);
         placingRef.current = placingMode;
         onClickRef.current = onMapClick;
+        onPolygonChangedRef.current = onParadaPolygonChanged;
 
         // Inicializar el mapa una sola vez
         useEffect(() => {
@@ -122,6 +135,8 @@ export const RouteTraceMap = forwardRef<RouteTraceMapHandle, RouteTraceMapProps>
             markersRef.current = [];
             circlesRef.current.forEach((c) => c.setMap(null));
             circlesRef.current = [];
+            polygonsRef.current.forEach((pg) => pg.setMap(null));
+            polygonsRef.current = [];
             infoWindowRef.current?.close();
 
             const bounds = new window.google.maps.LatLngBounds();
@@ -196,10 +211,49 @@ export const RouteTraceMap = forwardRef<RouteTraceMapHandle, RouteTraceMapProps>
                     const cb = circle.getBounds();
                     if (cb) bounds.union(cb);
                 }
+
+                // Dibujar la geocerca poligonal/rectangular (editable)
+                if (
+                    (parada.tipo_geocerca === "poligonal" || parada.tipo_geocerca === "rectangular") &&
+                    parada.poligono &&
+                    parada.poligono.length >= 3
+                ) {
+                    const polygon = new window.google.maps.Polygon({
+                        paths: parada.poligono,
+                        map,
+                        strokeColor: "#475569",
+                        strokeOpacity: 0.7,
+                        strokeWeight: 2,
+                        fillColor: "#94a3b8",
+                        fillOpacity: 0.25,
+                        editable: true,   // el usuario puede arrastrar los vértices
+                        draggable: false, // pero no mover todo el polígono
+                    });
+
+                    // Reportar los cambios cuando el usuario edita los vértices
+                    const reportarCambio = () => {
+                        const ruta = polygon.getPath();
+                        const vertices: LatLng[] = [];
+                        for (let i = 0; i < ruta.getLength(); i++) {
+                            const punto = ruta.getAt(i);
+                            vertices.push({ lat: punto.lat(), lng: punto.lng() });
+                        }
+                        onPolygonChangedRef.current?.(parada.numero, vertices);
+                    };
+                    polygon.getPath().addListener("set_at", reportarCambio);
+                    polygon.getPath().addListener("insert_at", reportarCambio);
+                    polygon.getPath().addListener("remove_at", reportarCambio);
+
+                    polygonsRef.current.push(polygon);
+                    parada.poligono.forEach((v) => bounds.extend(v));
+                }
             });
 
             if (!bounds.isEmpty()) map.fitBounds(bounds);
         };
+
+        // Ajusta el zoom para mostrar todas las paradas y el trazo.
+        // La usan tanto el botón flotante como el método fitAll del handle.
         const fitToContent = () => {
             const map = mapInstanceRef.current;
             if (!map || !window.google?.maps) return;
@@ -258,6 +312,9 @@ export const RouteTraceMap = forwardRef<RouteTraceMapHandle, RouteTraceMapProps>
                 const service = directionsRef.current;
                 if (!service || !window.google?.maps) return null;
 
+                // Directions admite máx 25 puntos por request.
+                // Si hay más paradas, dividimos en segmentos que se solapan en los
+                // extremos para que el trazo quede continuo.
                 const MAX_POINTS = 25;
                 const fullPath: LatLng[] = [];
                 let totalMeters = 0;
@@ -314,6 +371,8 @@ export const RouteTraceMap = forwardRef<RouteTraceMapHandle, RouteTraceMapProps>
                         role="application"
                         aria-label="Mapa del trazo de la ruta"
                     />
+                    {/* Botón flotante para encuadrar la ruta — sobre el mapa,
+                        esquina superior izquierda (Google deja ese espacio libre) */}
                     {(path.length > 0 || paradas.some((p) => p.latitud !== 0)) && (
                         <button
                             type="button"
