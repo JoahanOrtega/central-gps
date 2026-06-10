@@ -27,6 +27,7 @@ const PoiGroupsPage = lazy(() => import("@/pages/PoiGroupsPage").then(m => ({ de
 const UsersPage = lazy(() => import("@/features/catalogs/users/pages/UsersPage").then(m => ({ default: m.UsersPage })));
 const ClientsPage = lazy(() => import("@/pages/ClientsPage").then(m => ({ default: m.ClientsPage })));
 const RoutesPage = lazy(() => import("@/pages/RoutesPage").then(m => ({ default: m.RoutesPage })));
+const ItinerariesPage = lazy(() => import("@/pages/ItinerariesPage").then(m => ({ default: m.ItinerariesPage })));
 
 // Panel ERP — solo sudo_erp lo descarga
 const EmpresasPage = lazy(() => import("@/features/erp/pages/EmpresasPage").then(m => ({ default: m.EmpresasPage })));
@@ -103,6 +104,10 @@ export const appRouter = createBrowserRouter([
       {
         path: "operation/monitor",
         element: <PermisoRoute permiso="mapa.ver"><LazyPage name="Monitor de Flota"><MonitorPage /></LazyPage></PermisoRoute>,
+      },
+      {
+        path: "operation/itineraries",
+        element: <PermisoRoute permiso="itinerarios.ver"><LazyPage name="Itinerarios"><ItinerariesPage /></LazyPage></PermisoRoute>,
       },
       {
         path: "operation/routes",
