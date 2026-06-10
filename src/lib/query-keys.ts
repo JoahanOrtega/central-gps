@@ -125,6 +125,26 @@ export const queryKeys = {
             ["operation", "routes", idEmpresa, search] as const,
         routeDetail: (idRuta: number, idEmpresa: number | null | undefined) =>
             ["operation", "routes", "detail", idRuta, idEmpresa] as const,
+        itinerariesAll: ["operation", "itineraries"] as const,
+        itineraries: (idEmpresa: number | null | undefined, search = "", idRuta?: number | null) =>
+            ["operation", "itineraries", idEmpresa, search, idRuta] as const,
+        itineraryDetail: (idItinerario: number, idEmpresa: number | null | undefined,) =>
+            ["operation", "itineraries", "detail", idItinerario, idEmpresa] as const,
+
+        // Grupos
+        itineraryGroupsAll: ["operation", "itinerary-groups"] as const,
+        itineraryGroups: (idEmpresa: number | null | undefined, search = "") =>
+            ["operation", "itinerary-groups", idEmpresa, search] as const,
+        itineraryGroupDetail: (id: number, idEmpresa: number | null | undefined) =>
+            ["operation", "itinerary-groups", "detail", id, idEmpresa] as const,
+
+        // Roles
+        itineraryRolesAll: ["operation", "itinerary-roles"] as const,
+        itineraryRoles: (idEmpresa: number | null | undefined, search = "") =>
+            ["operation", "itinerary-roles", idEmpresa, search] as const,
+        itineraryRoleDetail: (id: number, idEmpresa: number | null | undefined) =>
+            ["operation", "itinerary-roles", "detail", id, idEmpresa] as const,
+
     },
 
     eventos: {
