@@ -39,6 +39,10 @@ export const buildUnitMarkerContent = (unit: MapUnitItem): HTMLElement => {
         t?.segundos,
         t?.segundos_sistema,
         unit.vel_max,
+        // Tiempo acumulado en el estado actual del motor (pre-calculado
+        // por el backend). Activa el fill ROJO cuando una unidad lleva
+        // apagada más del umbral de APAGADO_PROLONGADO_SEGS.
+        t?.segundos_en_estado_actual,
     );
 
     // En movimiento → flecha; detenida/apagada → círculo

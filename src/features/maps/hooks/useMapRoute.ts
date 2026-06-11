@@ -14,6 +14,7 @@ import {
     buildEngineEventContent,
     buildDoorEventContent,
     buildSpeedEventContent,
+    buildRfidEventContent,
 } from "../lib/map-html-builders";
 import { haversineKm } from "../lib/map-geometry";
 import { formatDurationHms, formatCalendar } from "@/lib/date-time";
@@ -437,6 +438,77 @@ export const useMapRoute = ({
         if (state !== "none") closeState(points.length - 1);
     };
 
+    // ── Lecturas RFID ─────────────────────────────────────────────────────────
+    // Fiel al draw.js legacy (evento tipo 6): cada punto del recorrido puede
+    // traer una lectura RFID (campo `rfid` extraído por la oreja del payload
+    // RS232 o de un slot ASSIGN renombrado).
+    //
+    // Agrupamiento: lecturas a menos de RFID_GROUP_DIST_KM una de otra se
+    // consolidan en UN solo marker con la lista completa en su InfoWindow.
+    // Sin esto, una unidad detenida frente al lector generaría decenas de
+    // íconos encimados en el mismo punto (ruido visual — heurística de
+    // diseño minimalista, Nielsen #8).
+    const RFID_GROUP_DIST_KM = 0.05; // 50 metros, igual que el legacy
+
+    const drawRfidEvents = (points: RoutePoint[]) => {
+        const map = mapRef.current!;
+        const infoWindow = infoWindowRef.current!;
+        const visible = visibilityRef.current.rfid;
+
+        // Grupo en construcción: posición ancla + lecturas acumuladas
+        let anchor: { lat: number; lng: number } | null = null;
+        let lecturas: Array<{ rfid: string; fecha_hora: string }> = [];
+
+        const flushGroup = () => {
+            if (!anchor || lecturas.length === 0) return;
+            // Capturamos los valores del grupo en constantes locales para
+            // que el closure del click no apunte a las variables mutables.
+            const groupAnchor = anchor;
+            const groupLecturas = [...lecturas];
+
+            const marker = new window.google.maps.marker.AdvancedMarkerElement({
+                map: visible ? map : null,
+                position: { lat: groupAnchor.lat, lng: groupAnchor.lng },
+                content: buildRouteEventMarkerContent("rfid"),
+                zIndex: 25, // por encima de stop/engine para que no quede oculto
+            });
+            marker.addListener("gmp-click", () => {
+                infoWindow.setContent(buildRfidEventContent(groupLecturas));
+                infoWindow.open({ map, anchor: marker });
+            });
+            rfidMarkersRef.current.push(marker);
+
+            anchor = null;
+            lecturas = [];
+        };
+
+        for (const p of points) {
+            // Solo puntos con lectura RFID real (el backend manda null si no hay)
+            if (!p.rfid) continue;
+
+            const lectura = {
+                rfid: p.rfid,
+                fecha_hora: formatCalendar(p.fecha_hora_gps),
+            };
+
+            if (anchor) {
+                const dist = haversineKm(anchor.lat, anchor.lng, p.latitud, p.longitud);
+                if (dist <= RFID_GROUP_DIST_KM) {
+                    // Lectura cercana al grupo actual — se acumula
+                    lecturas.push(lectura);
+                    continue;
+                }
+                // Lectura lejana — cerramos el grupo anterior y abrimos uno nuevo
+                flushGroup();
+            }
+
+            anchor = { lat: p.latitud, lng: p.longitud };
+            lecturas = [lectura];
+        }
+
+        flushGroup(); // último grupo pendiente
+    };
+
     // ── Acción principal ──────────────────────────────────────────────────────
     const showUnitRoute = (
         points: RoutePoint[],
@@ -457,6 +529,7 @@ export const useMapRoute = ({
         drawFlags(points);
         drawArrows(points, velMax);
         drawEvents(points, velMax);
+        drawRfidEvents(points);
 
         applyVisibility(visibilityRef.current);
 

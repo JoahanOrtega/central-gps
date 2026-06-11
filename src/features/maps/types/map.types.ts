@@ -206,6 +206,9 @@ export interface RoutePoint {
   grados: number | null;            // dirección real del AVL (0-360)
   status: string | null;
   tipo_alerta?: number | null;
+  // Lectura RFID en este punto (string hex 8-20 chars) o null si no hubo.
+  // La oreja lo extrae del payload RS232 o de un slot ASSIGN renombrado.
+  rfid?: string | null;
   engine_state: EngineState;
   strokeColor?: string | null;      // color de la polyline en ese segmento
   movement_state?: "apagado" | "stop" | "movimiento" | "desconocido";
