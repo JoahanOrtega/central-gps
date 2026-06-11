@@ -178,6 +178,7 @@ export const useTripDrawer = ({
             setModeInStore("summary");
 
             // Calcular resumen extendido con métricas útiles.
+            // Calcular resumen extendido con métricas útiles.
             let movementCount = 0;
             let distanceKm = 0;
             let movingSeconds = 0;
@@ -186,6 +187,12 @@ export const useTripDrawer = ({
             let speedingCount = 0;
 
             const SPEEDING_THRESHOLD = 80; // km/h
+
+            // Banderas de transición — cuentan EPISODIOS, no puntos.
+            // Sin esto, cada punto GPS en movimiento sumaba un "viaje" y cada
+            // punto en exceso sumaba un "exceso" (bug de conteo inflado).
+            let prevEngineState: string | null = null;
+            let inSpeeding = false;
 
             for (let i = 1; i < points.length; i++) {
                 const prev = points[i - 1];
@@ -210,16 +217,24 @@ export const useTripDrawer = ({
                     );
                 }
 
-                if (speed > SPEEDING_THRESHOLD) {
+                // Exceso de velocidad: contar solo al ENTRAR al exceso (episodio)
+                const isOver = speed > SPEEDING_THRESHOLD;
+                if (isOver && !inSpeeding) {
                     speedingCount++;
                 }
+                inSpeeding = isOver;
+
+                // Viaje: contar solo la transición apagado/desconocido → encendido
+                if (engineState === "on" && prevEngineState !== "on") {
+                    movementCount++;
+                }
+                prevEngineState = engineState;
 
                 if (engineState === "off") {
                     offSeconds += deltaSeconds;
                 } else if (engineState === "on") {
                     if (speed >= 1) {
                         movingSeconds += deltaSeconds;
-                        movementCount++;
                     } else {
                         idleSeconds += deltaSeconds;
                     }
