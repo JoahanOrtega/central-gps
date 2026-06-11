@@ -21,10 +21,27 @@ export type { EngineState };
 
 // ── Estado lógico para la UI ──────────────────────────────────────────────────
 export type TelemetryMapState =
-  | "movimiento"       // motor ON + velocidad >= 1 km/h
-  | "detenido"         // motor ON + velocidad < 1 km/h (relentí)
-  | "apagado"          // motor OFF
-  | "sin-telemetria";  // sin datos o engine_state === "unknown"
+  | "movimiento"           // motor ON + velocidad >= 1 km/h
+  | "detenido"             // motor ON + velocidad < 1 km/h (relentí)
+  | "apagado"              // motor OFF
+  | "apagado-prolongado"   // motor OFF por más tiempo del umbral configurado
+  | "sin-telemetria";      // sin datos o engine_state === "unknown"
+
+// ── Umbral de apagado prolongado ──────────────────────────────────────────────
+//
+// Una unidad apagada es NORMAL (fin de jornada, pernocta). Una unidad apagada
+// DEMASIADO tiempo puede indicar un problema operativo: vehículo abandonado,
+// en taller sin reportar, batería desconectada a propósito, etc.
+//
+// Cuando `segundos_en_estado_actual` (calculado por el backend desde el
+// último evento de cambio de ignición, tipo_alerta ∈ {33, 34}) supera este
+// umbral, el FILL del marcador pasa de GRIS_OSCURO a ROJO para que el
+// operador lo detecte de un vistazo (heurística Nielsen #1: visibilidad
+// del estado del sistema).
+//
+// 12 horas cubre la pernocta normal de una flota escolar/urbana sin generar
+// falsas alarmas; ajustar aquí si la operación tiene jornadas distintas.
+export const APAGADO_PROLONGADO_SEGS = 12 * 60 * 60; // 12 horas
 
 // ── Constantes legacy eliminadas ──────────────────────────────────────────────
 //
@@ -139,13 +156,17 @@ export interface TelemetryStatusMeta {
  *   independientes y más legibles: el CENTRO dice "motor" y el BORDE dice
  *   "salud del dispositivo".
  *
- * @param engineState     - Estado del motor ("on" | "off" | "unknown").
- * @param velocidad       - Velocidad en km/h.
- * @param _segundos       - Segundos desde último dato GPS. YA NO SE USA para
- *                          el fillColor. Se mantiene en la firma por
- *                          compatibilidad con consumidores del hook.
- * @param segundosSistema - Segundos desde el último dato del sistema (para stroke).
- * @param velMax          - Velocidad máxima configurada en la unidad.
+ * @param engineState         - Estado del motor ("on" | "off" | "unknown").
+ * @param velocidad           - Velocidad en km/h.
+ * @param _segundos           - Segundos desde último dato GPS. YA NO SE USA para
+ *                              el fillColor. Se mantiene en la firma por
+ *                              compatibilidad con consumidores del hook.
+ * @param segundosSistema     - Segundos desde el último dato del sistema (para stroke).
+ * @param velMax              - Velocidad máxima configurada en la unidad.
+ * @param segundosEnEstado    - Segundos acumulados en el estado actual del motor
+ *                              (campo `segundos_en_estado_actual` del backend).
+ *                              Si la unidad lleva apagada más de
+ *                              APAGADO_PROLONGADO_SEGS, el fill pasa a ROJO.
  */
 export const getTelemetryStatusMeta = (
   engineState: EngineState | null | undefined,
@@ -153,6 +174,7 @@ export const getTelemetryStatusMeta = (
   _segundos?: number | null,
   segundosSistema?: number | null,
   velMax?: number | null,
+  segundosEnEstado?: number | null,
 ): TelemetryStatusMeta => {
   const effectiveEngineState: EngineState = engineState ?? "unknown";
   const speed = velocidad ?? 0;
@@ -183,6 +205,22 @@ export const getTelemetryStatusMeta = (
   );
 
   if (effectiveEngineState === "off") {
+    // ── Apagado prolongado ──────────────────────────────────────────────
+    // Si lleva apagada más del umbral, el fill se degrada a ROJO para
+    // alertar visualmente. El stroke conserva su semántica de "salud del
+    // dispositivo" — los dos ejes siguen siendo independientes.
+    const offSecs = segundosEnEstado ?? 0;
+    if (offSecs > APAGADO_PROLONGADO_SEGS) {
+      return {
+        fillColor: UNIT_COLORS.ROJO,
+        strokeColor,
+        mapState: "apagado-prolongado",
+        label: "Apagada (prolongado)",
+        shortLabel: "OFF!",
+        engineState: "off",
+      };
+    }
+
     return {
       fillColor,
       strokeColor,

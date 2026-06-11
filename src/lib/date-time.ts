@@ -1,7 +1,7 @@
 // ── Zona horaria de la aplicación ────────────────────────────────────────────
-// Todas las fechas que vienen de la BD están en UTC.
-// La aplicación opera en UTC-6 (America/Mexico_City).
-// SIEMPRE convertir con esta constante — nunca hardcodear "-6".
+// Todas las fechas que vienen de la BD están en UTC-6.
+// El pipeline completo opera en UTC-6 de extremo a extremo.
+// SIEMPRE usar esta constante — nunca hardcodear "-6".
 export const APP_TIMEZONE = "America/Mexico_City";
 
 // ── Parser base ───────────────────────────────────────────────────────────────
@@ -17,7 +17,7 @@ export const APP_TIMEZONE = "America/Mexico_City";
  * porque convertiría "-06:00Z" en un formato inválido.
  *
  * También maneja el formato legacy "YYYY-MM-DD HH:mm:ss" (sin offset)
- * que algunos endpoints aún puedan devolver, tratándolo como UTC.
+ * que algunos endpoints aún puedan devolver, tratándolo como UTC-6.
  */
 export const parseApiDate = (value?: string | null): Date | null => {
   if (!value) return null;
@@ -32,8 +32,10 @@ export const parseApiDate = (value?: string | null): Date | null => {
 
   // Formato ISO sin offset: "2024-03-15T14:30:00"
   if (normalized.includes("T")) {
-    const withZ = normalized.endsWith("Z") ? normalized : `${normalized}Z`;
-    const date = new Date(withZ);
+    // La BD almacena UTC-6 — añadir offset en lugar de "Z"
+    // para que new Date() no interprete la hora como UTC.
+    const withOffset = normalized.endsWith("Z") ? normalized : `${normalized}-06:00`;
+    const date = new Date(withOffset);
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
@@ -48,8 +50,8 @@ export const parseApiDate = (value?: string | null): Date | null => {
   // Formato legacy "YYYY-MM-DD HH:mm:ss" (espacio en lugar de T)
   // Tratar como UTC añadiendo T y Z
   const withT = normalized.replace(" ", "T");
-  const withZ = `${withT}Z`;
-  const date = new Date(withZ);
+  const withOffset = `${withT}-06:00`;
+  const date = new Date(withOffset);
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
@@ -57,7 +59,7 @@ export const parseApiDate = (value?: string | null): Date | null => {
 
 /**
  * "15/03/2024 08:30:00 a.m." — para mostrar en infoWindows y detalles.
- * Convierte automáticamente de UTC a UTC-6.
+ * Muestra la fecha en UTC-6 (zona operativa del sistema).
  */
 export const formatAppDateTime = (value?: string | null): string => {
   const date = parseApiDate(value);
@@ -127,7 +129,7 @@ export const formatDateOnly = (value?: string | null): string => {
 // ── Tiempo transcurrido ───────────────────────────────────────────────────────
 
 /**
- * Calcula los segundos transcurridos desde una fecha UTC hasta ahora.
+ * Calcula los segundos transcurridos desde una fecha UTC-6 hasta ahora.
  * Retorna null si la fecha es inválida.
  */
 export const getElapsedSeconds = (value?: string | null): number | null => {
