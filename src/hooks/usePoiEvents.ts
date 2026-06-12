@@ -3,6 +3,10 @@ import { useAuthStore } from "@/stores/authStore";
 import { useCompanyStore } from "@/stores/companyStore";
 import { usePoiEventsStore } from "@/stores/poiEventsStore";
 import type { PoiEvent, TipoEventoPoi } from "@/stores/poiEventsStore";
+import { useUnitAlertsStore } from "@/stores/unitAlertsStore";
+import type { UnitStateAlert, TipoAlertaEstado } from "@/stores/unitAlertsStore";
+
+
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
@@ -15,6 +19,7 @@ export const usePoiEvents = (): void => {
     const user = useAuthStore((state) => state.user);
     const currentCompany = useCompanyStore((state) => state.currentCompany);
     const agregarEvento = usePoiEventsStore((state) => state.agregarEvento);
+    const agregarAlerta = useUnitAlertsStore((state) => state.agregarAlerta);
     const setConectado = usePoiEventsStore((state) => state.setConectado);
 
     const esRef = useRef<EventSource | null>(null);
@@ -84,6 +89,20 @@ export const usePoiEvents = (): void => {
                 });
             } catch (err) {
                 console.warn("[usePoiEvents] Error parseando evento SSE:", err);
+            }
+        });
+
+        es.addEventListener("unit_state_event", (e: MessageEvent) => {
+            try {
+                const raw = JSON.parse(e.data) as Omit<UnitStateAlert, "clientId" | "recibido_en">;
+                // Validación mínima: sin tipo o sin unidad, el evento no sirve
+                if (!raw.tipo_evento || !raw.id_unidad) return;
+                agregarAlerta({
+                    ...raw,
+                    tipo_evento: raw.tipo_evento as TipoAlertaEstado,
+                });
+            } catch {
+                // Evento malformado — ignorar sin romper el stream
             }
         });
 
