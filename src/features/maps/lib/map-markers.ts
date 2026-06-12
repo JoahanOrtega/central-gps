@@ -1,5 +1,6 @@
 import type { MapUnitItem } from "../types/map.types";
 import { getTelemetryStatusMeta } from "./telemetry-status";
+import { getRouteIconSvg, type RouteIconType } from "./map-icon-svgs";
 
 // ── Marker de búsqueda de dirección ──────────────────────────────────────────
 export const buildSearchMarkerContent = (): HTMLElement => {
@@ -100,62 +101,46 @@ export const buildUnitMarkerContent = (unit: MapUnitItem): HTMLElement => {
 };
 
 // ── Marker de flecha de dirección en el recorrido ─────────────────────────────
-// Usa arrow.svg del proyecto — modesto, del mismo tamaño que stop/engine,
-// rotado según el campo `grados` del AVL (no calculado entre puntos).
+// Chevron de navegación inline (fábrica map-icon-svgs). El SVG base apunta
+// al NORTE, así que se rota con los grados del AVL directamente —
+// sin la compensación -90° que requería el arrow.svg heredado.
 export const buildRouteArrowMarkerContent = (
     grados: number,
 ): HTMLElement => {
-    const size = 16; // pequeño, coherente con stop.svg (25px) y engine.svg
+    const size = 18; // discreto: las flechas son contexto, no protagonistas
 
     const wrapper = document.createElement("div");
     wrapper.style.cssText = `
         width: ${size}px;
         height: ${size}px;
         cursor: pointer;
-        /* arrow.svg base apunta a la derecha (Este=0°). 
-         * Los grados del AVL son 0=Norte, así que compensamos -90° */
-        transform: rotate(${grados - 90}deg);
-        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35));
+        transform: rotate(${Math.round(grados)}deg);
+        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.30));
     `;
-
-    const img = document.createElement("img");
-    img.src = "/images/app/map_resources/arrow.svg";
-    img.width = size;
-    img.height = size;
-    img.style.cssText = "display:block; width:100%; height:100%;";
-    wrapper.appendChild(img);
-
+    wrapper.innerHTML = getRouteIconSvg("arrow");
     return wrapper;
 };
 
 // ── Marker de bandera inicio / fin del recorrido ──────────────────────────────
-// Usa start.svg y finish.svg del proyecto — mismos assets del legacy PHP.
+// Pines tipo gota generados inline: verde con "play" para el inicio,
+// slate con bandera para el fin. La punta del pin marca la coordenada
+// exacta (mejor precisión percibida que los SVG planos anteriores).
 export const createRouteFlagMarker = (
     map: google.maps.Map,
     position: google.maps.LatLngLiteral,
     label: "I" | "F",
-    _color: string,  // se mantiene por compatibilidad, el color lo da el SVG
+    _color: string,  // se mantiene por compatibilidad — el color lo da la paleta
 ): google.maps.marker.AdvancedMarkerElement => {
-    // start.svg: 19×28.7 | finish-track.svg: 23×36 — ambos a escala natural
     const isStart = label === "I";
-    const src = isStart
-        ? "/images/app/map_resources/start.svg"
-        : "/images/app/map_resources/finish.svg";
-    const w = isStart ? 22 : 22;
-    const h = isStart ? 33 : 33;
 
     const wrapper = document.createElement("div");
     wrapper.style.cssText = `
+        width: 26px;
+        height: 37px;
         cursor: pointer;
-        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.40));
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35));
     `;
-
-    const img = document.createElement("img");
-    img.src = src;
-    img.width = w;
-    img.height = h;
-    img.style.cssText = "display:block;";
-    wrapper.appendChild(img);
+    wrapper.innerHTML = getRouteIconSvg(isStart ? "start" : "finish");
 
     return new window.google.maps.marker.AdvancedMarkerElement({
         map,
@@ -177,54 +162,34 @@ export type RouteEventType =
     | "arrow";
 
 /**
- * Ruta base de los recursos SVG del proyecto.
- * Los archivos viven en /public/images/app/map_resources/
- * y se acceden como rutas absolutas desde la raíz del sitio.
- */
-const SVG_BASE = "/images/app/map_resources";
-
-/**
- * Mapeo de tipo de evento → archivo SVG existente en el proyecto.
- * Reusa los mismos assets del legacy PHP para coherencia visual.
- */
-const EVENT_SVG: Record<RouteEventType, string> = {
-    flags: `${SVG_BASE}/flags.svg`,
-    alert: `${SVG_BASE}/alert.svg`,
-    rfid: `${SVG_BASE}/rfid.svg`,
-    engine: `${SVG_BASE}/engine.svg`,
-    door: `${SVG_BASE}/door.svg`,
-    speed: `${SVG_BASE}/speed.svg`,
-    stop: `${SVG_BASE}/stop.svg`,
-    arrow: `${SVG_BASE}/arrow.svg`,
-};
-
-/**
  * Tamaño visual de cada ícono de evento.
- * Valores tomados del draw.js legacy (iconSize por tipo).
+ * Uniforme en 26px para que la "familia" de eventos se lea consistente
+ * (Nielsen #4); solo las flechas son más chicas por ser secundarias.
  */
 const EVENT_SIZE: Record<RouteEventType, number> = {
-    flags: 28,
-    alert: 24,
-    rfid: 24,
-    engine: 24,
-    door: 24,
-    speed: 28,   // más grande para que sea legible con la velocidad
-    stop: 24,
-    arrow: 20,
+    flags: 26,
+    alert: 26,
+    rfid: 26,
+    engine: 26,
+    door: 26,
+    speed: 26,
+    stop: 26,
+    arrow: 18,
 };
 
 /**
  * Crea el HTMLElement del marker de un evento del recorrido.
- * Usa los SVGs existentes en /public/images/app/map_resources/.
+ * Los íconos se generan inline desde map-icon-svgs (cero archivos externos).
  *
- * Para el evento "speed" muestra la velocidad máxima como badge encima del ícono.
+ * Para el evento "speed" muestra la velocidad máxima como badge encima del
+ * ícono — el dato accionable visible sin necesidad de hacer click
+ * (Nielsen #1: visibilidad del estado del sistema).
  */
 export const buildRouteEventMarkerContent = (
     type: RouteEventType,
     velocidadMaxima?: number,
 ): HTMLElement => {
     const size = EVENT_SIZE[type];
-    const src = EVENT_SVG[type];
 
     const wrapper = document.createElement("div");
     wrapper.style.cssText = `
@@ -232,32 +197,27 @@ export const buildRouteEventMarkerContent = (
         width: ${size}px;
         height: ${size}px;
         cursor: pointer;
-        filter: drop-shadow(0 1px 3px rgba(0,0,0,0.40));
+        filter: drop-shadow(0 1px 3px rgba(0,0,0,0.35));
     `;
-
-    const img = document.createElement("img");
-    img.src = src;
-    img.width = size;
-    img.height = size;
-    img.style.cssText = "display:block; width:100%; height:100%;";
-    wrapper.appendChild(img);
+    wrapper.innerHTML = getRouteIconSvg(type as RouteIconType);
 
     // Badge de velocidad para exceso — número sobre el ícono
     if (type === "speed" && velocidadMaxima !== undefined) {
         const badge = document.createElement("div");
         badge.style.cssText = `
             position: absolute;
-            top: -8px;
+            top: -9px;
             left: 50%;
             transform: translateX(-50%);
             background: #dc2626;
             color: white;
             font-size: 9px;
             font-weight: 700;
-            padding: 1px 4px;
+            padding: 1px 5px;
             border-radius: 999px;
             white-space: nowrap;
             font-family: Poppins, sans-serif;
+            border: 1.5px solid white;
             box-shadow: 0 1px 2px rgba(0,0,0,0.30);
         `;
         badge.textContent = `${velocidadMaxima}`;

@@ -13,6 +13,7 @@ import { formatAppDateTimeShort } from '@/lib/date-time';
 import { getTelemetryStatusMeta } from '../../lib/telemetry-status';
 import { X, ChevronDown, Calendar, RotateCcw } from 'lucide-react';
 import type { RoutePoint, RouteDisplayOptions, CustomRangeParams } from '../../types/map.types';
+import { getRouteIconDataUri } from '../../lib/map-icon-svgs';
 
 interface TripDrawerProps {
   onClose: () => void;
@@ -27,10 +28,10 @@ interface TripDrawerProps {
 
 // ── Capas de eventos ──────────────────────────────────────────────────────────
 const LAYERS: Array<{ key: keyof RouteDisplayOptions; src: string; label: string }> = [
-  { key: 'flags', src: '/images/app/map_resources/flags.svg', label: 'Inicio/Fin' },
-  { key: 'arrows', src: '/images/app/map_resources/arrow.svg', label: 'Dirección' },
-  { key: 'stops', src: '/images/app/map_resources/stop.svg', label: 'Paradas' },
-  { key: 'engine', src: '/images/app/map_resources/engine.svg', label: 'Motor' },
+  { key: 'flags', src: getRouteIconDataUri('start'), label: 'Inicio/Fin' },
+  { key: 'arrows', src: getRouteIconDataUri('arrow'), label: 'Dirección' },
+  { key: 'stops', src: getRouteIconDataUri('stop'), label: 'Paradas' },
+  { key: 'engine', src: getRouteIconDataUri('engine'), label: 'Motor' },
 ];
 
 // Botones de rango — Hoy y Ayer resaltados (Fitts + Serial Position)
