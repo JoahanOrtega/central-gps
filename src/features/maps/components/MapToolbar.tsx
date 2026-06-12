@@ -14,6 +14,7 @@ import {
   Save,
 } from "lucide-react";
 import { useState } from "react";
+import { MapLegend } from "./MapLegend";
 
 /**
  * Estilo base de los botones cuadrados del toolbar.
@@ -179,6 +180,9 @@ export const MapToolbar = ({
         >
           <Save className="h-4 w-4" />
         </button>
+
+        <MapLegend />
+
       </div>
     </div>
   );
