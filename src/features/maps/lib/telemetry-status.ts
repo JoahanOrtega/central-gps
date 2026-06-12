@@ -39,9 +39,9 @@ export type TelemetryMapState =
 // operador lo detecte de un vistazo (heurística Nielsen #1: visibilidad
 // del estado del sistema).
 //
-// 12 horas cubre la pernocta normal de una flota escolar/urbana sin generar
+// 4 horas cubre la pernocta normal de una flota escolar/urbana sin generar
 // falsas alarmas; ajustar aquí si la operación tiene jornadas distintas.
-export const APAGADO_PROLONGADO_SEGS = 12 * 60 * 60; // 12 horas
+export const APAGADO_PROLONGADO_SEGS = 4 * 60 * 60; // 4 hrs
 
 // ── Constantes legacy eliminadas ──────────────────────────────────────────────
 //
