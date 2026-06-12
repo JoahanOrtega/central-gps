@@ -218,14 +218,28 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
       </span>
     </div>`;
 
+  // ── Ubicación con geocoding perezoso ─────────────────────────────────
+  // Solo si hay coordenadas. El GEOCODE_PLACEHOLDER lo reemplaza
+  // hydrateInfoWindowGeocode() cuando el Geocoder resuelve la dirección
+  // (mismo patrón que las cartas de eventos del recorrido).
+  const hasUbicacion = typeof lat === "number" && typeof lng === "number";
+
   const rowReporte = `
-    <div style="${mostrarVelocidad || mostrarViaje ? rowStyle : rowStyleLast}">
+    <div style="${hasUbicacion || mostrarVelocidad || mostrarViaje ? rowStyle : rowStyleLast}">
       <span style="${labelStyle}">Reporte</span>
       <span style="${valueStyle}">
         hace ${escapeHtml(tiempoRelativoReporte)}
         <span style="${valueSecondary}">${escapeHtml(fechaReporte)}</span>
       </span>
     </div>`;
+
+  const rowUbicacion = hasUbicacion
+    ? `
+    <div style="${mostrarVelocidad || mostrarViaje ? rowStyle : rowStyleLast}">
+      <span style="${labelStyle}">Ubicación</span>
+      <span style="${valueStyle}">${GEOCODE_PLACEHOLDER}</span>
+    </div>`
+    : "";
 
   const rowVelocidad = mostrarVelocidad
     ? `
@@ -328,6 +342,7 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
       <div style="border-top:1px solid #e2e8f0;">
         ${rowEstado}
         ${rowReporte}
+        ${rowUbicacion}
         ${rowVelocidad}
         ${rowViaje}
       </div>

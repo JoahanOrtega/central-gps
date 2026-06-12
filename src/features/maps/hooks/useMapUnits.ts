@@ -2,6 +2,8 @@ import { useRef } from "react";
 import type { MapUnitItem } from "../types/map.types";
 import { buildUnitMarkerContent } from "../lib/map-markers";
 import { buildUnitInfoWindowContent } from "../lib/map-html-builders";
+import { hydrateInfoWindowGeocode } from "../lib/infowindow-geocode";
+
 
 // ── Interfaz pública ──────────────────────────────────────────────────────────
 export interface UseMapUnitsReturn {
@@ -55,6 +57,11 @@ export const useMapUnits = ({
         marker.addListener("gmp-click", () => {
             infoWindow.setContent(buildUnitInfoWindowContent(unit));
             infoWindow.open({ map, anchor: marker });
+            const t = unit.telemetry;
+            if (typeof t?.latitud === "number" && typeof t?.longitud === "number") {
+                hydrateInfoWindowGeocode(infoWindow, t.latitud, t.longitud);
+            }
+
         });
     };
 
@@ -80,9 +87,12 @@ export const useMapUnits = ({
 
         const existing = unitMarkersRef.current.get(unit.id);
         if (existing) {
-            // Reutilizar el marker existente — solo abrir InfoWindow
             infoWindow.setContent(buildUnitInfoWindowContent(unit));
             infoWindow.open({ map, anchor: existing });
+            const t = unit.telemetry;
+            if (typeof t?.latitud === "number" && typeof t?.longitud === "number") {
+                hydrateInfoWindowGeocode(infoWindow, t.latitud, t.longitud);
+            }
             return;
         }
 
@@ -100,6 +110,11 @@ export const useMapUnits = ({
 
         infoWindow.setContent(buildUnitInfoWindowContent(unit));
         infoWindow.open({ map, anchor: marker });
+        const t = unit.telemetry;
+        if (typeof t?.latitud === "number" && typeof t?.longitud === "number") {
+            hydrateInfoWindowGeocode(infoWindow, t.latitud, t.longitud);
+        }
+
     };
 
     /**
@@ -188,6 +203,10 @@ export const useMapUnits = ({
         const infoWindow = infoWindowRef.current;
         if (infoWindow) {
             infoWindow.setContent(buildUnitInfoWindowContent(unit));
+            const t = unit.telemetry;
+            if (typeof t?.latitud === "number" && typeof t?.longitud === "number") {
+                hydrateInfoWindowGeocode(infoWindow, t.latitud, t.longitud);
+            }
         }
     };
 
