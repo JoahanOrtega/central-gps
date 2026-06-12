@@ -11,6 +11,7 @@ import {
   formatDurationHms,
   formatElapsedTimeFromApiDate,
 } from "@/lib/date-time";
+import { ROUTE_ICON_PALETTE } from "./map-icon-svgs";
 
 // ── Seguridad XSS ─────────────────────────────────────────────
 // Escapa caracteres especiales HTML antes de insertar texto
@@ -335,8 +336,177 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
   `;
 };
 
+// ══════════════════════════════════════════════════════════════════════════════
+// Cartas de eventos del recorrido — sistema de diseño compartido
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// Principios aplicados (Laws of UX):
+//   - Ley de Consistencia/Similitud: todas las cartas comparten el mismo
+//     esqueleto (encabezado con ícono + filas LABEL↔VALUE + pie con el
+//     periodo), idéntico al patrón del InfoWindow de unidades de arriba.
+//   - Ley de Jakob + Reconocimiento > Recuerdo: los glifos SVG son los
+//     MISMOS de los marcadores del mapa (paleta de map-icon-svgs.ts), así
+//     el usuario conecta marcador ↔ carta sin esfuerzo cognitivo.
+//   - Estética-Usabilidad: cero emojis. Los emojis se renderizan distinto
+//     en cada sistema operativo (Windows ≠ Android ≠ macOS); los SVG
+//     inline garantizan exactamente el mismo pixel en todos.
+//   - Números tabulares (font-variant-numeric) para que horas y cifras
+//     no "bailen" horizontalmente entre cartas.
 
-// ── Datos de un marcador de dirección de recorrido ────────────
+// ── Tipografía base (misma que la carta de unidades) ──────────────────────────
+const CARD_FONT = "'Poppins', system-ui, -apple-system, sans-serif";
+
+// ── Fábrica de íconos SVG inline ──────────────────────────────────────────────
+// Genera un <svg> de trazo (estilo Lucide) listo para incrustar en el
+// encabezado de una carta. El color llega de ROUTE_ICON_PALETTE para
+// mantener identidad visual con los marcadores del mapa.
+// Google Maps sanitiza el HTML del InfoWindow y descarta atributos SVG de
+// presentación (stroke-width, stroke-linecap, stroke-linejoin) cuando vienen
+// como atributos directos. Moverlos a `style=""` inline los preserva porque
+// el InfoWindow sí permite propiedades CSS en el atributo style.
+const svgIcon = (inner: string, color: string, size = 14): string =>
+  `<svg width="${size}" height="${size}" viewBox="0 0 24 24" ` +
+  `aria-hidden="true" ` +
+  `style="flex-shrink:0; fill:none; stroke:${color}; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round;">` +
+  `${inner}</svg>`;
+
+// Glifos — espejo de los marcadores (map-icon-svgs.ts)
+const GLYPH_PLAY = (c: string) =>
+  svgIcon(`<path d="M8 5v14l11-7z" fill="${c}" stroke="none"/>`, c);
+const GLYPH_FLAG = (c: string) =>
+  svgIcon(`<path d="M5 21V4h12l-2.5 4L17 12H5"/>`, c);
+const GLYPH_PAUSE = (c: string) =>
+  svgIcon(`<line x1="9" y1="6" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="18"/>`, c);
+const GLYPH_POWER = (c: string) =>
+  svgIcon(`<path d="M12 3v8"/><path d="M6.3 7a8 8 0 1 0 11.4 0"/>`, c);
+const GLYPH_GAUGE = (c: string) =>
+  svgIcon(`<path d="M4 15a8 8 0 0 1 16 0"/><line x1="12" y1="15" x2="16" y2="10"/>`, c);
+const GLYPH_RFID = (c: string) =>
+  svgIcon(`<rect x="3" y="6" width="18" height="13" rx="2"/><line x1="3" y1="10.5" x2="21" y2="10.5"/>`, c);
+const GLYPH_DOOR = (c: string) =>
+  svgIcon(`<path d="M19 21V8l-4-5H6a1 1 0 0 0-1 1v17"/><circle cx="15" cy="13" r="1" fill="${c}" stroke="none"/>`, c);
+const GLYPH_ALERT = (c: string) =>
+  svgIcon(`<path d="M12 3 2.5 20h19L12 3z"/><line x1="12" y1="10" x2="12" y2="14"/><circle cx="12" cy="17" r="0.5" fill="${c}"/>`, c);
+const GLYPH_PIN = (c: string) =>
+  svgIcon(`<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>`, c, 12);
+const GLYPH_CLOCK = (c: string) =>
+  svgIcon(`<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>`, c, 12);
+
+// ── Esqueleto compartido de carta ─────────────────────────────────────────────
+// Mismos estilos de fila que buildUnitInfoWindowContent para que TODOS
+// los popups del sistema se sientan parte de la misma familia.
+const EVENT_ROW_STYLE =
+  "display:flex; justify-content:space-between; align-items:center; " +
+  "padding:5px 0; border-bottom:1px solid #f1f5f9; gap:12px;";
+const EVENT_ROW_STYLE_LAST = EVENT_ROW_STYLE.replace(
+  "border-bottom:1px solid #f1f5f9; ",
+  "",
+);
+const EVENT_LABEL_STYLE =
+  "font-size:9.5px; color:#64748b; text-transform:uppercase; " +
+  "letter-spacing:0.04em; font-weight:600; flex-shrink:0; line-height:1.2;";
+const EVENT_VALUE_STYLE =
+  "font-size:12.5px; color:#0f172a; text-align:right; " +
+  "font-variant-numeric:tabular-nums; line-height:1.35; flex:1; font-weight:600;";
+
+/** Contenedor exterior de toda carta de evento. */
+const eventCardWrap = (content: string): string => `
+  <div style="
+    min-width:220px;
+    max-width:280px;
+    box-sizing:border-box;
+    padding:4px 6px;
+    font-family:${CARD_FONT};
+  ">${content}</div>
+`;
+
+/**
+ * Encabezado: ícono + título semántico + valor principal a la derecha.
+ * Von Restorff: el color del título identifica el tipo de evento de un
+ * vistazo, igual que el color del marcador en el mapa.
+ */
+const eventCardHeader = (
+  iconSvg: string,
+  title: string,
+  color: string,
+  rightValue?: string,
+): string => `
+  <div style="display:flex; align-items:center; gap:7px;">
+    ${iconSvg}
+    <span style="
+      font-size:13px; font-weight:600; color:${color};
+      flex:1; line-height:1.2;
+    ">${title}</span>
+    ${rightValue
+    ? `<span style="
+          font-size:12.5px; font-weight:600; color:#0f172a;
+          font-variant-numeric:tabular-nums;
+        ">${rightValue}</span>`
+    : ""}
+  </div>
+`;
+
+/** Fila LABEL ↔ VALUE (patrón idéntico al de la carta de unidades). */
+const eventCardRow = (
+  label: string,
+  value: string,
+  isLast = false,
+  valueColor?: string,
+): string => `
+  <div style="${isLast ? EVENT_ROW_STYLE_LAST : EVENT_ROW_STYLE}">
+    <span style="${EVENT_LABEL_STYLE}">${label}</span>
+    <span style="${EVENT_VALUE_STYLE}${valueColor ? ` color:${valueColor};` : ""}">${value}</span>
+  </div>
+`;
+
+/** Pie con el periodo del evento — información secundaria, tono apagado. */
+const eventCardFooter = (periodo: string): string => `
+  <div style="
+    margin-top:6px; padding-top:6px;
+    border-top:1px solid #f1f5f9;
+    font-size:10.5px; color:#94a3b8;
+    font-variant-numeric:tabular-nums; line-height:1.3;
+  ">${escapeHtml(periodo)}</div>
+`;
+
+// ── Periodo compacto ──────────────────────────────────────────────────────────
+/**
+ * Formatea un rango de fechas evitando repetir el día.
+ *
+ * Antes:  "Ayer a las 16:53:47 – Ayer a las 23:59:47"  (redundante)
+ * Ahora:  "Ayer, 16:53:47 – 23:59:47"                  (Ley de Tesler:
+ *         se elimina complejidad que no aporta al usuario)
+ *
+ * Si inicio y fin caen en días distintos, se conserva el formato largo
+ * porque ahí el día SÍ es información relevante.
+ */
+export const formatCompactPeriod = (
+  startIso: string,
+  endIso: string,
+): string => {
+  const inicio = formatCalendar(startIso);
+  const fin = formatCalendar(endIso);
+
+  // Separa "día" y "hora" de los formatos que produce formatCalendar:
+  //   "Hoy a las 08:30:15" / "Ayer a las 22:10:45" / "15/03/2024 08:30:15"
+  const partir = (s: string): [string, string] => {
+    const sep = " a las ";
+    const i = s.indexOf(sep);
+    if (i !== -1) return [s.slice(0, i), s.slice(i + sep.length)];
+    const j = s.indexOf(" ");
+    return j === -1 ? [s, ""] : [s.slice(0, j), s.slice(j + 1)];
+  };
+
+  const [diaInicio, horaInicio] = partir(inicio);
+  const [diaFin, horaFin] = partir(fin);
+
+  if (diaInicio === diaFin && horaInicio && horaFin) {
+    return `${diaInicio}, ${horaInicio} – ${horaFin}`;
+  }
+  return `${inicio} – ${fin}`;
+};
+
+// ── Datos de un marcador de dirección de recorrido ────────────────────────────
 export interface RouteArrowMarkerData {
   point: RoutePoint;
   index: number;
@@ -348,123 +518,109 @@ export interface RouteArrowMarkerData {
  * InfoWindow de un marcador de dirección dentro de un recorrido.
  *
  * Miller's Law → máximo 3 datos: velocidad (lo más importante),
- * distancia acumulada y hora. Sin ruido de estado interno o índice.
+ * distancia acumulada y hora.
  * Aesthetic-Usability → velocidad grande con color semántico.
- * Proximity → hora subordinada visualmente debajo de la velocidad.
+ *
+ * El color de la velocidad usa `velMax` de la unidad (mismo criterio que
+ * el polyline del recorrido): rojo en exceso, ámbar a 5 km/h del límite,
+ * verde normal. Si la unidad no tiene vel_max configurada (velMax <= 0)
+ * se usan los umbrales históricos 80/60 como respaldo.
  */
 export const buildRouteArrowInfoWindowContent = (
   unitLabel: string | null,
   data: RouteArrowMarkerData,
+  velMax = 0,
 ): string => {
-  const speed = data.point.velocidad ?? 0;
-  // Verde normal · amarillo cerca del límite · rojo exceso (mismo criterio del polyline)
-  const speedColor = speed >= 80 ? "#dc2626" : speed >= 60 ? "#d97706" : "#16a34a";
-  // Usar formatCalendar en lugar de slicing manual del ISO.
-  // Razones:
-  //   1. Respeta la zona horaria APP_TIMEZONE (UTC-6). El slicing anterior
-  //      (str.replace("T"," ").slice(0, 16)) tomaba la hora UTC cruda sin
-  //      convertir — cuando el backend enviaba "2024-03-15T14:30:00Z" el
-  //      usuario veía 14:30 en lugar de las 08:30 reales en Aguascalientes.
-  //   2. Formato legible "Hoy a las 08:30:15" / "Ayer a las 22:10:45" /
-  //      "15/03/2024 08:30:15" — siempre con segundos (explícito hasta el
-  //      segundo para análisis fino del recorrido).
-  //   3. Robusto ante cualquier formato ISO que envíe el backend (con o sin
-  //      offset de zona horaria).
+  const speed = Math.round(data.point.velocidad ?? 0);
+
+  const speedColor =
+    velMax > 0
+      ? speed >= velMax
+        ? "#dc2626"
+        : speed >= velMax - 5
+          ? "#d97706"
+          : "#16a34a"
+      : speed >= 80
+        ? "#dc2626"
+        : speed >= 60
+          ? "#d97706"
+          : "#16a34a";
+
   const horaStr = formatCalendar(data.point.fecha_hora_gps);
 
-  return `
-    <div style="font-family:sans-serif; padding:6px 10px; min-width:130px; max-width:180px;">
-      <div style="font-size:18px; font-weight:700; color:${speedColor}; line-height:1;">
-        ${Math.round(speed)} <span style="font-size:11px; font-weight:400; color:#94a3b8;">km/h</span>
-      </div>
-      <div style="margin-top:4px; font-size:11px; color:#64748b;">
-        📍 ${data.distanceFromStartKm.toFixed(1)} km desde inicio
-      </div>
-      <div style="margin-top:2px; font-size:11px; color:#94a3b8;">
-        🕐 ${escapeHtml(horaStr)}
-      </div>
+  return eventCardWrap(`
+    <div style="font-size:19px; font-weight:700; color:${speedColor}; line-height:1; font-variant-numeric:tabular-nums;">
+      ${speed} <span style="font-size:11px; font-weight:400; color:#94a3b8;">km/h</span>
     </div>
-  `;
+    <div style="margin-top:6px; display:flex; align-items:center; gap:5px; font-size:11px; color:#64748b;">
+      ${GLYPH_PIN("#64748b")} ${data.distanceFromStartKm.toFixed(1)} km desde inicio
+    </div>
+    <div style="margin-top:3px; display:flex; align-items:center; gap:5px; font-size:11px; color:#94a3b8;">
+      ${GLYPH_CLOCK("#94a3b8")} ${escapeHtml(horaStr)}
+    </div>
+  `);
 };
+
 // ── Builders de InfoWindow para eventos del recorrido ─────────────────────────
-// Compatibles con el useMapRoute. Todos reciben strings ya formateados.
+// Compatibles con useMapRoute. Todos reciben strings ya formateados.
+// Colores espejo de ROUTE_ICON_PALETTE (marcador ↔ carta = mismo color).
 
 export const buildStartFlagContent = (
   fechaHora: string,
   tiempoApagado?: string,
   fechaApagado?: string,
-): string => `
-    <div style="min-width:210px; padding:4px 2px; font-family:sans-serif;">
-        <div style="font-weight:600; color:#16a34a; margin-bottom:4px; font-size:13px;">
-            ▶ Inicio del recorrido
-        </div>
-        <div style="font-size:12px; color:#475569;">${escapeHtml(fechaHora)}</div>
-        ${tiempoApagado ? `
-            <div style="font-size:11px; color:#94a3b8; margin-top:4px;">
-                Permaneció aquí ${escapeHtml(tiempoApagado)}
-                ${fechaApagado ? `desde ${escapeHtml(fechaApagado)}` : ""}
-            </div>
-        ` : ""}
+): string =>
+  eventCardWrap(`
+    ${eventCardHeader(GLYPH_PLAY(ROUTE_ICON_PALETTE.start), "Inicio del recorrido", ROUTE_ICON_PALETTE.start)}
+    <div style="margin-top:5px; font-size:12px; color:#475569; font-variant-numeric:tabular-nums;">
+      ${escapeHtml(fechaHora)}
     </div>
-`;
+    ${tiempoApagado
+      ? `<div style="margin-top:4px; font-size:10.5px; color:#94a3b8;">
+          Permaneció aquí ${escapeHtml(tiempoApagado)}
+          ${fechaApagado ? `desde ${escapeHtml(fechaApagado)}` : ""}
+        </div>`
+      : ""}
+  `);
 
 export const buildEndFlagContent = (
   distanciaKm: number,
   duracionTotal: string,
-): string => `
-    <div style="min-width:210px; padding:4px 2px; font-family:sans-serif;">
-        <div style="font-weight:600; color:#374151; margin-bottom:4px; font-size:13px;">
-            ■ Fin del recorrido
-        </div>
-        <div style="display:flex; justify-content:space-between; font-size:12px; color:#475569; margin-bottom:3px;">
-            <span>📍 Distancia</span>
-            <span style="font-weight:600;">${distanciaKm.toFixed(2)} km</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; font-size:12px; color:#475569;">
-            <span>⏱ Duración</span>
-            <span style="font-weight:600;">${escapeHtml(duracionTotal)}</span>
-        </div>
+): string =>
+  eventCardWrap(`
+    ${eventCardHeader(GLYPH_FLAG(ROUTE_ICON_PALETTE.finish), "Fin del recorrido", ROUTE_ICON_PALETTE.finish)}
+    <div style="margin-top:4px; border-top:1px solid #e2e8f0;">
+      ${eventCardRow("Distancia", `${distanciaKm.toFixed(2)} km`)}
+      ${eventCardRow("Duración", escapeHtml(duracionTotal), true)}
     </div>
-`;
+  `);
 
 export const buildStopEventContent = (
   tiempoEvento: string,
   periodo: string,
-): string => `
-    <div style="min-width:210px; padding:4px 2px; font-family:sans-serif;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-weight:600; color:#6366f1; font-size:13px;">⏹ Detenida</span>
-            <span style="font-weight:600; font-size:12px; color:#1e293b;">${escapeHtml(tiempoEvento)}</span>
-        </div>
-        <div style="font-size:11px; color:#94a3b8; margin-top:3px;">${escapeHtml(periodo)}</div>
-    </div>
-`;
+): string =>
+  eventCardWrap(`
+    ${eventCardHeader(GLYPH_PAUSE(ROUTE_ICON_PALETTE.stop), "Detenida", ROUTE_ICON_PALETTE.stop, escapeHtml(tiempoEvento))}
+    ${eventCardFooter(periodo)}
+  `);
 
 export const buildEngineEventContent = (
   tiempoEvento: string,
   periodo: string,
-): string => `
-    <div style="min-width:210px; padding:4px 2px; font-family:sans-serif;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-weight:600; color:#6b7280; font-size:13px;">⚙ Motor apagado</span>
-            <span style="font-weight:600; font-size:12px; color:#1e293b;">${escapeHtml(tiempoEvento)}</span>
-        </div>
-        <div style="font-size:11px; color:#94a3b8; margin-top:3px;">${escapeHtml(periodo)}</div>
-    </div>
-`;
+): string =>
+  eventCardWrap(`
+    ${eventCardHeader(GLYPH_POWER(ROUTE_ICON_PALETTE.engine), "Motor apagado", ROUTE_ICON_PALETTE.engine, escapeHtml(tiempoEvento))}
+    ${eventCardFooter(periodo)}
+  `);
 
 export const buildDoorEventContent = (
   tiempoEvento: string,
   periodo: string,
-): string => `
-    <div style="min-width:210px; padding:4px 2px; font-family:sans-serif;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-weight:600; color:#f59e0b; font-size:13px;">🚪 Puerta abierta</span>
-            <span style="font-weight:600; font-size:12px; color:#1e293b;">${escapeHtml(tiempoEvento)}</span>
-        </div>
-        <div style="font-size:11px; color:#94a3b8; margin-top:3px;">${escapeHtml(periodo)}</div>
-    </div>
-`;
+): string =>
+  eventCardWrap(`
+    ${eventCardHeader(GLYPH_DOOR(ROUTE_ICON_PALETTE.door), "Puerta abierta", ROUTE_ICON_PALETTE.door, escapeHtml(tiempoEvento))}
+    ${eventCardFooter(periodo)}
+  `);
 
 export const buildSpeedEventContent = (
   velocidadMaxima: number,
@@ -472,63 +628,63 @@ export const buildSpeedEventContent = (
   distanciaKm: number,
   tiempoEvento: string,
   periodo: string,
-): string => `
-    <div style="min-width:210px; padding:4px 2px; font-family:sans-serif;">
-        <div style="font-weight:600; color:#dc2626; margin-bottom:4px; font-size:13px;">⚡ Exceso de velocidad</div>
-        <div style="display:flex; justify-content:space-between; font-size:12px; color:#475569; margin-bottom:2px;">
-            <span>Alcanzado</span>
-            <span style="font-weight:700; color:#dc2626;">${velocidadMaxima} km/h</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; font-size:12px; color:#475569; margin-bottom:2px;">
-            <span>Límite</span>
-            <span style="font-weight:600;">${velMax} km/h</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; font-size:12px; color:#475569; margin-bottom:2px;">
-            <span>Distancia</span>
-            <span style="font-weight:600;">${distanciaKm.toFixed(2)} km</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; font-size:12px; color:#475569;">
-            <span>Duración</span>
-            <span style="font-weight:600;">${escapeHtml(tiempoEvento)}</span>
-        </div>
-        <div style="font-size:11px; color:#94a3b8; margin-top:3px;">${escapeHtml(periodo)}</div>
+): string =>
+  eventCardWrap(`
+    ${eventCardHeader(GLYPH_GAUGE(ROUTE_ICON_PALETTE.speed), "Exceso de velocidad", ROUTE_ICON_PALETTE.speed)}
+    <div style="margin-top:4px; border-top:1px solid #e2e8f0;">
+      ${eventCardRow("Alcanzado", `${velocidadMaxima} km/h`, false, ROUTE_ICON_PALETTE.speed)}
+      ${eventCardRow("Límite", `${velMax} km/h`)}
+      ${eventCardRow("Distancia", `${distanciaKm.toFixed(2)} km`)}
+      ${eventCardRow("Duración", escapeHtml(tiempoEvento), true)}
     </div>
-`;
+    ${eventCardFooter(periodo)}
+  `);
 
 export const buildRfidEventContent = (
   lecturas: Array<{ rfid: string; fecha_hora: string }>,
 ): string => {
-  const rows = lecturas
-    .map((l) => `
-            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:2px;">
-                <span style="font-weight:600; color:#2563eb;">${escapeHtml(l.rfid)}</span>
-                <span style="font-size:11px; color:#94a3b8;">${escapeHtml(l.fecha_hora)}</span>
-            </div>`)
+  const filas = lecturas
+    .map(
+      (l, i) =>
+        eventCardRow(
+          escapeHtml(l.rfid),
+          escapeHtml(l.fecha_hora),
+          i === lecturas.length - 1,
+        ),
+    )
     .join("");
-  return `
-        <div style="min-width:210px; padding:4px 2px; font-family:sans-serif;">
-            <div style="font-weight:600; color:#2563eb; margin-bottom:4px; font-size:13px;">
-                📡 ${lecturas.length} Lectura${lecturas.length !== 1 ? "s" : ""} RFID
-            </div>
-            ${rows}
-        </div>
-    `;
+
+  return eventCardWrap(`
+    ${eventCardHeader(
+    GLYPH_RFID(ROUTE_ICON_PALETTE.rfid),
+    `${lecturas.length} lectura${lecturas.length !== 1 ? "s" : ""} RFID`,
+    ROUTE_ICON_PALETTE.rfid,
+  )}
+    <div style="margin-top:4px; border-top:1px solid #e2e8f0;">
+      ${filas}
+    </div>
+  `);
 };
 
 export const buildAlertEventContent = (
   alertas: Array<{ fecha_hora_gps: string; velocidad: number; lat: number; lng: number }>,
 ): string => {
-  const rows = alertas
-    .map((a) => `
-            <div style="margin-bottom:5px; padding-bottom:5px; border-bottom:1px solid #fee2e2;">
-                <div style="font-size:12px; font-weight:600; color:#dc2626;">${escapeHtml(a.fecha_hora_gps)}</div>
-                <div style="font-size:11px; color:#6b7280;">${Math.floor(a.velocidad)} km/h · ${a.lat.toFixed(5)}, ${a.lng.toFixed(5)}</div>
-            </div>`)
-    .join("");
-  return `
-        <div style="min-width:210px; padding:4px 2px; font-family:sans-serif;">
-            <div style="font-weight:600; color:#dc2626; margin-bottom:5px; font-size:13px;">🚨 Botón de pánico</div>
-            ${rows}
+  const filas = alertas
+    .map(
+      (a) => `
+      <div style="margin-bottom:5px; padding-bottom:5px; border-bottom:1px solid #fee2e2;">
+        <div style="font-size:12px; font-weight:600; color:${ROUTE_ICON_PALETTE.alert}; font-variant-numeric:tabular-nums;">
+          ${escapeHtml(a.fecha_hora_gps)}
         </div>
-    `;
+        <div style="font-size:10.5px; color:#64748b; font-variant-numeric:tabular-nums;">
+          ${Math.floor(a.velocidad)} km/h · ${a.lat.toFixed(5)}, ${a.lng.toFixed(5)}
+        </div>
+      </div>`,
+    )
+    .join("");
+
+  return eventCardWrap(`
+    ${eventCardHeader(GLYPH_ALERT(ROUTE_ICON_PALETTE.alert), "Botón de pánico", ROUTE_ICON_PALETTE.alert)}
+    <div style="margin-top:5px;">${filas}</div>
+  `);
 };

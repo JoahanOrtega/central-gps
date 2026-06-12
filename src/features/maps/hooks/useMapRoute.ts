@@ -7,6 +7,7 @@ import {
     type RouteEventType,
 } from "../lib/map-markers";
 import {
+    formatCompactPeriod,
     buildRouteArrowInfoWindowContent,
     buildStartFlagContent,
     buildEndFlagContent,
@@ -305,7 +306,7 @@ export const useMapRoute = ({
                         point: p, index: i,
                         heading: p.grados ?? 0,
                         distanceFromStartKm: distFromStart,
-                    }),
+                    }, velMax),
                 );
                 infoWindow.open({ map, anchor: marker });
             });
@@ -369,7 +370,7 @@ export const useMapRoute = ({
                 (new Date(e.fecha_hora_gps).getTime() -
                     new Date(s.fecha_hora_gps).getTime()) / 1000,
             )));
-            const periodo = `${formatCalendar(s.fecha_hora_gps)} – ${formatCalendar(e.fecha_hora_gps)}`;
+            const periodo = formatCompactPeriod(s.fecha_hora_gps, e.fecha_hora_gps);
 
             if (state === "stop") {
                 stopMarkersRef.current.push(
