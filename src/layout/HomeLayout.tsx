@@ -4,6 +4,8 @@ import { HomeSidebar } from "./HomeSidebar";
 import { HomeNavbar } from "./HomeNavbar";
 import { MobileSidebarDrawer } from "./MobileSidebarDrawer";
 import { usePoiEvents } from "@/hooks/usePoiEvents";
+import { UnitStateAlertToastContainer } from "@/features/maps/components/UnitNotifications/UnitStateAlertToast";
+
 import { PoiEventToastContainer } from "@/features/maps/components/PoiNotifications/PoiEventToast";
 import { PageTransition } from "@/components/shared/PageTransition";
 
@@ -38,6 +40,7 @@ export const HomeLayout = () => {
         </div>
       </div>
       <PoiEventToastContainer />
+      <UnitStateAlertToastContainer />
     </div>
   );
 };
