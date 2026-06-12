@@ -17,6 +17,7 @@ import {
     buildSpeedEventContent,
     buildRfidEventContent,
 } from "../lib/map-html-builders";
+import { openInfoWindowWithGeocode } from "../lib/infowindow-geocode";
 import { haversineKm } from "../lib/map-geometry";
 import { formatDurationHms, formatCalendar } from "@/lib/date-time";
 
@@ -247,13 +248,22 @@ export const useMapRoute = ({
         const endM = createRouteFlagMarker(map, { lat: last.latitud, lng: last.longitud }, "F", "#374151");
 
         startM.addListener("gmp-click", () => {
-            infoWindowRef.current?.setContent(buildStartFlagContent(formatCalendar(first.fecha_hora_gps)));
-            infoWindowRef.current?.open({ map, anchor: startM });
+            if (!infoWindowRef.current) return;
+            openInfoWindowWithGeocode(
+                infoWindowRef.current, map, startM,
+                buildStartFlagContent(formatCalendar(first.fecha_hora_gps)),
+                first.latitud, first.longitud,
+            );
         });
         endM.addListener("gmp-click", () => {
-            infoWindowRef.current?.setContent(buildEndFlagContent(Number(totalKm.toFixed(2)), dur));
-            infoWindowRef.current?.open({ map, anchor: endM });
+            if (!infoWindowRef.current) return;
+            openInfoWindowWithGeocode(
+                infoWindowRef.current, map, endM,
+                buildEndFlagContent(Number(totalKm.toFixed(2)), dur),
+                last.latitud, last.longitud,
+            );
         });
+
 
         flagMarkersRef.current.push(startM, endM);
         if (!visibilityRef.current.flags) {
@@ -354,8 +364,7 @@ export const useMapRoute = ({
                 zIndex: 20,
             });
             m.addListener("gmp-click", () => {
-                infoWindow.setContent(html);
-                infoWindow.open({ map, anchor: m });
+                openInfoWindowWithGeocode(infoWindow, map, m, html, lat, lng);
             });
             return m;
         };

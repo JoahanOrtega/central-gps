@@ -12,6 +12,7 @@ import {
   formatElapsedTimeFromApiDate,
 } from "@/lib/date-time";
 import { ROUTE_ICON_PALETTE } from "./map-icon-svgs";
+import { GEOCODE_PLACEHOLDER } from "./infowindow-geocode";
 
 // ── Seguridad XSS ─────────────────────────────────────────────
 // Escapa caracteres especiales HTML antes de insertar texto
@@ -561,6 +562,20 @@ export const buildRouteArrowInfoWindowContent = (
   `);
 };
 
+
+/** Fila de dirección con placeholder para geocoding perezoso. */
+const eventCardAddressRow = (): string => `
+  <div style="
+    display:flex; align-items:center; gap:5px;
+    margin-top:5px; padding-top:5px;
+    border-top:1px solid #f1f5f9;
+    font-size:11px; color:#94a3b8;
+  ">
+    ${GLYPH_PIN("#94a3b8")}
+    <span>${GEOCODE_PLACEHOLDER}</span>
+  </div>
+`;
+
 // ── Builders de InfoWindow para eventos del recorrido ─────────────────────────
 // Compatibles con useMapRoute. Todos reciben strings ya formateados.
 // Colores espejo de ROUTE_ICON_PALETTE (marcador ↔ carta = mismo color).
@@ -575,6 +590,7 @@ export const buildStartFlagContent = (
     <div style="margin-top:5px; font-size:12px; color:#475569; font-variant-numeric:tabular-nums;">
       ${escapeHtml(fechaHora)}
     </div>
+    ${eventCardAddressRow()}
     ${tiempoApagado
       ? `<div style="margin-top:4px; font-size:10.5px; color:#94a3b8;">
           Permaneció aquí ${escapeHtml(tiempoApagado)}
@@ -589,7 +605,8 @@ export const buildEndFlagContent = (
 ): string =>
   eventCardWrap(`
     ${eventCardHeader(GLYPH_FLAG(ROUTE_ICON_PALETTE.finish), "Fin del recorrido", ROUTE_ICON_PALETTE.finish)}
-    <div style="margin-top:4px; border-top:1px solid #e2e8f0;">
+    ${eventCardAddressRow()}
+    <div style="margin-top:4px; border-top:1px solid #f1f5f9;">
       ${eventCardRow("Distancia", `${distanciaKm.toFixed(2)} km`)}
       ${eventCardRow("Duración", escapeHtml(duracionTotal), true)}
     </div>
@@ -601,6 +618,7 @@ export const buildStopEventContent = (
 ): string =>
   eventCardWrap(`
     ${eventCardHeader(GLYPH_PAUSE(ROUTE_ICON_PALETTE.stop), "Detenida", ROUTE_ICON_PALETTE.stop, escapeHtml(tiempoEvento))}
+    ${eventCardAddressRow()}
     ${eventCardFooter(periodo)}
   `);
 
@@ -610,6 +628,7 @@ export const buildEngineEventContent = (
 ): string =>
   eventCardWrap(`
     ${eventCardHeader(GLYPH_POWER(ROUTE_ICON_PALETTE.engine), "Motor apagado", ROUTE_ICON_PALETTE.engine, escapeHtml(tiempoEvento))}
+    ${eventCardAddressRow()}
     ${eventCardFooter(periodo)}
   `);
 
