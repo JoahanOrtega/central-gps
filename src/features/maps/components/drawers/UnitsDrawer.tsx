@@ -42,6 +42,9 @@ import {
 } from '../../lib/telemetry-status';
 import { DrawerSkeletonList } from '@/components/shared/SkeletonCard';
 import type { MapUnitItem } from '../../types/map.types';
+import { UnitStateFilterChips, getUnitFilterState } from "./UnitStateFilterChips";
+import { useUnitsDrawerStore } from "../../stores/unitsDrawerStore";
+
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface UnitsDrawerProps {
@@ -267,6 +270,19 @@ export const UnitsDrawer = ({
     isLoading, error, setSearch, loadUnits, toggleUnit, clearSelection,
   } = useUnitsLive();
 
+  const stateFilter = useUnitsDrawerStore((s) => s.stateFilter);
+  const setStateFilter = useUnitsDrawerStore((s) => s.setStateFilter);
+
+  const filteredUnits = useMemo(
+    () =>
+      stateFilter === "all"
+        ? units
+        : units.filter((u) => getUnitFilterState(u) === stateFilter),
+    [units, stateFilter],
+  );
+
+
+
   // Sincroniza la selección con los markers del mapa:
   //   - Si hay unidades seleccionadas → muestra markers
   //   - Si la selección se vacía → oculta markers
@@ -302,9 +318,9 @@ export const UnitsDrawer = ({
   const groups = useMemo(
     () =>
       search.trim()
-        ? [{ nombre: `Resultados (${units.length})`, units }]
-        : groupUnits(units),
-    [units, search],
+        ? [{ nombre: `Resultados (${filteredUnits.length})`, units: filteredUnits }]
+        : groupUnits(filteredUnits),
+    [filteredUnits, search],
   );
 
   return (
@@ -357,6 +373,13 @@ export const UnitsDrawer = ({
             Buscar
           </button>
         </div>
+        <div className="mt-2">
+          <UnitStateFilterChips
+            units={units}
+            value={stateFilter}
+            onChange={setStateFilter}
+          />
+        </div>
 
         {selectedIds.length > 0 && (
           <div className="mt-1.5 flex items-center justify-between">
@@ -383,9 +406,13 @@ export const UnitsDrawer = ({
             </button>
           </div>
         )}
-        {!isLoading && !error && units.length === 0 && (
+        {!isLoading && !error && filteredUnits.length === 0 && (
           <p className="px-3 py-8 text-center text-sm text-slate-400">
-            {search ? `Sin resultados para "${search}"` : 'No hay unidades disponibles.'}
+            {search
+              ? `Sin resultados para "${search}"`
+              : stateFilter !== "all"
+                ? "Ninguna unidad en ese estado ahora mismo."
+                : "No hay unidades disponibles."}
           </p>
         )}
         {!isLoading && !error && groups.length > 0 && (

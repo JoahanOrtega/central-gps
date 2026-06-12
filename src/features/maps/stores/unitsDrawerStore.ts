@@ -44,6 +44,7 @@
  *   Recognition (Nielsen #6)  → al reabrir, reconoce su estado previo
  */
 import { create } from "zustand";
+import type { UnitStateFilter } from "../components/drawers/UnitStateFilterChips";
 
 interface UnitsDrawerState {
     /** IDs de unidades marcadas con checkbox. */
@@ -59,6 +60,11 @@ interface UnitsDrawerState {
      * Null solo antes del primer mount del hook.
      */
     lastEmpresaId: string | null;
+
+    stateFilter: UnitStateFilter;
+
+    setStateFilter: (filter: UnitStateFilter) => void;
+
 
     /** Alterna la selección de una unidad por id. */
     toggleUnit: (id: number) => void;
@@ -83,7 +89,7 @@ export const useUnitsDrawerStore = create<UnitsDrawerState>((set) => ({
     selectedIds: [],
     search: "",
     lastEmpresaId: null,
-
+    stateFilter: "all",
     toggleUnit: (id) =>
         set((state) => ({
             // Inmutable: nuevo array, no mutamos el anterior.
@@ -100,5 +106,7 @@ export const useUnitsDrawerStore = create<UnitsDrawerState>((set) => ({
 
     setLastEmpresaId: (id) => set({ lastEmpresaId: id }),
 
-    reset: () => set({ selectedIds: [], search: "" }),
+    setStateFilter: (filter) => set({ stateFilter: filter }),
+
+    reset: () => set({ selectedIds: [], search: "", stateFilter: "all" }),
 }));
