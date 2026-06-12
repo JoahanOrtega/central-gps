@@ -365,27 +365,33 @@ export const useMapRoute = ({
             });
             m.addListener("gmp-click", () => {
                 openInfoWindowWithGeocode(infoWindow, map, m, html, lat, lng);
-            });
+            }); 
             return m;
         };
 
+        const STOP_MIN_SECONDS = 30; // umbral mínimo para considerar una parada
         const closeState = (endIdx: number) => {
             if (state === "none") return;
             const s = points[eventStart];
             const e = points[endIdx];
             if (!s || !e) return;
 
-            const dur = formatDurationHms(Math.max(0, Math.floor(
+            // Calculamos los segundos aquí
+            const durationSeconds = Math.max(0, Math.floor(
                 (new Date(e.fecha_hora_gps).getTime() -
                     new Date(s.fecha_hora_gps).getTime()) / 1000,
-            )));
+            ));
+            const dur = formatDurationHms(durationSeconds);
             const periodo = formatCompactPeriod(s.fecha_hora_gps, e.fecha_hora_gps);
 
             if (state === "stop") {
+                // Descartar paradas menores al umbral
+                if (durationSeconds < STOP_MIN_SECONDS) return;
                 stopMarkersRef.current.push(
                     mkMarker("stop", s.latitud, s.longitud, buildStopEventContent(dur, periodo), vis.stops),
                 );
             }
+
             if (state === "engine") {
                 engineMarkersRef.current.push(
                     mkMarker("engine", s.latitud, s.longitud, buildEngineEventContent(dur, periodo), vis.engine),
