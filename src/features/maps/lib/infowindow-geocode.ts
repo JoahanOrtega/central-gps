@@ -51,11 +51,34 @@ export const openInfoWindowWithGeocode = (
     infoWindow.setContent(htmlBase);
     infoWindow.open({ map, anchor: marker });
 
-    // Paso 2: resolver la dirección en background (sin bloquear el hilo)
+    // Pasos 2 y 3: resolver dirección y reemplazar placeholder
+    hydrateInfoWindowGeocode(infoWindow, lat, lng);
+};
+
+/**
+ * Resuelve la dirección de (lat, lng) y reemplaza el GEOCODE_PLACEHOLDER
+ * en el contenido actual del InfoWindow — si todavía está presente.
+ *
+ * Casos de uso:
+ *   - Lo llama openInfoWindowWithGeocode() internamente tras abrir.
+ *   - Llamada directa cuando el contenido se actualiza con setContent()
+ *     SIN reabrir el InfoWindow (ej: refresh en vivo del InfoWindow de
+ *     unidad en useMapUnits mientras está abierto).
+ *
+ * Es seguro llamarla aunque el contenido no tenga placeholder: la
+ * verificación interna lo detecta y no hace nada (el resolveAddress de
+ * todas formas pega al caché, así que el costo de una llamada redundante
+ * con coordenada repetida es cero).
+ */
+export const hydrateInfoWindowGeocode = (
+    infoWindow: google.maps.InfoWindow,
+    lat: number,
+    lng: number,
+): void => {
     resolveAddress(lat, lng).then((address) => {
-        // Paso 3: actualizar SOLO si el InfoWindow sigue mostrando este contenido.
-        // Comparamos el contenido actual para no sobreescribir una carta diferente
-        // que el usuario haya abierto mientras esperaba el geocoding.
+        // Actualizar SOLO si el InfoWindow sigue mostrando un contenido con
+        // placeholder pendiente — no sobreescribir una carta diferente que
+        // el usuario haya abierto mientras esperaba el geocoding.
         const currentContent = infoWindow.getContent();
         if (typeof currentContent === "string" && currentContent.includes(GEOCODE_PLACEHOLDER)) {
             infoWindow.setContent(currentContent.replace(GEOCODE_PLACEHOLDER, escapeAddressHtml(address)));
