@@ -33,3 +33,18 @@ export const getHeadingBetweenPoints = (
   const heading = toDegrees(Math.atan2(y, x));
   return (heading + 360) % 360;
 };
+
+/**
+ * Interpola linealmente entre dos puntos geográficos.
+ * `t` va de 0 (start) a 1 (end). Para distancias cortas entre pings GPS
+ * (típicamente < 1 km), la interpolación lineal en lat/lng es visualmente
+ * indistinguible de la geodésica y mucho más barata de calcular cada frame.
+ */
+export const interpolateLatLng = (
+  start: google.maps.LatLngLiteral,
+  end: google.maps.LatLngLiteral,
+  t: number,
+): google.maps.LatLngLiteral => ({
+  lat: start.lat + (end.lat - start.lat) * t,
+  lng: start.lng + (end.lng - start.lng) * t,
+});
