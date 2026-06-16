@@ -26,6 +26,7 @@ const PointsOfInterestPage = lazy(() => import("@/pages/PointsOfInterestPage").t
 const PoiGroupsPage = lazy(() => import("@/pages/PoiGroupsPage").then(m => ({ default: m.PoiGroupsPage })));
 const UsersPage = lazy(() => import("@/features/catalogs/users/pages/UsersPage").then(m => ({ default: m.UsersPage })));
 const ClientsPage = lazy(() => import("@/pages/ClientsPage").then(m => ({ default: m.ClientsPage })));
+const OperatorsPage = lazy(() => import("@/pages/OperatorsPage").then(m => ({ default: m.OperatorsPage })));
 const RoutesPage = lazy(() => import("@/pages/RoutesPage").then(m => ({ default: m.RoutesPage })));
 const ItinerariesPage = lazy(() => import("@/pages/ItinerariesPage").then(m => ({ default: m.ItinerariesPage })));
 
@@ -88,6 +89,10 @@ export const appRouter = createBrowserRouter([
       {
         path: "catalogs/clients",
         element: <PermisoRoute permiso="clientes.ver"><LazyPage name="Clientes"><ClientsPage /></LazyPage></PermisoRoute>,
+      },
+      {
+        path: "catalogs/operators",
+        element: <PermisoRoute permiso="operadores.ver"><LazyPage name="Operadores"><OperatorsPage /></LazyPage></PermisoRoute>,
       },
       {
         path: "catalogs/points-of-interest",

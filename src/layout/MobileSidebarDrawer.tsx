@@ -72,6 +72,7 @@ export const MobileSidebarDrawer = ({
   const puedeClientes = usePermiso("clientes.ver");
   const puedePois = usePermiso("pois.ver");
   const puedeUsuarios = usePermiso("usuarios.ver");
+  const puedeOperadores = usePermiso("operadores.ver");
 
   return (
     <>
@@ -134,7 +135,7 @@ export const MobileSidebarDrawer = ({
           </div>
 
           {/* Catálogos */}
-          {(puedeUnidades || puedeClientes || puedePois || puedeUsuarios) && (
+          {(puedeUnidades || puedeClientes || puedePois || puedeUsuarios || puedeOperadores) && (
             <div>
               <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                 Catálogos
@@ -150,6 +151,10 @@ export const MobileSidebarDrawer = ({
               {puedePois && (
                 <DrawerLink to="/home/catalogs/points-of-interest" label="Puntos de Interés"
                   icon={<MapPinned className="h-4 w-4" />} onClose={onClose} />
+              )}
+              {puedeOperadores && (
+                <DrawerLink to="/home/catalogs/operators" label="Operadores"
+                  icon={<Users className="h-4 w-4" />} onClose={onClose} />
               )}
               {puedePois && (
                 <DrawerLink to="/home/catalogs/poi-groups" label="Grupos de POI"

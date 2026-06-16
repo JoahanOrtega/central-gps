@@ -51,7 +51,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     id: "operators", label: "Operadores",
     path: "/home/catalogs/operators", grupo: "catalogs",
-    permiso: "operadores.ver", disponible: false,
+    permiso: "operadores.ver", disponible: true,
     icon: <Users className="h-4 w-4 shrink-0" />,
   },
   {
