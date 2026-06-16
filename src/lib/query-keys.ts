@@ -36,8 +36,6 @@ export const queryKeys = {
     },
     catalogs: {
         all: ["catalogs"] as const,
-        operators: (idEmpresa: number | null | undefined) =>
-            ["catalogs", "operators", idEmpresa] as const,
         unitGroups: (idEmpresa: number | null | undefined) =>
             ["catalogs", "unit-groups", idEmpresa] as const,
         avlModels: () => ["catalogs", "avl-models"] as const,
@@ -47,6 +45,12 @@ export const queryKeys = {
             ["catalogs", "clients", "alerta", idCliente, idEmpresa] as const,
         clientDetail: (idCliente: number, idEmpresa?: number | null) =>
             ["catalogs", "clients", "detail", idCliente, idEmpresa] as const,
+        operators: (idEmpresa: number | null | undefined) =>
+            ["catalogs", "operators", idEmpresa] as const,
+        operatorDetail: (idOperador: number, idEmpresa: number | null | undefined) =>
+            ["catalogs", "operators", "detail", idOperador, idEmpresa] as const,
+        operatorGroups: (idEmpresa: number | null | undefined) =>
+            ["catalogs", "operators", "groups", idEmpresa] as const,
 
         //  Catálogos > Usuarios 
         // La key incluye solo "users" como
