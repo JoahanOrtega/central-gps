@@ -4,13 +4,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { operatorService } from "./operatorService";
 import type { OperatorItem } from "./operator.types";
 import { OperatorCard } from "./OperatorCard";
-// Los modales se construyen en la Entrega 6. Imports listos para activarse:
-// import { NewOperatorModal } from "./NewOperatorModal";
-// import { EditOperatorModal } from "./EditOperatorModal";
-// import { AssignUnitModal } from "./AssignUnitModal";
+import { NewOperatorModal } from "./NewOperatorModal";
+import { EditOperatorModal } from "./EditOperatorModal";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { usePermiso } from "@/hooks/usePermiso";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { queryKeys } from "@/lib/query-keys";
 import {
     CatalogLayout,
@@ -19,7 +18,6 @@ import {
     useDebounce,
     useDeleteConfirm,
     usePagination,
-    ConfirmDialog,
 } from "@/components/shared";
 
 export const OperatorsCatalogView = () => {
@@ -29,7 +27,6 @@ export const OperatorsCatalogView = () => {
     const [search, setSearch] = useState("");
     const [modalOpen, setModalOpen] = useState(false);
     const [editingOperator, setEditingOperator] = useState<number | null>(null);
-    const [assigningOperator, setAssigningOperator] = useState<OperatorItem | null>(null);
 
     const debouncedSearch = useDebounce(search);
 
@@ -100,7 +97,6 @@ export const OperatorsCatalogView = () => {
                             canDelete={puedeEliminar}
                             onEdit={(id) => setEditingOperator(id)}
                             onDelete={askDelete}
-                            onAssign={setAssigningOperator}
                         />
                     )}
                     keyExtractor={(operator) => operator.id_operador}
@@ -115,39 +111,39 @@ export const OperatorsCatalogView = () => {
                 />
             </div>
 
-            {/* Modales — se activan en la Entrega 6.
-      <NewOperatorModal
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        onSuccess={() => { setModalOpen(false); invalidate(); }}
-      />
-      <EditOperatorModal
-        idOperador={editingOperator}
-        onClose={() => setEditingOperator(null)}
-        onSuccess={() => { setEditingOperator(null); invalidate(); }}
-      />
-      <AssignUnitModal
-        operator={assigningOperator}
-        onClose={() => setAssigningOperator(null)}
-        onSuccess={() => { setAssigningOperator(null); invalidate(); }}
-      />
-      */}
+            {/* Modal de creación */}
+            <NewOperatorModal
+                open={modalOpen}
+                onOpenChange={setModalOpen}
+                onSuccess={() => {
+                    setModalOpen(false);
+                    invalidate();
+                }}
+            />
+
+            {/* Modal de edición */}
+            <EditOperatorModal
+                idOperador={editingOperator}
+                onClose={() => setEditingOperator(null)}
+                onSuccess={() => {
+                    setEditingOperator(null);
+                    invalidate();
+                }}
+            />
 
             <ConfirmDialog
-                open={!!itemToDelete}
-                onOpenChange={(open) => { if (!open) cancelDelete(); }}
+                open={itemToDelete !== null}
+                onOpenChange={(open) => !open && cancelDelete()}
                 title="Eliminar operador"
                 description={
                     itemToDelete
-                        ? `¿Seguro que deseas eliminar a "${itemToDelete.nombre}"? Esta acción lo desactiva del catálogo.`
+                        ? `¿Estás seguro de eliminar a "${itemToDelete.nombre}"? Esta acción lo desactiva del catálogo.`
                         : ""
                 }
                 confirmText={isDeleting ? "ELIMINANDO..." : "ELIMINAR"}
-                confirmButtonClassName="bg-red-600 text-white hover:bg-red-700"
+                confirmButtonClassName="bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
                 onConfirm={confirmDelete}
             />
         </CatalogLayout>
-
     );
 };
-
