@@ -15,6 +15,7 @@ import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { notify } from "@/stores/notificationStore";
 import { queryKeys } from "@/lib/query-keys";
 import { ModalWithTabs } from "@/components/shared/ModalWithTabs";
+import { GeoFenceTab, type GeoFenceValue } from "@/components/shared/GeoFenceTab";
 
 interface NewOperatorModalProps {
     open: boolean;
@@ -120,6 +121,23 @@ export const NewOperatorModal = ({
                     tipo_licencia: form.tipo_licencia.trim() || null,
                     vencimiento_licencia: form.vencimiento_licencia || null,
                     id_grupo_operadores: form.id_grupo_operadores,
+                    // Domicilio (geocerca): solo se envía si el usuario marcó un punto
+                    // en el mapa. Sin lat/lng, el operador se crea sin domicilio.
+                    ...(form.lat !== null &&
+                        form.lng !== null && {
+                        poi: {
+                            tipo_poi: form.tipo_poi,
+                            direccion: form.direccion,
+                            lat: form.lat,
+                            lng: form.lng,
+                            radio: form.radio,
+                            bounds: form.bounds,
+                            area: form.area,
+                            polygon_path: form.polygon_path,
+                            polygon_color: form.polygon_color,
+                            radio_color: form.radio_color,
+                        },
+                    }),
                 },
                 idEmpresa,
             );
@@ -145,6 +163,21 @@ export const NewOperatorModal = ({
         }
     };
 
+    // Geocerca: extrae los campos de geometría del form para el GeoFenceTab.
+    const geoValue: GeoFenceValue = {
+        tipo_poi: form.tipo_poi,
+        direccion: form.direccion,
+        direccionEsAproximada: form.direccionEsAproximada,
+        lat: form.lat,
+        lng: form.lng,
+        radio: form.radio,
+        bounds: form.bounds,
+        area: form.area,
+        polygon_path: form.polygon_path,
+        polygon_color: form.polygon_color,
+        radio_color: form.radio_color,
+    };
+
     const tabs = [
         {
             id: "general",
@@ -165,6 +198,26 @@ export const NewOperatorModal = ({
             label: "Licencia",
             content: (
                 <OperatorLicenseTab form={form} errors={errors} onChange={handleChange} />
+            ),
+        },
+        {
+            id: "domicilio",
+            label: "Domicilio",
+            content: (
+                // El domicilio es opcional — si el usuario no marca un punto, el
+                // operador se crea sin geocerca.
+                <GeoFenceTab
+                    value={geoValue}
+                    onChange={(values) => setForm((prev) => ({ ...prev, ...values }))}
+                    infoSlot={
+                        form.lat !== null && form.lng !== null ? (
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                                <p>Lat: {form.lat.toFixed(6)}</p>
+                                <p>Lng: {form.lng.toFixed(6)}</p>
+                            </div>
+                        ) : null
+                    }
+                />
             ),
         },
     ];

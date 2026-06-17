@@ -220,6 +220,38 @@ export const PoiGeometryEditor = forwardRef<
         }
     }, [value.radio])
 
+    // Pinta la geocerca cuando los datos llegan despues de montar el mapa.
+    useEffect(() => {
+        const map = mapInstanceRef.current
+        if (
+            !isReady ||
+            !map ||
+            value.tipo_poi !== 1 ||
+            value.lat === null ||
+            value.lng === null ||
+            circleRef.current // ya hay círculo (creado manual o por este efecto)
+        ) {
+            return
+        }
+
+        const circle = new window.google.maps.Circle({
+            map,
+            center: { lat: value.lat, lng: value.lng },
+            radius: value.radio || 50,
+            fillColor: value.radio_color || "#5e6383",
+            fillOpacity: 0.25,
+            strokeColor: value.radio_color || "#5e6383",
+            strokeWeight: 2,
+            editable: true,
+            draggable: true,
+        })
+
+        circleRef.current = circle
+        attachCircleEvents(circle)
+        setMarker(circle.getCenter()!)
+        map.setCenter({ lat: value.lat, lng: value.lng })
+    }, [isReady, value.lat, value.lng, value.tipo_poi])
+
     useEffect(() => {
         const debounce = setTimeout(() => {
             handleAddressSearch()

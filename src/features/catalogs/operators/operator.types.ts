@@ -1,3 +1,16 @@
+export interface OperatorPoi {
+    tipo_poi: number;
+    direccion: string | null;
+    lat: number | null;
+    lng: number | null;
+    radio: number | null;
+    bounds: string | null;
+    area: string | null;
+    polygon_path: string | null;
+    polygon_color: string | null;
+    radio_color: string | null;
+}
+
 export interface OperatorItem {
     id_operador: number;
     id_empresa: number;
@@ -19,6 +32,8 @@ export interface OperatorItem {
     id_usuario_cambio: number | null;
     // IDs de los grupos a los que pertenece (relación N:M).
     id_grupo_operadores: number[];
+    // Geocerca del domicilio (solo en el detalle getById; null si no tiene).
+    poi?: OperatorPoi | null;
 }
 
 export interface CreateOperatorPayload {
@@ -35,6 +50,8 @@ export interface CreateOperatorPayload {
     id_poi?: number | null;
     id_unidad_operador?: number | null;
     id_grupo_operadores?: number[];
+    // Domicilio (geocerca) anidado — el backend lo convierte en un registro t_pois.
+    poi?: OperatorPoi | null;
 }
 
 // Update: todos opcionales. Si id_grupo_operadores viene, reemplaza la lista
