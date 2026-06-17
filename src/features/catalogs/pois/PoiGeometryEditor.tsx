@@ -27,18 +27,33 @@ interface PoiGeometryEditorProps {
 
 const DEFAULT_CENTER = { lat: 21.88234, lng: -102.28259 }
 
+// mapId requerido por AdvancedMarkerElement.
+const MAP_ID = "DEMO_MAP_ID"
+
 export const PoiGeometryEditor = forwardRef<
     PoiGeometryEditorHandle,
     PoiGeometryEditorProps
 >(({ value, onChange }, ref) => {
     const mapRef = useRef<HTMLDivElement | null>(null)
     const mapInstanceRef = useRef<google.maps.Map | null>(null)
-    const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null)
     const circleRef = useRef<google.maps.Circle | null>(null)
     const polygonRef = useRef<google.maps.Polygon | null>(null)
-    const markerRef = useRef<google.maps.Marker | null>(null)
+    // AdvancedMarkerElement en lugar del deprecado google.maps.Marker.
+    const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null)
     const geocoderRef = useRef<google.maps.Geocoder | null>(null)
+    // Listener del clic en el mapa (sustituye al DrawingManager). Se guarda para
+    // limpiarlo al desmontar.
+    const mapClickListenerRef = useRef<google.maps.MapsEventListener | null>(null)
+    // Mantiene el tipo_poi vigente accesible dentro del listener de clic, que se
+    // registra una sola vez. Sin esto, el listener capturaría el tipo_poi del
+    // primer render (closure obsoleto).
+    const tipoPoiRef = useRef<number>(value.tipo_poi)
     const [isReady, setIsReady] = useState(false)
+
+    // Sincroniza el ref del tipo con el value en cada cambio.
+    useEffect(() => {
+        tipoPoiRef.current = value.tipo_poi
+    }, [value.tipo_poi])
 
     useEffect(() => {
         const initializeMap = async () => {
@@ -54,6 +69,7 @@ export const PoiGeometryEditor = forwardRef<
             const map = new window.google.maps.Map(mapRef.current, {
                 center,
                 zoom: 15,
+                mapId: MAP_ID, // requerido por AdvancedMarkerElement
                 mapTypeControl: true,
                 streetViewControl: true,
                 fullscreenControl: true,
@@ -62,68 +78,28 @@ export const PoiGeometryEditor = forwardRef<
             mapInstanceRef.current = map
             geocoderRef.current = new window.google.maps.Geocoder()
 
-            const drawingLibrary = await window.google.maps.importLibrary("drawing")
+            // Importar solo geometry y marker. La librería "drawing" quedó
+            // decomisionada por Google (mayo 2026): el dibujo de geocercas ahora
+            // se hace capturando clics del mapa, no con DrawingManager.
             await window.google.maps.importLibrary("geometry")
+            await window.google.maps.importLibrary("marker")
 
-            const drawingManager = new (
-                drawingLibrary as google.maps.DrawingLibrary
-            ).DrawingManager({
-                drawingMode:
-                    value.tipo_poi === 1
-                        ? window.google.maps.drawing.OverlayType.CIRCLE
-                        : window.google.maps.drawing.OverlayType.POLYGON,
-                drawingControl: false,
-                circleOptions: {
-                    fillColor: value.radio_color || "#5e6383",
-                    fillOpacity: 0.25,
-                    strokeColor: value.radio_color || "#5e6383",
-                    strokeWeight: 2,
-                    editable: true,
-                    draggable: true,
-                    radius: value.radio || 50,
+            // ── Sustituto del DrawingManager: clic en el mapa para dibujar ──
+            // Círculo: cada clic posiciona/mueve el círculo en ese punto.
+            // Polígono: cada clic agrega un vértice al path.
+            mapClickListenerRef.current = map.addListener(
+                "click",
+                (event: google.maps.MapMouseEvent) => {
+                    if (!event.latLng) return
+                    if (tipoPoiRef.current === 1) {
+                        void handleCircleMapClick(event.latLng)
+                    } else {
+                        void handlePolygonMapClick(event.latLng)
+                    }
                 },
-                polygonOptions: {
-                    fillColor: value.polygon_color || "#5e6383",
-                    fillOpacity: 0.25,
-                    strokeColor: value.polygon_color || "#5e6383",
-                    strokeWeight: 2,
-                    editable: true,
-                    draggable: true,
-                },
-            })
+            )
 
-            drawingManager.setMap(map)
-            drawingManagerRef.current = drawingManager
-
-            drawingManager.addListener("circlecomplete", async (circle: google.maps.Circle) => {
-                clearPolygon(false)
-                clearCircle(false)
-
-                circleRef.current = circle
-                drawingManager.setDrawingMode(null)
-
-                attachCircleEvents(circle)
-                await updateCircleState(circle)
-            })
-
-            drawingManager.addListener("polygoncomplete", async (polygon: google.maps.Polygon) => {
-                const path = polygon.getPath()
-
-                if (path.getLength() < 3) {
-                    polygon.setMap(null)
-                    return
-                }
-
-                clearCircle(false)
-                clearPolygon(false)
-
-                polygonRef.current = polygon
-                drawingManager.setDrawingMode(null)
-
-                attachPolygonEvents(polygon)
-                await updatePolygonState(polygon)
-            })
-
+            // Repintar geometría existente al abrir en modo edición.
             if (value.tipo_poi === 1 && value.lat !== null && value.lng !== null) {
                 const circle = new window.google.maps.Circle({
                     map,
@@ -176,17 +152,20 @@ export const PoiGeometryEditor = forwardRef<
         }
 
         initializeMap()
+
+        // Limpiar el listener de clic al desmontar.
+        return () => {
+            if (mapClickListenerRef.current) {
+                mapClickListenerRef.current.remove()
+                mapClickListenerRef.current = null
+            }
+        }
     }, [])
 
+    // Al cambiar el tipo de geocerca, limpiar la geometría del otro tipo.
+    // El listener de clic ya reacciona al tipo vigente vía tipoPoiRef.
     useEffect(() => {
-        const drawingManager = drawingManagerRef.current
-        if (!drawingManager) return
-
-        drawingManager.setDrawingMode(
-            value.tipo_poi === 1
-                ? window.google.maps.drawing.OverlayType.CIRCLE
-                : window.google.maps.drawing.OverlayType.POLYGON,
-        )
+        if (!mapInstanceRef.current) return
 
         if (value.tipo_poi === 1) {
             clearPolygon()
@@ -229,7 +208,7 @@ export const PoiGeometryEditor = forwardRef<
             value.tipo_poi !== 1 ||
             value.lat === null ||
             value.lng === null ||
-            circleRef.current // ya hay círculo (creado manual o por este efecto)
+            circleRef.current
         ) {
             return
         }
@@ -259,6 +238,68 @@ export const PoiGeometryEditor = forwardRef<
 
         return () => clearTimeout(debounce)
     }, [value.direccion])
+
+    // ── Dibujo por clics ───────────────────────
+
+    // Círculo: el clic crea el círculo si no existe, o lo recoloca si ya existe.
+    const handleCircleMapClick = async (latLng: google.maps.LatLng) => {
+        const map = mapInstanceRef.current
+        if (!map) return
+
+        if (circleRef.current) {
+            // Ya hay círculo: moverlo al punto clicado.
+            circleRef.current.setCenter(latLng)
+            await updateCircleState(circleRef.current)
+            return
+        }
+
+        const circle = new window.google.maps.Circle({
+            map,
+            center: latLng,
+            radius: value.radio || 50,
+            fillColor: value.radio_color || "#5e6383",
+            fillOpacity: 0.25,
+            strokeColor: value.radio_color || "#5e6383",
+            strokeWeight: 2,
+            editable: true,
+            draggable: true,
+        })
+
+        circleRef.current = circle
+        attachCircleEvents(circle)
+        await updateCircleState(circle)
+    }
+
+    // Polígono: cada clic agrega un vértice. Con <3 vértices aún no es válido,
+    // pero se va dibujando; al llegar a 3 se materializa el estado.
+    const handlePolygonMapClick = async (latLng: google.maps.LatLng) => {
+        const map = mapInstanceRef.current
+        if (!map) return
+
+        if (!polygonRef.current) {
+            // Primer vértice: crear el polígono con un solo punto.
+            const polygon = new window.google.maps.Polygon({
+                map,
+                paths: [latLng],
+                fillColor: value.polygon_color || "#5e6383",
+                fillOpacity: 0.25,
+                strokeColor: value.polygon_color || "#5e6383",
+                strokeWeight: 2,
+                editable: true,
+                draggable: true,
+            })
+            polygonRef.current = polygon
+            attachPolygonEvents(polygon)
+            return
+        }
+
+        // Agregar vértice al path existente.
+        polygonRef.current.getPath().push(latLng)
+
+        if (polygonRef.current.getPath().getLength() >= 3) {
+            await updatePolygonState(polygonRef.current)
+        }
+    }
 
     const reverseGeocode = async (
         lat: number,
@@ -449,14 +490,14 @@ export const PoiGeometryEditor = forwardRef<
         if (!map) return
 
         if (!markerRef.current) {
-            markerRef.current = new window.google.maps.Marker({
+            markerRef.current = new window.google.maps.marker.AdvancedMarkerElement({
                 map,
                 position,
             })
             return
         }
 
-        markerRef.current.setPosition(position)
+        markerRef.current.position = position
     }
 
     const clearCircle = (clearValues = true) => {
@@ -494,7 +535,8 @@ export const PoiGeometryEditor = forwardRef<
         clearPolygon(false)
 
         if (markerRef.current) {
-            markerRef.current.setMap(null)
+            // AdvancedMarkerElement se quita poniendo map en null.
+            markerRef.current.map = null
             markerRef.current = null
         }
 
@@ -547,7 +589,7 @@ export const PoiGeometryEditor = forwardRef<
                 <p className="text-sm text-slate-600">
                     {value.tipo_poi === 1
                         ? "Haz click en el mapa para crear o mover el círculo."
-                        : "Dibuja el polígono en el mapa con al menos 3 puntos."}
+                        : "Haz click en el mapa para agregar cada punto del polígono (mínimo 3)."}
                 </p>
             </div>
 
