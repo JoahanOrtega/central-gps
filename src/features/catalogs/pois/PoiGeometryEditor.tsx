@@ -27,9 +27,6 @@ interface PoiGeometryEditorProps {
 
 const DEFAULT_CENTER = { lat: 21.88234, lng: -102.28259 }
 
-// mapId requerido por AdvancedMarkerElement.
-const MAP_ID = "DEMO_MAP_ID"
-
 export const PoiGeometryEditor = forwardRef<
     PoiGeometryEditorHandle,
     PoiGeometryEditorProps
@@ -38,8 +35,11 @@ export const PoiGeometryEditor = forwardRef<
     const mapInstanceRef = useRef<google.maps.Map | null>(null)
     const circleRef = useRef<google.maps.Circle | null>(null)
     const polygonRef = useRef<google.maps.Polygon | null>(null)
-    // AdvancedMarkerElement en lugar del deprecado google.maps.Marker.
-    const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null)
+    // google.maps.Marker (deprecado pero soportado 12+ meses). Se usó el clásico
+    // en vez de AdvancedMarkerElement porque este último exige un mapId válido y
+    // generaba problemas de render. El DrawingManager (lo realmente decomisionado)
+    // sí se reemplazó por captura de clics.
+    const markerRef = useRef<google.maps.Marker | null>(null)
     const geocoderRef = useRef<google.maps.Geocoder | null>(null)
     // Listener del clic en el mapa (sustituye al DrawingManager). Se guarda para
     // limpiarlo al desmontar.
@@ -69,7 +69,6 @@ export const PoiGeometryEditor = forwardRef<
             const map = new window.google.maps.Map(mapRef.current, {
                 center,
                 zoom: 15,
-                mapId: MAP_ID, // requerido por AdvancedMarkerElement
                 mapTypeControl: true,
                 streetViewControl: true,
                 fullscreenControl: true,
@@ -78,11 +77,10 @@ export const PoiGeometryEditor = forwardRef<
             mapInstanceRef.current = map
             geocoderRef.current = new window.google.maps.Geocoder()
 
-            // Importar solo geometry y marker. La librería "drawing" quedó
-            // decomisionada por Google (mayo 2026): el dibujo de geocercas ahora
-            // se hace capturando clics del mapa, no con DrawingManager.
+            // Importar solo geometry. La librería "drawing" quedó decomisionada
+            // por Google (mayo 2026): el dibujo de geocercas ahora se hace
+            // capturando clics del mapa, no con DrawingManager.
             await window.google.maps.importLibrary("geometry")
-            await window.google.maps.importLibrary("marker")
 
             // ── Sustituto del DrawingManager: clic en el mapa para dibujar ──
             // Círculo: cada clic posiciona/mueve el círculo en ese punto.
@@ -199,7 +197,8 @@ export const PoiGeometryEditor = forwardRef<
         }
     }, [value.radio])
 
-    // Pinta la geocerca cuando los datos llegan despues de montar el mapa.
+    // Pinta la geocerca cuando los datos llegan DESPUÉS de montar el mapa
+    // (caso edición: el detalle resuelve tras el primer render).
     useEffect(() => {
         const map = mapInstanceRef.current
         if (
@@ -239,7 +238,7 @@ export const PoiGeometryEditor = forwardRef<
         return () => clearTimeout(debounce)
     }, [value.direccion])
 
-    // ── Dibujo por clics ───────────────────────
+    // ── Dibujo por clics (sustituto del DrawingManager) ───────────────────────
 
     // Círculo: el clic crea el círculo si no existe, o lo recoloca si ya existe.
     const handleCircleMapClick = async (latLng: google.maps.LatLng) => {
@@ -483,6 +482,7 @@ export const PoiGeometryEditor = forwardRef<
         setMarker(center)
     }
 
+    // Marker con google.maps.Marker clásico.
     const setMarker = (
         position: google.maps.LatLng | google.maps.LatLngLiteral,
     ) => {
@@ -490,14 +490,14 @@ export const PoiGeometryEditor = forwardRef<
         if (!map) return
 
         if (!markerRef.current) {
-            markerRef.current = new window.google.maps.marker.AdvancedMarkerElement({
+            markerRef.current = new window.google.maps.Marker({
                 map,
                 position,
             })
             return
         }
 
-        markerRef.current.position = position
+        markerRef.current.setPosition(position)
     }
 
     const clearCircle = (clearValues = true) => {
@@ -535,8 +535,7 @@ export const PoiGeometryEditor = forwardRef<
         clearPolygon(false)
 
         if (markerRef.current) {
-            // AdvancedMarkerElement se quita poniendo map en null.
-            markerRef.current.map = null
+            markerRef.current.setMap(null)
             markerRef.current = null
         }
 
