@@ -14,6 +14,7 @@ import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { notify } from "@/stores/notificationStore";
 import { queryKeys } from "@/lib/query-keys";
 import { ModalWithTabs } from "@/components/shared/ModalWithTabs";
+import { GeoFenceTab, type GeoFenceValue } from "@/components/shared/GeoFenceTab";
 
 interface EditOperatorModalProps {
     /** id del operador a editar; null = modal cerrado */
@@ -36,6 +37,19 @@ const operatorToForm = (op: OperatorItem): OperatorForm => ({
     // El backend liga la unidad vía r_unidad_operador; aquí mostramos la actual
     // si existe. La asignación real se resuelve por el procedure al guardar.
     id_unidad: op.id_unidad_operador ?? 0,
+    // Domicilio (geocerca): se puebla desde op.poi si el operador tiene uno.
+    // Si no, quedan los valores por defecto (sin geocerca). La dirección del
+    // POI tiene prioridad sobre la del operador para el GeoFenceTab.
+    tipo_poi: op.poi?.tipo_poi ?? 1,
+    direccionEsAproximada: false,
+    lat: op.poi?.lat ?? null,
+    lng: op.poi?.lng ?? null,
+    radio: op.poi?.radio ?? 50,
+    bounds: op.poi?.bounds ?? "",
+    area: op.poi?.area ?? "",
+    polygon_path: op.poi?.polygon_path ?? "",
+    polygon_color: op.poi?.polygon_color ?? "#5e6383",
+    radio_color: op.poi?.radio_color ?? "#5e6383",
 });
 
 export const EditOperatorModal = ({
@@ -157,6 +171,23 @@ export const EditOperatorModal = ({
                     tipo_licencia: form.tipo_licencia.trim() || null,
                     vencimiento_licencia: form.vencimiento_licencia || null,
                     id_grupo_operadores: form.id_grupo_operadores,
+                    // Domicilio: si hay punto en el mapa, el backend actualiza el POI
+                    // existente o crea uno nuevo según corresponda.
+                    ...(form.lat !== null &&
+                        form.lng !== null && {
+                        poi: {
+                            tipo_poi: form.tipo_poi,
+                            direccion: form.direccion,
+                            lat: form.lat,
+                            lng: form.lng,
+                            radio: form.radio,
+                            bounds: form.bounds,
+                            area: form.area,
+                            polygon_path: form.polygon_path,
+                            polygon_color: form.polygon_color,
+                            radio_color: form.radio_color,
+                        },
+                    }),
                 },
                 idEmpresa,
             );
@@ -189,6 +220,23 @@ export const EditOperatorModal = ({
         }
     };
 
+    // Geocerca: extrae los campos de geometría del form para el GeoFenceTab.
+    const geoValue: GeoFenceValue | null = form
+        ? {
+            tipo_poi: form.tipo_poi,
+            direccion: form.direccion,
+            direccionEsAproximada: form.direccionEsAproximada,
+            lat: form.lat,
+            lng: form.lng,
+            radio: form.radio,
+            bounds: form.bounds,
+            area: form.area,
+            polygon_path: form.polygon_path,
+            polygon_color: form.polygon_color,
+            radio_color: form.radio_color,
+        }
+        : null;
+
     const tabs = form
         ? [
             {
@@ -215,6 +263,26 @@ export const EditOperatorModal = ({
                         onChange={handleChange}
                     />
                 ),
+            },
+            {
+                id: "domicilio",
+                label: "Domicilio",
+                content: geoValue ? (
+                    <GeoFenceTab
+                        value={geoValue}
+                        onChange={(values) =>
+                            setForm((prev) => (prev ? { ...prev, ...values } : prev))
+                        }
+                        infoSlot={
+                            form.lat !== null && form.lng !== null ? (
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                                    <p>Lat: {form.lat.toFixed(6)}</p>
+                                    <p>Lng: {form.lng.toFixed(6)}</p>
+                                </div>
+                            ) : null
+                        }
+                    />
+                ) : null,
             },
         ]
         : [];

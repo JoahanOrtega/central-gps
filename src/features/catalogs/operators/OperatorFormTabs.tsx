@@ -20,9 +20,24 @@ export interface OperatorForm {
     // Asignaciones (selects). 0 / [] = sin asignar.
     id_grupo_operadores: number[];
     id_unidad: number;
-    // TODO(rfid)
-    // TODO(domicilio)
-    // TODO(foto)
+    // Domicilio (geocerca) — campos aplanados que consume el GeoFenceTab.
+    // Si lat/lng son null, el operador no tiene domicilio configurado.
+    tipo_poi: number;
+    direccionEsAproximada: boolean;
+    lat: number | null;
+    lng: number | null;
+    radio: number;
+    bounds: string;
+    area: string;
+    polygon_path: string;
+    polygon_color: string;
+    radio_color: string;
+    // TODO(rfid): el v3.0 incluye un campo RFID en el operador. Se omitió por
+    //   decisión de negocio (el RFID se gestiona en aforos, no en operadores).
+    //   Reanalizar antes de reincorporarlo: ¿de verdad el operador necesita
+    //   portar un tag, o el aforo resuelve la identidad por otro medio?
+    // TODO(foto): el v3.0 permite subir foto del operador. Requiere subsistema
+    //   de upload de archivos que el proyecto aún no tiene.
 }
 
 export const EMPTY_OPERATOR_FORM: OperatorForm = {
@@ -36,6 +51,17 @@ export const EMPTY_OPERATOR_FORM: OperatorForm = {
     vencimiento_licencia: "",
     id_grupo_operadores: [],
     id_unidad: 0,
+    // Domicilio: por defecto sin geocerca (lat/lng en null).
+    tipo_poi: 1,
+    direccionEsAproximada: false,
+    lat: null,
+    lng: null,
+    radio: 50,
+    bounds: "",
+    area: "",
+    polygon_path: "",
+    polygon_color: "#5e6383",
+    radio_color: "#5e6383",
 };
 
 // Tipos de licencia del v3.0 (catálogo fijo A–E).
