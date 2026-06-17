@@ -40,14 +40,25 @@ interface ClientForm {
 
 /** Convierte los datos del backend al estado del formulario */
 const clientToForm = (client: ClientItem): ClientForm => {
-    // Las coordenadas vienen como "lat,lng" del JOIN con t_pois
-    let lat: number | null = null;
-    let lng: number | null = null;
-    if (client.coordenadas) {
-        const parts = client.coordenadas.split(",").map(Number);
-        if (parts.length >= 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1])) {
-            lat = parts[0];
-            lng = parts[1];
+    // Preferir el objeto poi completo (trae tipo_poi, radio, bounds, polígono).
+    // Fallback: parsear "lat,lng" de coordenadas para clientes viejos cuyo
+    // detalle no incluya el poi armado.
+    const poi = client.poi;
+
+    let lat: number | null = poi?.lat ?? null;
+    let lng: number | null = poi?.lng ?? null;
+    if (lat === null && client.coordenadas) {
+        // coordenadas viene como "lat,lng" del JOIN. Si el cliente no tiene POI,
+        // el CONCAT del backend produce "," (partes vacías) → hay que ignorarlo,
+        // porque Number("") es 0 y pondría el mapa en (0,0) en el océano.
+        const parts = client.coordenadas.split(",");
+        if (parts.length >= 2 && parts[0].trim() !== "" && parts[1].trim() !== "") {
+            const parsedLat = Number(parts[0]);
+            const parsedLng = Number(parts[1]);
+            if (Number.isFinite(parsedLat) && Number.isFinite(parsedLng)) {
+                lat = parsedLat;
+                lng = parsedLng;
+            }
         }
     }
 
@@ -58,17 +69,17 @@ const clientToForm = (client: ClientItem): ClientForm => {
         telefono: client.telefono ?? "",
         email: client.email ?? "",
         observaciones: client.observaciones ?? "",
-        tipo_poi: 1,
-        direccion: client.direccion ?? "",
+        tipo_poi: poi?.tipo_poi ?? 1,
+        direccion: poi?.direccion ?? client.direccion ?? "",
         direccionEsAproximada: false,
         lat,
         lng,
-        radio: 50,
-        bounds: "",
-        area: "",
-        polygon_path: "",
-        polygon_color: "#5e6383",
-        radio_color: "#5e6383",
+        radio: poi?.radio ?? 50,
+        bounds: poi?.bounds ?? "",
+        area: poi?.area ?? "",
+        polygon_path: poi?.polygon_path ?? "",
+        polygon_color: poi?.polygon_color ?? "#5e6383",
+        radio_color: poi?.radio_color ?? "#5e6383",
     };
 };
 
@@ -146,6 +157,23 @@ export const EditClientModal = ({ idCliente, onClose, onSuccess }: EditClientMod
                 telefono: form.telefono.trim() || null,
                 email: form.email.trim() || null,
                 observaciones: form.observaciones.trim() || null,
+                // Domicilio: solo se envía si hay punto en el mapa. El backend
+                // actualiza el POI existente o crea uno nuevo según corresponda.
+                ...(form.lat !== null &&
+                    form.lng !== null && {
+                    poi: {
+                        tipo_poi: form.tipo_poi,
+                        direccion: form.direccion,
+                        lat: form.lat,
+                        lng: form.lng,
+                        radio: form.radio,
+                        bounds: form.bounds,
+                        area: form.area,
+                        polygon_path: form.polygon_path,
+                        polygon_color: form.polygon_color,
+                        radio_color: form.radio_color,
+                    },
+                }),
             }, idEmpresa);
 
             notify.success(`Cliente "${form.nombre}" actualizado correctamente`);

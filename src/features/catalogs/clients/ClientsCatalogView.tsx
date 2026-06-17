@@ -79,7 +79,7 @@ export const ClientsCatalogView = () => {
         <CatalogGrid
           isLoading={showSkeleton}
           errorMessage={errorMessage}
-          items={paginatedItems} 
+          items={paginatedItems}
           pagination={pagination}
           activeSearch={debouncedSearch}
           renderItem={(client) => (
@@ -119,10 +119,16 @@ export const ClientsCatalogView = () => {
         idCliente={editingClient}
         onClose={() => setEditingClient(null)}
         onSuccess={() => {
+          const editedId = editingClient;
           setEditingClient(null);
           queryClient.invalidateQueries({
             queryKey: queryKeys.catalogs.clients(idEmpresa),
           });
+          if (editedId !== null) {
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.catalogs.clientDetail(editedId, idEmpresa),
+            });
+          }
         }}
       />
 

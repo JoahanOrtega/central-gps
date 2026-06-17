@@ -9,7 +9,6 @@ import { EditOperatorModal } from "./EditOperatorModal";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { usePermiso } from "@/hooks/usePermiso";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { queryKeys } from "@/lib/query-keys";
 import {
     CatalogLayout,
@@ -18,6 +17,7 @@ import {
     useDebounce,
     useDeleteConfirm,
     usePagination,
+    ConfirmDialog,
 } from "@/components/shared";
 
 export const OperatorsCatalogView = () => {
@@ -126,22 +126,35 @@ export const OperatorsCatalogView = () => {
                 idOperador={editingOperator}
                 onClose={() => setEditingOperator(null)}
                 onSuccess={() => {
+                    // Capturar el id ANTES de limpiarlo, para invalidar su detalle.
+                    const editedId = editingOperator;
                     setEditingOperator(null);
                     invalidate();
+                    // Invalidar también el detalle: sin esto, al reabrir el mismo
+                    // operador TanStack serviría datos viejos del caché (p. ej. la
+                    // geocerca del domicilio sin actualizar hasta recargar).
+                    if (editedId !== null) {
+                        queryClient.invalidateQueries({
+                            queryKey: queryKeys.catalogs.operatorDetail(
+                                editedId,
+                                idEmpresa,
+                            ),
+                        });
+                    }
                 }}
             />
 
             <ConfirmDialog
-                open={itemToDelete !== null}
-                onOpenChange={(open) => !open && cancelDelete()}
+                open={!!itemToDelete}
+                onOpenChange={(open) => { if (!open) cancelDelete(); }}
                 title="Eliminar operador"
                 description={
                     itemToDelete
-                        ? `¿Estás seguro de eliminar a "${itemToDelete.nombre}"? Esta acción lo desactiva del catálogo.`
+                        ? `¿Seguro que deseas eliminar a "${itemToDelete.nombre}"? Esta acción lo desactiva del catálogo.`
                         : ""
                 }
                 confirmText={isDeleting ? "ELIMINANDO..." : "ELIMINAR"}
-                confirmButtonClassName="bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                confirmButtonClassName="bg-red-600 text-white hover:bg-red-700"
                 onConfirm={confirmDelete}
             />
         </CatalogLayout>
