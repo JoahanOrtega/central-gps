@@ -2,48 +2,32 @@ import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps } from "@/lib/loadGoogleMaps";
 import { buildSearchMarkerContent } from "../lib/map-markers";
 
-// ── Constantes de posición inicial ────────────────────────────
-const DEFAULT_CENTER = { lat: 23.6345, lng: -102.5528 };
-const DEFAULT_ZOOM = 5;
+// Centro por defecto: ciudad de Aguascalientes, donde opera la flota.
+const DEFAULT_CENTER = { lat: 21.8853, lng: -102.2916 };
+const DEFAULT_ZOOM = 12;
 const USER_LOCATION_ZOOM = 16;
 
-// ── Interfaz pública del hook ─────────────────────────────────
 export interface UseMapInitReturn {
-    // Ref del contenedor DOM donde se monta el mapa
     containerRef: React.RefObject<HTMLDivElement | null>;
-    // Ref del mapa — accesible para los demás hooks
     mapRef: React.RefObject<google.maps.Map | null>;
-    // Ref del InfoWindow compartido entre todos los hooks
     infoWindowRef: React.RefObject<google.maps.InfoWindow | null>;
-    // Indica si la capa de tráfico está visible
     isTrafficVisible: boolean;
-    // Centra el mapa en México con zoom nacional
     focusMexico: () => void;
-    // Centra el mapa en la ubicacion del usuario
     focusUserLocation: () => void;
-    // Activa o desactiva la capa de tráfico
     toggleTraffic: () => void;
-    // Busca una dirección y centra el mapa en el resultado
     searchAddress: (address: string) => Promise<void>;
-    // Activa o desactiva el modo pantalla completa
     toggleFullscreen: () => void;
 }
 
-// ── Clave de caché de ubicación en localStorage ───────────────
-// Persiste la última ubicación conocida del usuario entre sesiones.
-// Soluciona dos problemas:
-//   1. Firefox no persiste permisos de geolocalización en localhost (HTTP).
-//      Al guardar la última posición, el mapa se centra inmediatamente
-//      en la recarga aunque el usuario aún no haya respondido el banner.
-//   2. La primera vez que se muestra el mapa hay un salto visual de
-//      México → ubicación del usuario. Con el caché el mapa arranca
-//      directamente en la última posición conocida.
+// Última ubicación conocida en localStorage. Firefox no persiste el permiso de
+// geolocalización en localhost (HTTP), así que sin esto el mapa pediría permiso
+// y haría el salto visual en cada recarga.
 const GEO_CACHE_KEY = "cgps_last_location";
 
 interface CachedLocation {
     lat: number;
     lng: number;
-    ts: number; // timestamp para invalidar si es muy antigua
+    ts: number;
 }
 
 const getCachedLocation = (): CachedLocation | null => {
@@ -51,7 +35,6 @@ const getCachedLocation = (): CachedLocation | null => {
         const raw = localStorage.getItem(GEO_CACHE_KEY);
         if (!raw) return null;
         const parsed = JSON.parse(raw) as CachedLocation;
-        // Invalidar si tiene más de 24 horas
         if (Date.now() - parsed.ts > 24 * 60 * 60 * 1000) {
             localStorage.removeItem(GEO_CACHE_KEY);
             return null;
@@ -67,14 +50,10 @@ const setCachedLocation = (lat: number, lng: number) => {
         const payload: CachedLocation = { lat, lng, ts: Date.now() };
         localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(payload));
     } catch {
-        // localStorage puede estar bloqueado en modo privado — ignorar silenciosamente
+        // localStorage bloqueado en modo privado.
     }
 };
 
-
-
-
-// ── Hook principal ────────────────────────────────────────────
 export const useMapInit = (): UseMapInitReturn => {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const mapRef = useRef<google.maps.Map | null>(null);
@@ -85,10 +64,8 @@ export const useMapInit = (): UseMapInitReturn => {
     const userHasInteractedRef = useRef(false);
     const mapInteractionCleanupRef = useRef<(() => void) | null>(null);
 
-
     const [isTrafficVisible, setIsTrafficVisible] = useState(false);
 
-    // ── Inicialización del mapa al montar el componente ──────────
     useEffect(() => {
         let isMounted = true;
 
@@ -97,9 +74,8 @@ export const useMapInit = (): UseMapInitReturn => {
 
             if (!containerRef.current || !window.google?.maps || !isMounted) return;
 
-            // Si hay una ubicación cacheada (de una sesión anterior), usarla
-            // como centro inicial — el mapa aparece en la posición correcta
-            // desde el primer frame sin esperar al banner de permisos.
+            // Arrancar en la ubicación cacheada si existe, para evitar el salto
+            // visual mientras el navegador resuelve la geolocalización.
             const cached = getCachedLocation();
             const initialCenter = cached
                 ? { lat: cached.lat, lng: cached.lng }
@@ -122,31 +98,20 @@ export const useMapInit = (): UseMapInitReturn => {
             });
 
             mapRef.current = map;
-            // Detectar la primera interacción manual del usuario.
-            // dragend cubre el panning con dedo/mouse.
-            // zoom_changed cubre cuando el usuario usa controles de zoom
-            // o gesto de pinch en mobile.
-            // Una vez detectada, NO seguimos escuchando — el listener se
-            // remueve a sí mismo para no consumir CPU innecesariamente.
+
+            // Marcar la primera interacción manual para no reposicionar el mapa
+            // por debajo del usuario. El listener se autoremueve tras dispararse.
             const markUserInteraction = () => {
                 userHasInteractedRef.current = true;
             };
             const dragListener = map.addListener("dragend", markUserInteraction);
-            const zoomListener = map.addListener(
-                "zoom_changed",
-                markUserInteraction,
-            );
+            const zoomListener = map.addListener("zoom_changed", markUserInteraction);
 
-            // Limpiar listeners al desmontar para evitar memory leaks.
-            // Los listeners de Google Maps NO se limpian solos al destruir
-            // el mapa.
+            // Los listeners de Google Maps no se limpian solos al destruir el mapa.
             const cleanupInteractionListeners = () => {
                 window.google?.maps?.event?.removeListener(dragListener);
                 window.google?.maps?.event?.removeListener(zoomListener);
             };
-
-            // Guardar el cleanup en una closure que el useEffect ejecutará
-            // al desmontar.
             mapInteractionCleanupRef.current = cleanupInteractionListeners;
 
             geocoderRef.current = new window.google.maps.Geocoder();
@@ -156,7 +121,6 @@ export const useMapInit = (): UseMapInitReturn => {
                 pixelOffset: new window.google.maps.Size(0, -8),
             });
 
-            // Marker de ubicación — se crea una vez y se reposiciona
             let userMarker: google.maps.marker.AdvancedMarkerElement | null = null;
 
             const createOrMoveUserMarker = (position: { lat: number; lng: number }) => {
@@ -178,11 +142,9 @@ export const useMapInit = (): UseMapInitReturn => {
                         content: dot,
                     });
                 } else {
-                    // Reposicionar el marker existente sin recrearlo
                     userMarker.position = position;
                 }
             };
-
 
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
@@ -194,15 +156,10 @@ export const useMapInit = (): UseMapInitReturn => {
                             lng: position.coords.longitude,
                         };
 
-                        // Guardar en caché para la próxima carga — resuelve
-                        // el problema de Firefox pidiendo permisos en cada
-                        // recarga del navegador.
                         setCachedLocation(location.lat, location.lng);
 
-                        // Solo centrar si el usuario NO ha interactuado con
-                        // el mapa todavía. Si ya hizo pan o zoom manual, su
-                        // intención es ver lo que está viendo — no la
-                        // sobreescribimos.
+                        // No reposicionar si el usuario ya movió el mapa o si ya
+                        // arrancó en la ubicación cacheada.
                         if (!userHasInteractedRef.current && !cached) {
                             mapRef.current.panTo(location);
                             mapRef.current.setZoom(USER_LOCATION_ZOOM);
@@ -211,9 +168,8 @@ export const useMapInit = (): UseMapInitReturn => {
                         createOrMoveUserMarker(location);
                     },
                     () => {
-                        // Permiso denegado o timeout — el mapa ya está
-                        // visible con la ubicación cached o con el centro
-                        // por defecto. No hay nada que hacer.
+                        // Permiso denegado o timeout: el mapa ya está en el centro
+                        // por defecto, no hay nada que hacer.
                     },
                     { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 },
                 );
@@ -224,13 +180,10 @@ export const useMapInit = (): UseMapInitReturn => {
 
         return () => {
             isMounted = false;
-            // En su lugar, limpiamos los listeners del mapa.
             mapInteractionCleanupRef.current?.();
             mapInteractionCleanupRef.current = null;
         };
     }, []);
-
-    // ── Acciones públicas ─────────────────────────────────────────
 
     const focusMexico = () => {
         const map = mapRef.current;
@@ -241,11 +194,7 @@ export const useMapInit = (): UseMapInitReturn => {
 
     const focusUserLocation = () => {
         const map = mapRef.current;
-        if (!map) return;
-
-        if (!navigator.geolocation) {
-            return;
-        }
+        if (!map || !navigator.geolocation) return;
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -259,10 +208,7 @@ export const useMapInit = (): UseMapInitReturn => {
                 setCachedLocation(location.lat, location.lng);
             },
             () => {
-                // Si el usuario denegó permisos antes y aquí intenta de
-                // nuevo, el navegador volverá a preguntar. Si vuelve a
-                // denegar, no hay nada que hacer — silenciar es mejor
-                // que mostrar error porque el botón es discreto.
+                // Permiso denegado: silenciar, el botón es discreto.
             },
             { enableHighAccuracy: true, timeout: 5000 },
         );
@@ -304,7 +250,6 @@ export const useMapInit = (): UseMapInitReturn => {
         map.panTo(location);
         map.setZoom(16);
 
-        // Reutilizar el marker si ya existe, o crear uno nuevo
         if (!searchMarkerRef.current) {
             searchMarkerRef.current = new window.google.maps.marker.AdvancedMarkerElement({
                 map,

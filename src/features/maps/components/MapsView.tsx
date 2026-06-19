@@ -1,111 +1,62 @@
-// src/features/maps/components/MapsView.tsx
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MapPinned } from "lucide-react";
 
 import { MapToolbar } from "./MapToolbar";
 import { MapCanvas, type MapCanvasHandle } from "./MapCanvas";
-import { PoisDrawer } from "./drawers/PoisDrawer";
 import { UnitsDrawer } from "./drawers/UnitsDrawer";
 import { TripDrawer } from "./drawers/TripDrawer";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 
-import type { MapPoiItem, MapUnitItem, RoutePoint, RouteDisplayOptions } from "../types/map.types";
+import type { MapUnitItem, RoutePoint, RouteDisplayOptions } from "../types/map.types";
 
-type ActiveDrawer = "pois" | "units" | "trips" | null;
+type ActiveDrawer = "units" | "trips" | null;
 
-/**
- * Contenedor principal del feature de mapas.
- * Coordina toolbar, canvas y drawers laterales.
- *
- * Al cambiar la empresa activa:
- * - Cierra todos los drawers abiertos
- * - Limpia el mapa (markers, rutas)
- * Los hooks useUnitsLive y usePoisDrawer se encargan de recargar
- * sus propios datos cuando detectan el cambio de empresa.
- */
+// Contenedor del módulo de mapas: coordina toolbar, canvas y drawers. Mantiene
+// un solo drawer abierto a la vez y delega las acciones del mapa al canvas vía ref.
 export const MapsView = () => {
   const mapCanvasRef = useRef<MapCanvasHandle | null>(null);
   const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
   const { idEmpresa } = useEmpresaActiva();
 
-  // Al cambiar empresa: cerrar drawers y limpiar mapa
-  // Los drawers cargarán nuevos datos solos al reabrirse
+  // Al cambiar de empresa, cerrar drawers y limpiar el mapa. Cada drawer
+  // recarga sus datos al reabrirse.
   useEffect(() => {
     setActiveDrawer(null);
     mapCanvasRef.current?.clearMap();
   }, [idEmpresa]);
 
-  /** Cierra todos los paneles laterales. */
   const closeAllDrawers = useCallback(() => setActiveDrawer(null), []);
 
-
-  /** Alterna el drawer seleccionado y garantiza que solo uno esté abierto. */
   const toggleDrawer = useCallback((drawer: Exclude<ActiveDrawer, null>) => {
-    setActiveDrawer((currentDrawer) =>
-      currentDrawer === drawer ? null : drawer,
-    );
+    setActiveDrawer((current) => (current === drawer ? null : drawer));
   }, []);
 
-  /** Muestra POIs en el mapa según la selección actual. */
-  const handlePoisSelectionChange = useCallback((pois: MapPoiItem[]) => {
-    if (pois.length === 0) { mapCanvasRef.current?.hidePois(); return; }
-    mapCanvasRef.current?.showPois(pois);
-  }, []);
-
-
-  /** Oculta POIs del mapa cuando el panel se cierra o la selección se vacía. */
-  const handlePoisHidden = useCallback(() => {
-    mapCanvasRef.current?.hidePois();
-  }, []);
-
-  /** Enfoca un POI específico. */
-  const handleSelectPoi = useCallback((poi: MapPoiItem) => {
-    mapCanvasRef.current?.focusPoi(poi);
-  }, []);
-
-  /** Muestra unidades seleccionadas en el mapa. */
   const handleUnitsSelectionChange = useCallback((units: MapUnitItem[]) => {
     if (units.length === 0) { mapCanvasRef.current?.hideUnits(); return; }
     mapCanvasRef.current?.showUnits(units);
   }, []);
 
-
-  /** Oculta unidades del mapa cuando el panel se cierra o la selección se vacía. */
   const handleUnitsHidden = useCallback(() => {
     mapCanvasRef.current?.hideUnits();
   }, []);
 
-
-  /** Enfoca una unidad específica. */
   const handleSelectUnit = useCallback((unit: MapUnitItem) => {
     mapCanvasRef.current?.focusUnit(unit);
   }, []);
 
-
-  /** Dibuja el recorrido seleccionado en el mapa. */
   const handleRouteSelected = useCallback((points: RoutePoint[]) => {
     if (points.length === 0) { mapCanvasRef.current?.hideUnitRoute(); return; }
     mapCanvasRef.current?.showUnitRoute(points);
   }, []);
 
-
-  /** Oculta el recorrido actual. */
   const handleRouteHidden = useCallback(() => mapCanvasRef.current?.hideUnitRoute(), []);
 
-
-
-  /** Muestra u oculta la polilínea principal del recorrido. */
   const handleRouteVisibilityChange = useCallback((v: boolean) => mapCanvasRef.current?.setRouteVisible(v), []);
 
-
-  /** Muestra u oculta los markers de inicio y fin. */
   const handleStartEndVisibilityChange = useCallback((v: boolean) => mapCanvasRef.current?.setRouteStartEndVisible(v), []);
 
-
-  /** Muestra u oculta las flechas por registro del recorrido. */
   const handleDirectionVisibilityChange = useCallback((v: boolean) => mapCanvasRef.current?.setRouteDirectionVisible(v), []);
 
-  /** Muestra u oculta una capa específica del recorrido (stops, speed, engine, etc.). */
   const handleLayerVisibilityChange = useCallback(
     (layer: keyof RouteDisplayOptions, visible: boolean) =>
       mapCanvasRef.current?.setLayerVisible(layer, visible),
@@ -121,13 +72,8 @@ export const MapsView = () => {
             <h1 className="text-xl font-semibold text-slate-800 md:text-2xl">Mapa</h1>
           </div>
           <MapToolbar
-            onSearchAddress={(address) => void mapCanvasRef.current?.searchAddress(address)}
             onToggleTraffic={() => mapCanvasRef.current?.toggleTraffic()}
             onClearMap={() => mapCanvasRef.current?.clearMap()}
-            onFocusMap={() => mapCanvasRef.current?.focusMexico()}
-            onMyLocation={() => mapCanvasRef.current?.focusUserLocation()}
-            onFullscreen={() => mapCanvasRef.current?.toggleFullscreen()}
-            onTogglePoisDrawer={() => toggleDrawer("pois")}
             onToggleUnitsDrawer={() => toggleDrawer("units")}
             onToggleTripsDrawer={() => toggleDrawer("trips")}
           />
@@ -135,15 +81,6 @@ export const MapsView = () => {
 
         <div className="relative min-h-0 flex-1 overflow-hidden">
           <MapCanvas ref={mapCanvasRef} />
-
-          {activeDrawer === "pois" && (
-            <PoisDrawer
-              onClose={closeAllDrawers}
-              onSelectPoi={handleSelectPoi}
-              onPoisSelectionChange={handlePoisSelectionChange}
-              onPoisHidden={handlePoisHidden}
-            />
-          )}
 
           {activeDrawer === "units" && (
             <UnitsDrawer
