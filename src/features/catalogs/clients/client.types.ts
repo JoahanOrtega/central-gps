@@ -64,3 +64,37 @@ export interface ClientFieldErrors {
   nombre?: string[];
   email?: string[];
 }
+
+// Configuración del token de rastreo de un cliente.
+export interface ClientTokenConfig {
+  acceso_token_rastreo: boolean;
+  token: string | null;
+  early_access_token_rastreo: boolean;
+  acceso_global: boolean;
+  token_requiere_clave_acceso: boolean;
+  token_clave_acceso: string | null;
+  permite_acceso_clave_usuario: boolean;
+  tipo_vista_token: number;
+  tipo_icono_unidad: boolean;
+  visualizar_info_paradas: number;
+  tipo_itinerario_visible: boolean;
+  ocultar_itinerarios_terminados: boolean;
+  tipo_agrupacion_itinerarios: boolean;
+  tipo_ordenamiento_itinerarios: boolean;
+  identificacion_automatica_tipo_itinerario: boolean;
+}
+
+// Configuración del dashboard de cumplimiento de un cliente.
+export interface ClientDashboardConfig {
+  acceso_dashboard_cmp: boolean;
+  token_dashboard: string | null;
+  dashboard_requiere_clave_acceso: boolean;
+  dashboard_clave_acceso: string | null;
+  visualizar_estadistica_aforos: boolean;
+  visualizar_graficas_generales: boolean;
+}
+
+export interface ClientTokenResponse {
+  token: ClientTokenConfig;
+  dashboard: ClientDashboardConfig;
+}
