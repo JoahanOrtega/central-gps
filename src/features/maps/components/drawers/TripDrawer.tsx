@@ -1,12 +1,3 @@
-/**
- * Diseño de una sola columna scrollable — sin pestañas:
- *   1. Selector de unidad (siempre visible arriba)
- *   2. Tarjeta de estado de la unidad seleccionada
- *   3. Botones de rango + selector de últimos recorridos  ← siempre visible
- *   4. Resumen del recorrido activo (aparece inline cuando hay ruta cargada)
- *   5. Controles de capas del mapa
- *   6. Rango personalizado (expandible con Otro Rango)
- */
 import { useState, useCallback } from 'react';
 import { useTripDrawer } from '../../hooks/useTripDrawer';
 import { formatAppDateTimeShort } from '@/lib/date-time';
@@ -22,11 +13,9 @@ interface TripDrawerProps {
   onRouteVisibilityChange: (visible: boolean) => void;
   onStartEndVisibilityChange: (visible: boolean) => void;
   onDirectionVisibilityChange: (visible: boolean) => void;
-  // Controla capas individuales: stops, speed, engine, doors, rfid, alerts, arrows, flags
   onLayerChange?: (layer: keyof RouteDisplayOptions, visible: boolean) => void;
 }
 
-// ── Capas de eventos ──────────────────────────────────────────────────────────
 const LAYERS: Array<{ key: keyof RouteDisplayOptions; src: string; label: string }> = [
   { key: 'flags', src: getRouteIconDataUri('start'), label: 'Inicio/Fin' },
   { key: 'arrows', src: getRouteIconDataUri('arrow'), label: 'Dirección' },
@@ -34,7 +23,6 @@ const LAYERS: Array<{ key: keyof RouteDisplayOptions; src: string; label: string
   { key: 'engine', src: getRouteIconDataUri('engine'), label: 'Motor' },
 ];
 
-// Botones de rango — Hoy y Ayer resaltados (Fitts + Serial Position)
 const QUICK_RANGES = [
   { key: 'current' as const, label: 'Actual', accent: false },
   { key: 'latest' as const, label: 'Último', accent: false },
@@ -52,7 +40,6 @@ const HOUR_RANGES = [
   { key: 'last_12_hours' as const, label: '12 hrs' },
 ];
 
-// ── Componente ────────────────────────────────────────────────────────────────
 export const TripDrawer = ({
   onClose,
   onRouteSelected,
@@ -71,7 +58,6 @@ export const TripDrawer = ({
     customRange, setCustomRange,
     displayOptions, setDisplayOptions,
     extendedSummary, formatDuration,
-    // activeRangeKey ahora viene del store — persiste al cerrar/reabrir
     activeRangeKey, setActiveRangeKey,
     loadUnits, handleUnitChange,
     handleLoadPredefinedRoute, handleLoadCustomRange,
@@ -85,37 +71,25 @@ export const TripDrawer = ({
     onDirectionVisibilityChange,
   });
 
-  // ── Filtrado dinámico de rangos rápidos ────────────────────────────
-  // "Actual" solo aplica cuando la unidad está EN MOVIMIENTO o
-  // recientemente encendida. Si está apagada, ocultamos el botón —
-  // mostrar opciones que no aplican confunde al usuario y produce
-  // resultados engañosos (Heurística #5: prevención de errores).
+  // "Actual" solo tiene sentido con el motor encendido; con la unidad apagada
+  // el botón daría un recorrido vacío, así que se oculta.
   const visibleRanges = QUICK_RANGES.filter((range) => {
     if (range.key !== 'current') return true;
-
-    // engine_state = "on" significa que el motor está encendido.
-    // Aceptamos también "idle" (ralentí) porque sigue siendo un viaje
-    // en curso técnicamente — el motor está prendido aunque no haya
-    // velocidad.
-    const engineState = selectedUnit?.telemetry?.engine_state;
-    return engineState === 'on';
+    return selectedUnit?.telemetry?.engine_state === 'on';
   });
 
-  // Estados locales SOLO de UI efímera (no se persisten entre cierres).
   const [showHours, setShowHours] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
 
-  // Sincronizar capas con el mapa
   const toggleLayer = useCallback((key: keyof RouteDisplayOptions) => {
     const newValue = !displayOptions[key];
     const next = { ...displayOptions, [key]: newValue };
     setDisplayOptions(next);
 
-    // Usar setLayerVisible directo cuando está disponible (capas independientes)
     if (onLayerChange) {
       onLayerChange(key, newValue);
     } else {
-      // Fallback a las 3 props legacy de MapsView
+      // Fallback a las 3 props legacy de MapsView.
       onRouteVisibilityChange(next.flags || next.arrows);
       onStartEndVisibilityChange(next.flags);
       onDirectionVisibilityChange(next.arrows);
@@ -123,7 +97,6 @@ export const TripDrawer = ({
   }, [displayOptions, setDisplayOptions, onLayerChange,
     onRouteVisibilityChange, onStartEndVisibilityChange, onDirectionVisibilityChange]);
 
-  // ── Tarjeta de unidad ─────────────────────────────────────────────────────
   const renderUnitCard = () => {
     if (!selectedUnit) return null;
     const t = selectedUnit.telemetry;
@@ -161,12 +134,10 @@ export const TripDrawer = ({
     );
   };
 
-  // ── Resumen inline ────────────────────────────────────────────────────────
   const renderSummaryInline = () => {
     if (!extendedSummary) return null;
     return (
       <div className="mx-3 mb-3 overflow-hidden rounded-xl border border-slate-200">
-        {/* Métricas en dos filas — Proximity */}
         <div className="grid grid-cols-3 divide-x divide-slate-200 bg-slate-50">
           {[
             { v: extendedSummary.movementCount, l: 'Viajes', c: '#2563eb' },
@@ -192,7 +163,6 @@ export const TripDrawer = ({
           ))}
         </div>
 
-        {/* Capas */}
         <div className="border-t border-slate-200 p-2.5">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
             Ver en el mapa
@@ -226,7 +196,6 @@ export const TripDrawer = ({
           </div>
         </div>
 
-        {/* Acciones */}
         <div className="flex items-center justify-start border-t border-slate-200 px-3 py-2">
           <button
             type="button"
@@ -241,7 +210,6 @@ export const TripDrawer = ({
     );
   };
 
-  // ── Rango personalizado expandible ────────────────────────────────────────
   const renderCustomRange = () => (
     <div className="mx-3 mb-3 overflow-hidden rounded-xl border border-slate-200">
       <button
@@ -308,11 +276,11 @@ export const TripDrawer = ({
     </div>
   );
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <aside className="absolute inset-y-2 right-2 z-20 flex w-[340px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+    <aside className="absolute inset-x-0 bottom-0 top-auto z-20 flex h-[55vh] flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-xl md:inset-x-auto md:right-2 md:top-2 md:bottom-2 md:h-auto md:w-[340px] md:rounded-xl">
+      {/* Asa: solo en móvil, indica que es un panel inferior. */}
+      <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-slate-300 md:hidden" />
 
-      {/* Header */}
       <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-3 py-3">
         <h2 className="text-sm font-semibold text-slate-800">Recorridos</h2>
         <button
@@ -325,7 +293,6 @@ export const TripDrawer = ({
         </button>
       </div>
 
-      {/* Selector de unidad */}
       <div className="shrink-0 border-b border-slate-100 px-3 py-3">
         <div className="flex gap-2">
           <input
@@ -362,10 +329,8 @@ export const TripDrawer = ({
         )}
       </div>
 
-      {/* Contenido scrollable */}
       <div className="min-h-0 flex-1 overflow-y-auto py-3">
 
-        {/* Sin unidad seleccionada */}
         {!selectedUnit && !isLoadingUnits && (
           <p className="px-4 py-8 text-center text-sm text-slate-400">
             Selecciona una unidad para ver sus recorridos.
@@ -374,10 +339,8 @@ export const TripDrawer = ({
 
         {selectedUnit && (
           <>
-            {/* Tarjeta de estado */}
             {renderUnitCard()}
 
-            {/* Rangos rápidos */}
             <div className="px-3 mb-3">
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 Recorrido Previo
@@ -399,7 +362,6 @@ export const TripDrawer = ({
                     {label}
                   </button>
                 ))}
-                {/* Dropdown de horas */}
                 <div className="relative">
                   <button
                     type="button"
@@ -428,7 +390,6 @@ export const TripDrawer = ({
               </div>
             </div>
 
-            {/* Últimos recorridos */}
             {visibleTrips.length > 0 && (
               <div className="px-3 mb-3">
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -450,10 +411,8 @@ export const TripDrawer = ({
               </div>
             )}
 
-            {/* Resumen inline — aparece al cargar una ruta */}
             {renderSummaryInline()}
 
-            {/* Rango personalizado expandible */}
             {renderCustomRange()}
           </>
         )}
@@ -463,7 +422,6 @@ export const TripDrawer = ({
         )}
       </div>
 
-      {/* Loader */}
       {isLoadingRoute && (
         <div className="shrink-0 flex items-center justify-center gap-2 border-t border-slate-200 bg-emerald-50 py-2">
           <div className="h-3 w-3 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
