@@ -1,36 +1,3 @@
-/**
- * UnitsDrawer.tsx — Panel lateral de unidades en tiempo real
- *
- * Leyes UX aplicadas:
- *   Chunking            → unidades agrupadas en acordeón por nombre de grupo
- *   Recognition         → ícono de estado visual (flecha/círculo + color por tiempo)
- *   Fitts's Law         → clic en toda la fila enfoca en mapa, no solo en botón pequeño
- *   Serial Position     → encendidas primero dentro de cada grupo
- *   Visibility          → contadores enc./apag. en el header, siempre visibles
- *   Feedback            → dot de color por tiempo de transmisión (verde/amarillo/rojo)
- *   Error Prevention    → checkbox de grupo con estado indeterminate
- *   Doherty Threshold   → skeleton mientras carga, sin bloquear la UI
- *   Aesthetic-Usability → borde de color sutil en tarjeta seleccionada
- *   User Control (H#3)  → cerrar panel preserva selección y markers del mapa
- *
- * ─────────────────────────────────────────────────────────────────────────────
- * Decisión UX — "Cerrar panel" ≠ "Limpiar selección"
- * ─────────────────────────────────────────────────────────────────────────────
- * Son 2 acciones independientes del usuario:
- *
- *   Cerrar panel (botón X):
- *     → Oculta el panel
- *     → MANTIENE markers seleccionados en el mapa
- *     → MANTIENE checkboxes marcados al reabrir
- *     Motivo: el usuario cierra el panel PARA ver mejor los markers,
- *     no para limpiarlos. Borrarlos sería penalizar su acción.
- *
- *   Limpiar selección (botón "Limpiar" del header):
- *     → Desmarca todas las unidades
- *     → Oculta markers del mapa
- *     → El panel sigue abierto
- *     Motivo: es una acción explícita del usuario sobre su selección.
- */
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useUnitsLive } from '../../hooks/useUnitsLive';
@@ -45,8 +12,6 @@ import type { MapUnitItem } from '../../types/map.types';
 import { UnitStateFilterChips, getUnitFilterState } from "./UnitStateFilterChips";
 import { useUnitsDrawerStore } from "../../stores/unitsDrawerStore";
 
-
-// ── Props ─────────────────────────────────────────────────────────────────────
 interface UnitsDrawerProps {
   onClose: () => void;
   onSelectUnit: (unit: MapUnitItem) => void;
@@ -54,7 +19,6 @@ interface UnitsDrawerProps {
   onUnitsHidden: () => void;
 }
 
-// ── Agrupación de unidades ────────────────────────────────────────────────────
 interface UnitGroup { nombre: string; units: MapUnitItem[]; }
 
 const groupUnits = (units: MapUnitItem[]): UnitGroup[] => {
@@ -68,8 +32,7 @@ const groupUnits = (units: MapUnitItem[]): UnitGroup[] => {
     .sort(([a], [b]) => a.localeCompare(b, 'es'))
     .map(([nombre, us]) => ({
       nombre,
-      // Serial Position Effect: encendidas primero dentro del grupo.
-      // engine_state === "on" pesa 1, el resto pesa 0 → orden descendente.
+      // Encendidas primero dentro del grupo.
       units: [...us].sort(
         (a, b) =>
           (b.engine_state === "on" ? 1 : 0) -
@@ -78,17 +41,11 @@ const groupUnits = (units: MapUnitItem[]): UnitGroup[] => {
     }));
 };
 
-// ── Ícono de estado fiel al draw.js legacy ────────────────────────────────────
-//
-// Envuelto en memo: la prop `unit` es un objeto que el hook useUnitsLive
-// mantiene estable entre renders (mientras no cambie la respuesta del
-// backend). Con memo, al cambiar el search del drawer o la selección,
-// los ~200 íconos NO se re-renderizan si su unidad no cambió.
+// memo: con cientos de unidades, evita re-renderizar los íconos que no cambiaron
+// al tipear en el buscador o cambiar la selección.
 const UnitStatusIcon = memo(({ unit }: { unit: MapUnitItem }) => {
   const t = unit.telemetry;
   const vel = unit.vel_max;
-  // Usamos engine_state a nivel de unidad (mirror del telemetry.engine_state)
-  // para evitar encadenar ?. y para manejar uniformemente el caso sin telemetría.
   const engineState = unit.engine_state;
   const speed = t?.velocidad ?? 0;
   const meta = getTelemetryStatusMeta(engineState, speed, t?.segundos, t?.segundos_sistema, vel);
@@ -127,12 +84,8 @@ const UnitStatusIcon = memo(({ unit }: { unit: MapUnitItem }) => {
 });
 UnitStatusIcon.displayName = 'UnitStatusIcon';
 
-// ── Tarjeta de una unidad ─────────────────────────────────────────────────────
-//
-// Envuelta en memo: el prop `unit` es la referencia estable del hook;
-// las callbacks `onToggle` y `onSelect` se estabilizan con useCallback en
-// el componente padre (UnitsDrawer) para que la comparación superficial
-// de memo detecte que no cambiaron.
+// memo: las callbacks llegan estabilizadas con useCallback desde el padre, así
+// la tarjeta solo se re-renderiza si su propia unidad cambió.
 const UnitCard = memo(({
   unit, isChecked, onToggle, onSelect,
 }: {
@@ -155,7 +108,7 @@ const UnitCard = memo(({
         }`}
       onClick={() => onSelect(unit)}
     >
-      {/* Checkbox — stopPropagation para no enfocar al marcar */}
+      {/* stopPropagation para marcar sin enfocar la unidad en el mapa */}
       <div onClick={(e) => { e.stopPropagation(); onToggle(unit); }}>
         <input
           type="checkbox"
@@ -167,7 +120,6 @@ const UnitCard = memo(({
 
       <UnitStatusIcon unit={unit} />
 
-      {/* Número + tiempo */}
       <div className="w-10 shrink-0 text-center">
         <p
           className="font-bold leading-none text-slate-700"
@@ -181,7 +133,6 @@ const UnitCard = memo(({
         </p>
       </div>
 
-      {/* Marca / modelo / operador */}
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs font-medium text-slate-700">
           {unit.marca} {unit.modelo}
@@ -195,7 +146,6 @@ const UnitCard = memo(({
 });
 UnitCard.displayName = 'UnitCard';
 
-// ── Grupo colapsable ──────────────────────────────────────────────────────────
 const UnitGroupSection = ({
   group, selectedIds, onToggle, onSelect, defaultOpen,
 }: {
@@ -221,6 +171,7 @@ const UnitGroupSection = ({
         <input
           type="checkbox"
           checked={checked === group.units.length && group.units.length > 0}
+          // indeterminate solo es accesible por ref, no por prop.
           ref={(el) => {
             if (el) el.indeterminate = checked > 0 && checked < group.units.length;
           }}
@@ -261,7 +212,6 @@ const UnitGroupSection = ({
   );
 };
 
-// ── Componente principal ──────────────────────────────────────────────────────
 export const UnitsDrawer = ({
   onClose, onSelectUnit, onUnitsSelectionChange, onUnitsHidden,
 }: UnitsDrawerProps) => {
@@ -281,40 +231,21 @@ export const UnitsDrawer = ({
     [units, stateFilter],
   );
 
-
-
-  // Sincroniza la selección con los markers del mapa:
-  //   - Si hay unidades seleccionadas → muestra markers
-  //   - Si la selección se vacía → oculta markers
-  // Solo se dispara por cambios en `selectedUnits` (ej: toggle, clearSelection).
-  // Cerrar el panel NO modifica `selectedUnits`, por lo que los markers
-  // se preservan intactos al cerrar — comportamiento UX deseado.
+  // Refleja la selección en los markers del mapa. Cerrar el panel no toca
+  // selectedUnits, por eso los markers sobreviven al cierre.
   useEffect(() => {
     selectedUnits.length === 0
       ? onUnitsHidden()
       : onUnitsSelectionChange(selectedUnits);
   }, [selectedUnits, onUnitsSelectionChange, onUnitsHidden]);
 
-  /**
-   * Cierra el panel SIN tocar la selección.
-   * El usuario puede reabrir el panel y encontrar su trabajo intacto
-   * (checkboxes marcados, markers en el mapa).
-   *
-   * Para limpiar la selección explícitamente, el usuario tiene el botón
-   * "Limpiar" en el header del drawer.
-   */
   const handleClose = useCallback(() => {
     onClose();
   }, [onClose]);
 
-  // Conteos pre-calculados desde el backend (Sección 2 del refactor).
-  // Antes se recomputaba con units.filter(...).length en cada render.
   const { engine_on: encendidas, engine_off: apagadas, engine_unknown: sinDatos } = counts;
 
-  // Memo de agrupación — con ~200 unidades, groupUnits implica construir un Map,
-  // sortear entries alfabéticamente y sortear cada grupo por engine_state.
-  // Sin useMemo se ejecutaba en CADA render (al tipear en el buscador, cambiar
-  // selección, etc.). Ahora solo se recalcula cuando cambian units o search.
+  // Reagrupar es costoso con muchas unidades; solo cuando cambian units o search.
   const groups = useMemo(
     () =>
       search.trim()
@@ -324,9 +255,10 @@ export const UnitsDrawer = ({
   );
 
   return (
-    <aside className="absolute inset-x-2 bottom-2 top-2 z-20 flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:w-[380px]">
+    <aside className="absolute inset-x-0 bottom-0 top-auto z-20 flex h-[55vh] flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-xl md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:h-auto md:w-[380px] md:rounded-xl">
+      {/* Asa: solo en móvil, indica que es un panel inferior. */}
+      <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-slate-300 md:hidden" />
 
-      {/* Header */}
       <div className="shrink-0 border-b border-slate-200 px-3 pt-3 pb-2">
         <div className="mb-2 flex items-center justify-between">
           <div>
@@ -357,7 +289,6 @@ export const UnitsDrawer = ({
           </button>
         </div>
 
-        {/* Buscador */}
         <div className="relative flex gap-2">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
           <input
@@ -394,7 +325,6 @@ export const UnitsDrawer = ({
         )}
       </div>
 
-      {/* Lista */}
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {isLoading && <DrawerSkeletonList count={6} />}
         {error && !isLoading && (

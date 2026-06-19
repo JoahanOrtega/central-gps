@@ -1,30 +1,3 @@
-/**
- * PoisDrawer.tsx — Panel lateral de Puntos de Interés
- *
- * Leyes UX aplicadas:
- *   Chunking            → POIs agrupados en acordeón por grupo
- *   Recognition         → ícono diferente por tipo_poi (📍 punto / ⬡ polígono)
- *   Fitts's Law         → clic en toda la fila enfoca en mapa
- *   Error Prevention    → checkbox de grupo con indeterminate
- *   Visibility          → contador total y seleccionados en header
- *   Feedback            → fila con bg distinto cuando seleccionada
- *   User Control (H#3)  → cerrar panel preserva selección y markers del mapa
- *
- * ─────────────────────────────────────────────────────────────────────────────
- * Decisión UX — "Cerrar panel" ≠ "Limpiar selección"
- * ─────────────────────────────────────────────────────────────────────────────
- * Son 2 acciones independientes del usuario:
- *
- *   Cerrar panel (botón X):
- *     → Oculta el panel
- *     → MANTIENE POIs marcados en el mapa
- *     → MANTIENE checkboxes marcados al reabrir
- *
- *   Limpiar selección (botón "Limpiar selección" del header):
- *     → Desmarca todos los POIs
- *     → Oculta markers del mapa
- *     → El panel sigue abierto
- */
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Search, X, ChevronDown, ChevronRight } from 'lucide-react';
 import type { MapPoiItem } from '../../types/map.types';
@@ -52,7 +25,6 @@ const groupPois = (pois: (MapPoiItem & { grupo?: string })[]): PoiGroup[] => {
     .map(([nombre, pois]) => ({ nombre, pois }));
 };
 
-// ── Ícono por tipo_poi ────────────────────────────────────────────────────────
 const PoiIcon = ({ tipo }: { tipo: number }) => (
   <span
     title={tipo === 2 ? 'Geocerca / Polígono' : 'Punto de interés'}
@@ -63,7 +35,6 @@ const PoiIcon = ({ tipo }: { tipo: number }) => (
   </span>
 );
 
-// ── Fila de un POI ────────────────────────────────────────────────────────────
 const PoiRow = ({
   poi, isChecked, onToggle, onFocus,
 }: {
@@ -76,6 +47,7 @@ const PoiRow = ({
       }`}
     onClick={() => onFocus(poi)}
   >
+    {/* stopPropagation para marcar sin enfocar el POI en el mapa */}
     <div onClick={(e) => { e.stopPropagation(); onToggle(poi); }}>
       <input
         type="checkbox"
@@ -94,7 +66,6 @@ const PoiRow = ({
   </div>
 );
 
-// ── Grupo colapsable ──────────────────────────────────────────────────────────
 const PoiGroupSection = ({
   group, selectedPoiIds, onToggle, onFocus, defaultOpen,
 }: {
@@ -120,6 +91,7 @@ const PoiGroupSection = ({
         <input
           type="checkbox"
           checked={checked === group.pois.length && group.pois.length > 0}
+          // indeterminate solo es accesible por ref, no por prop.
           ref={(el) => {
             if (el) el.indeterminate = checked > 0 && checked < group.pois.length;
           }}
@@ -160,7 +132,6 @@ const PoiGroupSection = ({
   );
 };
 
-// ── Componente principal ──────────────────────────────────────────────────────
 export const PoisDrawer = ({
   onClose, onSelectPoi, onPoisSelectionChange, onPoisHidden,
 }: PoisDrawerProps) => {
@@ -170,20 +141,14 @@ export const PoisDrawer = ({
     setSearch, loadPois, togglePoi, clearSelection,
   } = usePoisDrawer();
 
-  // Cargar POIs al montar.
-  // Antes este useEffect también llamaba a clearSelection() y onPoisHidden(),
-  // lo que borraba la selección cada vez que el componente se re-montaba
-  // (ej: al reabrir el panel). Ahora solo carga los datos — la selección
-  // previa se mantiene intacta.
+  // Solo cargar datos. No limpiar la selección al montar, para que sobreviva
+  // al reabrir el panel.
   useEffect(() => {
     void loadPois();
   }, [loadPois]);
 
-  // Sincroniza la selección con los markers del mapa:
-  //   - Si hay POIs seleccionados → muestra markers
-  //   - Si la selección se vacía → oculta markers
-  // Cerrar el panel NO modifica `selectedPois`, por lo que los markers
-  // se preservan al cerrar — comportamiento UX deseado.
+  // Refleja la selección en los markers. Cerrar el panel no toca selectedPois,
+  // por eso los markers sobreviven al cierre.
   useEffect(() => {
     if (selectedPois.length === 0) {
       onPoisHidden();
@@ -192,13 +157,6 @@ export const PoisDrawer = ({
     }
   }, [selectedPois, onPoisSelectionChange, onPoisHidden]);
 
-  /**
-   * Cierra el panel SIN tocar la selección.
-   * El usuario puede reabrir y encontrar su trabajo intacto.
-   *
-   * Para limpiar explícitamente, usa el botón "Limpiar selección"
-   * del header del drawer.
-   */
   const handleClose = useCallback(() => {
     onClose();
   }, [onClose]);
@@ -220,9 +178,10 @@ export const PoisDrawer = ({
   }, [filteredPois, search]);
 
   return (
-    <aside className="absolute inset-x-2 bottom-2 top-2 z-20 flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:w-[360px]">
+    <aside className="absolute inset-x-0 bottom-0 top-auto z-20 flex h-[55vh] flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-xl md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:h-auto md:w-[360px] md:rounded-xl">
+      {/* Asa: solo en móvil, indica que es un panel inferior. */}
+      <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-slate-300 md:hidden" />
 
-      {/* Header */}
       <div className="shrink-0 border-b border-slate-200 px-3 py-3">
         <div className="mb-2 flex items-center justify-between">
           <div>
@@ -258,7 +217,6 @@ export const PoisDrawer = ({
         )}
       </div>
 
-      {/* Lista */}
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {isLoading && <DrawerSkeletonList count={6} />}
         {error && !isLoading && (
