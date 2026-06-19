@@ -1,66 +1,40 @@
-// ── Zona horaria de la aplicación ────────────────────────────────────────────
-// Todas las fechas que vienen de la BD están en UTC-6.
-// El pipeline completo opera en UTC-6 de extremo a extremo.
-// SIEMPRE usar esta constante — nunca hardcodear "-6".
+// Todas las fechas de la BD están en UTC-6 y el pipeline opera en UTC-6 de
+// extremo a extremo. Usar siempre esta constante, nunca hardcodear "-6".
 export const APP_TIMEZONE = "America/Mexico_City";
 
-// ── Parser base ───────────────────────────────────────────────────────────────
-
-/**
- * Convierte una cadena de fecha del backend a un objeto Date.
- * Retorna null si el valor está vacío o no es válido.
- *
- * El backend serializa con to_app_iso() que produce ISO 8601 con offset:
- *   "2024-03-15T08:30:00-06:00"
- *
- * new Date() entiende este formato directamente — NO añadir "Z"
- * porque convertiría "-06:00Z" en un formato inválido.
- *
- * También maneja el formato legacy "YYYY-MM-DD HH:mm:ss" (sin offset)
- * que algunos endpoints aún puedan devolver, tratándolo como UTC-6.
- */
+// Convierte una cadena de fecha del backend a Date, o null si es inválida.
+// El backend serializa con offset ("2024-03-15T08:30:00-06:00"); también se
+// contemplan ISO sin offset, RFC 2822 y el legacy "YYYY-MM-DD HH:mm:ss". En
+// los formatos sin zona se asume UTC-6 para que new Date() no los lea como UTC.
 export const parseApiDate = (value?: string | null): Date | null => {
   if (!value) return null;
 
   const normalized = value.trim();
 
-  // Formato con offset de zona horaria: "2024-03-15T08:30:00-06:00"
   if (normalized.includes("+") || normalized.match(/-\d{2}:\d{2}$/)) {
     const date = new Date(normalized);
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
-  // Formato ISO sin offset: "2024-03-15T14:30:00"
   if (normalized.includes("T")) {
-    // La BD almacena UTC-6 — añadir offset en lugar de "Z"
-    // para que new Date() no interprete la hora como UTC.
     const withOffset = normalized.endsWith("Z") ? normalized : `${normalized}-06:00`;
     const date = new Date(withOffset);
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
-  // Formato RFC 2822: "Mon, 25 May 2026 16:37:31 GMT"
-  // Lo devuelve Date.toString() y algunos backends HTTP.
-  // new Date() lo parsea directamente — solo verificar que sea válido.
+  // RFC 2822: "Mon, 25 May 2026 16:37:31 GMT". new Date() lo parsea directo.
   if (normalized.includes(",") || normalized.endsWith("GMT") || normalized.endsWith("UTC")) {
     const date = new Date(normalized);
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
-  // Formato legacy "YYYY-MM-DD HH:mm:ss" (espacio en lugar de T)
-  // Tratar como UTC añadiendo T y Z
+  // Legacy "YYYY-MM-DD HH:mm:ss": se trata como UTC-6.
   const withT = normalized.replace(" ", "T");
-  const withOffset = `${withT}-06:00`;
-  const date = new Date(withOffset);
+  const date = new Date(`${withT}-06:00`);
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
-// ── Formato de fecha y hora completo ─────────────────────────────────────────
-
-/**
- * "15/03/2024 08:30:00 a.m." — para mostrar en infoWindows y detalles.
- * Muestra la fecha en UTC-6 (zona operativa del sistema).
- */
+// "15/03/2024 08:30:00 a.m." — para infoWindows y detalles.
 export const formatAppDateTime = (value?: string | null): string => {
   const date = parseApiDate(value);
   if (!date) return "Sin fecha";
@@ -77,9 +51,7 @@ export const formatAppDateTime = (value?: string | null): string => {
   }).format(date);
 };
 
-/**
- * "15/03/2024 08:30" — formato corto para listas y tablas.
- */
+// "15/03/2024 08:30" — formato corto para listas y tablas.
 export const formatAppDateTimeShort = (value?: string | null): string => {
   const date = parseApiDate(value);
   if (!date) return "Sin fecha";
@@ -95,9 +67,7 @@ export const formatAppDateTimeShort = (value?: string | null): string => {
   }).format(date);
 };
 
-/**
- * "08:30:00" — solo hora, para el timeline del recorrido.
- */
+// "08:30:00" — solo hora, para el timeline del recorrido.
 export const formatTimeOnly = (value?: string | null): string => {
   const date = parseApiDate(value);
   if (!date) return "--:--:--";
@@ -111,9 +81,7 @@ export const formatTimeOnly = (value?: string | null): string => {
   }).format(date);
 };
 
-/**
- * "15 mar. 2024" — fecha sin hora, para encabezados del drawer.
- */
+// "15 mar. 2024" — fecha sin hora, para encabezados del drawer.
 export const formatDateOnly = (value?: string | null): string => {
   const date = parseApiDate(value);
   if (!date) return "Sin fecha";
@@ -126,12 +94,7 @@ export const formatDateOnly = (value?: string | null): string => {
   }).format(date);
 };
 
-// ── Tiempo transcurrido ───────────────────────────────────────────────────────
-
-/**
- * Calcula los segundos transcurridos desde una fecha UTC-6 hasta ahora.
- * Retorna null si la fecha es inválida.
- */
+// Segundos transcurridos desde una fecha UTC-6 hasta ahora, o null si inválida.
 export const getElapsedSeconds = (value?: string | null): number | null => {
   const date = parseApiDate(value);
   if (!date) return null;
@@ -139,32 +102,16 @@ export const getElapsedSeconds = (value?: string | null): number | null => {
   return Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
 };
 
-/**
- * "2D 4h" / "3h 15m" / "45m 12s" / "8s"
- *
- * Versión compacta para la tarjeta de la unidad en el drawer.
- * Fiel al PHP legacy (app::fulldatediff).
- */
+// "2D 4h" / "3h 15m" / "45m 12s". Versión compacta para la tarjeta de unidad.
 export const formatElapsedTimeFromApiDate = (value?: string | null): string => {
   const seconds = getElapsedSeconds(value);
   if (seconds === null) return "Sin reporte";
   return formatDuration(seconds);
 };
 
-/**
- * Formatea una duración en segundos al formato "Xh Ym Zs".
- * Fiel a la función _duracion() de draw.js del PHP legacy.
- *
- * Diseñada para el indicador "tiempo desde última transmisión" donde los
- * segundos son ruido cuando ya pasaron horas. Para duraciones de rutas
- * donde cada segundo importa, usar formatDurationHms.
- *
- * Ejemplos:
- *   45      → "45s"
- *   125     → "2m 5s"
- *   3670    → "1h 1m"          (sin segundos cuando hay horas)
- *   90000   → "1D 1h"           (sin minutos cuando hay días)
- */
+// "Xh Ym Zs" — omite los segundos cuando ya hay horas (son ruido en el
+// "tiempo desde última transmisión"). Para duraciones de rutas usar
+// formatDurationHms, que siempre incluye segundos.
 export const formatDuration = (totalSeconds: number): string => {
   const secs = Math.max(0, Math.floor(totalSeconds));
 
@@ -179,23 +126,9 @@ export const formatDuration = (totalSeconds: number): string => {
   return `${seconds}s`;
 };
 
-/**
- * Formatea una duración en segundos al formato "HH:MM:SS" (o "Xd HH:MM:SS").
- * Pensada para duraciones de rutas/trayectos donde cada segundo importa.
- *
- * Diferencia clave vs formatDuration: SIEMPRE incluye segundos. Nunca los
- * omite, aunque haya horas o días. El reloj completo permite al usuario
- * ver duraciones exactas de recorridos cortos (minuto y medio, 45 segundos).
- *
- * Formato con zero-padding para alineación visual en listas verticales
- * (ej: columna de duración en la lista de trips).
- *
- * Ejemplos:
- *   45      → "00:00:45"
- *   125     → "00:02:05"
- *   3670    → "01:01:10"
- *   90000   → "1d 01:00:00"    (un día más HH:MM:SS)
- */
+// "HH:MM:SS" (o "Xd HH:MM:SS") para duraciones de rutas. A diferencia de
+// formatDuration, siempre incluye segundos y usa zero-padding para alinear
+// la columna de duración en listas verticales.
 export const formatDurationHms = (totalSeconds: number): string => {
   const secs = Math.max(0, Math.floor(totalSeconds));
 
@@ -204,19 +137,14 @@ export const formatDurationHms = (totalSeconds: number): string => {
   const minutes = Math.floor((secs % 3600) / 60);
   const seconds = secs % 60;
 
-  // Zero-pad a 2 dígitos para que cada campo ocupe el mismo ancho.
   const pad = (n: number) => n.toString().padStart(2, "0");
   const hms = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 
   return days > 0 ? `${days}d ${hms}` : hms;
 };
 
-/**
- * "Hoy a las 08:30:00" / "Ayer a las 22:10:00" / "15/03/2024 08:30:00"
- *
- * Equivalente al formato `moment().calendar()` que usa el PHP legacy.
- * Se usa en el timeline del recorrido y en los infoWindows.
- */
+// "Hoy a las 08:30:00" / "Ayer a las 22:10:00" / "15/03/2024 08:30:00".
+// Equivalente al moment().calendar() del legacy.
 export const formatCalendar = (value?: string | null): string => {
   const date = parseApiDate(value);
   if (!date) return "Sin fecha";
@@ -257,10 +185,7 @@ export const formatCalendar = (value?: string | null): string => {
   }).format(date);
 };
 
-/**
- * Retorna la fecha en formato YYYY-MM-DD en la zona horaria local (UTC-6).
- * Útil para inicializar inputs de tipo date.
- */
+// Fecha de hoy en formato YYYY-MM-DD (zona UTC-6), para inicializar inputs date.
 export const todayLocalString = (): string => {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: APP_TIMEZONE,
@@ -268,4 +193,24 @@ export const todayLocalString = (): string => {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+};
+
+// Convierte una fecha del backend al YYYY-MM-DD que exige <input type="date">.
+// Devuelve "" si llega vacía o inválida. Una fecha que ya viene como YYYY-MM-DD
+// se respeta tal cual para no correr el día por el ajuste de zona.
+export const toDateInputValue = (value?: string | null): string => {
+  if (!value) return "";
+
+  const normalized = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return normalized;
+
+  const date = parseApiDate(normalized);
+  if (!date) return "";
+
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 };

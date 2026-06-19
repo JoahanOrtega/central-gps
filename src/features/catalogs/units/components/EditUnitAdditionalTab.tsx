@@ -1,16 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Tab "Datos Adicionales" del editor de unidades
-// ─────────────────────────────────────────────────────────────────────────────
-//
-// Contiene 3 secciones más ligeras:
-//   1. Combustible          → tipo, capacidad tanque, rendimiento
-//   2. Seguro               → aseguradora, teléfono, póliza, vigencia
-//   3. Verificación vehicular → vigencia
-//
-// Todos los roles que ven el modal pueden editar estos campos (o verlos
-// en readonly si no tienen cund_edit). No hay filtro por rol aquí —
-// toda la data adicional es operativa del cliente.
-
 import {
     TextField,
     NumberField,
@@ -22,15 +9,13 @@ import {
 import type { UpdateUnitPayload } from "../types/unit-edit.types";
 import type { FieldErrors } from "../lib/edit-unit-validation";
 
-// ── Catálogo de tipos de combustible ─────────────────────────────────────────
-// Alineado con el legacy PHP. Los valores son string porque así se
-// guardan en la columna (varchar) — no int.
 const TIPOS_COMBUSTIBLE: { value: string; label: string }[] = [
-    { value: "1", label: "Gasolina" },
-    { value: "2", label: "Diésel" },
-    { value: "3", label: "Gas LP" },
-    { value: "4", label: "Eléctrico" },
-    { value: "5", label: "Híbrido" },
+    { value: "1", label: "Diesel" },
+    { value: "2", label: "Gasolina" },
+    { value: "3", label: "Gas" },
+    { value: "4", label: "Híbrido" },
+    { value: "5", label: "Eléctrico" },
+    { value: "6", label: "Otro" },
 ];
 
 interface EditUnitAdditionalTabProps {
@@ -50,9 +35,6 @@ export const EditUnitAdditionalTab = ({
 
     return (
         <div className="space-y-6">
-            {/* ═══════════════════════════════════════════════════════════════ */}
-            {/* Sección 1: Combustible                                           */}
-            {/* ═══════════════════════════════════════════════════════════════ */}
             <div className="space-y-4">
                 <SectionHeader
                     title="Combustible"
@@ -92,9 +74,6 @@ export const EditUnitAdditionalTab = ({
                 </div>
             </div>
 
-            {/* ═══════════════════════════════════════════════════════════════ */}
-            {/* Sección 2: Seguro                                                */}
-            {/* ═══════════════════════════════════════════════════════════════ */}
             <div className="space-y-4">
                 <SectionHeader
                     title="Seguro"
@@ -139,9 +118,6 @@ export const EditUnitAdditionalTab = ({
                 </div>
             </div>
 
-            {/* ═══════════════════════════════════════════════════════════════ */}
-            {/* Sección 3: Verificación vehicular                                */}
-            {/* ═══════════════════════════════════════════════════════════════ */}
             <div className="space-y-4">
                 <SectionHeader
                     title="Verificación vehicular"
