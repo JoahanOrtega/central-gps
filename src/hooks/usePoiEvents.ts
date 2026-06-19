@@ -6,13 +6,23 @@ import type { PoiEvent, TipoEventoPoi } from "@/stores/poiEventsStore";
 import { useUnitAlertsStore } from "@/stores/unitAlertsStore";
 import type { UnitStateAlert, TipoAlertaEstado } from "@/stores/unitAlertsStore";
 
-
-
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
 const BACKOFF_BASE_MS = 2_000;
 const BACKOFF_MAX_MS = 30_000;
 const BACKOFF_MULTIPLIER = 2;
+
+/**
+ * Deriva la URL del WebSocket a partir de VITE_API_URL.
+ * http://host:5000  → ws://host:5000/events/ws
+ * https://host      → wss://host/events/ws
+ */
+const resolverWsUrl = (): string => {
+    // Si API_URL es relativo (vacío), usar el origen actual del navegador.
+    const base = API_URL || window.location.origin;
+    const wsBase = base.replace(/^http/i, "ws");
+    return `${wsBase}/events/ws`;
+};
 
 export const usePoiEvents = (): void => {
     const token = useAuthStore((state) => state.token);
@@ -22,16 +32,16 @@ export const usePoiEvents = (): void => {
     const agregarAlerta = useUnitAlertsStore((state) => state.agregarAlerta);
     const setConectado = usePoiEventsStore((state) => state.setConectado);
 
-    const esRef = useRef<EventSource | null>(null);
+    const wsRef = useRef<WebSocket | null>(null);
     const backoffRef = useRef<number>(BACKOFF_BASE_MS);
     const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const desmontadoRef = useRef(false);
 
     /**
-     * Resuelve el id_empresa para la conexion SSE.
+     * Resuelve el id_empresa para la conexión.
      * Prioridad:
      *   1. JWT — usuarios normales y admin_empresa tienen empresa fija
-     *   2. companyStore.currentCompany — sudo_erp selecciono una empresa
+     *   2. companyStore.currentCompany — sudo_erp seleccionó una empresa
      */
     const resolverIdEmpresa = useCallback((): number | null => {
         if (user?.id_empresa) return user.id_empresa;
@@ -44,81 +54,117 @@ export const usePoiEvents = (): void => {
             clearTimeout(retryTimerRef.current);
             retryTimerRef.current = null;
         }
-        if (esRef.current) {
-            esRef.current.close();
-            esRef.current = null;
+        if (wsRef.current) {
+            // Evitar que el onclose dispare reconexión durante un cierre manual.
+            wsRef.current.onclose = null;
+            wsRef.current.close();
+            wsRef.current = null;
         }
         setConectado(false);
     }, [setConectado]);
 
     const abrirConexion = useCallback(() => {
-        const token = useAuthStore.getState().token;
-        if (!token) return;
+        const currentToken = useAuthStore.getState().token;
+        if (!currentToken) return;
         if (desmontadoRef.current) return;
 
         const idEmpresa = resolverIdEmpresa();
-        if (!idEmpresa) return; // sudo_erp sin empresa seleccionada aun
+        if (!idEmpresa) return; // sudo_erp sin empresa seleccionada aún
 
         cerrarConexion();
 
-        // Pasar id_empresa como param — necesario para sudo_erp
-        const params = new URLSearchParams({
-            token: token,
-            id_empresa: String(idEmpresa),
-        });
-        const url = `${API_URL}/events/stream?${params.toString()}`;
-        const es = new EventSource(url);
-        esRef.current = es;
+        const ws = new WebSocket(resolverWsUrl());
+        wsRef.current = ws;
 
-        es.addEventListener("connected", () => {
-            setConectado(true);
-            backoffRef.current = BACKOFF_BASE_MS;
-        });
+        ws.onopen = () => {
+            // Autenticación: primer mensaje con el JWT y la empresa.
+            // (A diferencia del SSE, el token NO va en la URL.)
+            ws.send(
+                JSON.stringify({
+                    type: "auth",
+                    token: currentToken,
+                    id_empresa: idEmpresa,
+                }),
+            );
+        };
 
-        es.addEventListener("poi_event", (e: MessageEvent) => {
+        ws.onmessage = (event: MessageEvent) => {
+            let msg: Record<string, unknown>;
             try {
-                const raw = JSON.parse(e.data) as Omit<PoiEvent, "clientId" | "recibido_en" | "leido">;
-                if (!raw.tipo_evento || !raw.id_unidad || !raw.id_poi) return;
-                agregarEvento({
-                    ...raw,
-                    tipo_evento: raw.tipo_evento as TipoEventoPoi,
-                    detalles:
-                        typeof raw.detalles === "string"
-                            ? JSON.parse(raw.detalles)
-                            : raw.detalles ?? null,
-                });
-            } catch (err) {
-                console.warn("[usePoiEvents] Error parseando evento SSE:", err);
-            }
-        });
-
-        es.addEventListener("unit_state_event", (e: MessageEvent) => {
-            try {
-                const raw = JSON.parse(e.data) as Omit<UnitStateAlert, "clientId" | "recibido_en">;
-                // Validación mínima: sin tipo o sin unidad, el evento no sirve
-                if (!raw.tipo_evento || !raw.id_unidad) return;
-                agregarAlerta({
-                    ...raw,
-                    tipo_evento: raw.tipo_evento as TipoAlertaEstado,
-                });
+                msg = JSON.parse(event.data);
             } catch {
-                // Evento malformado — ignorar sin romper el stream
+                return; // mensaje malformado — ignorar sin romper
             }
-        });
 
-        es.onerror = () => {
-            es.close();
-            esRef.current = null;
+            switch (msg.type) {
+                case "connected":
+                    setConectado(true);
+                    backoffRef.current = BACKOFF_BASE_MS;
+                    break;
+
+                case "heartbeat":
+                    break; // mantiene viva la conexión, nada que hacer
+
+                case "poi_event": {
+                    const raw = msg as Omit<
+                        PoiEvent,
+                        "clientId" | "recibido_en" | "leido"
+                    >;
+                    if (!raw.tipo_evento || !raw.id_unidad || !raw.id_poi) return;
+                    agregarEvento({
+                        ...raw,
+                        tipo_evento: raw.tipo_evento as TipoEventoPoi,
+                        detalles:
+                            typeof raw.detalles === "string"
+                                ? JSON.parse(raw.detalles)
+                                : raw.detalles ?? null,
+                    });
+                    break;
+                }
+
+                case "unit_state_event": {
+                    const raw = msg as Omit<
+                        UnitStateAlert,
+                        "clientId" | "recibido_en"
+                    >;
+                    if (!raw.tipo_evento || !raw.id_unidad) return;
+                    agregarAlerta({
+                        ...raw,
+                        tipo_evento: raw.tipo_evento as TipoAlertaEstado,
+                    });
+                    break;
+                }
+
+                case "error":
+                    console.warn("[usePoiEvents] Error del servidor WS:", msg.message);
+                    break;
+
+                default:
+                    break; // tipo desconocido — ignorar
+            }
+        };
+
+        ws.onclose = () => {
+            wsRef.current = null;
             setConectado(false);
             if (desmontadoRef.current) return;
+            // Reconexión con backoff exponencial.
             const delay = backoffRef.current;
-            backoffRef.current = Math.min(backoffRef.current * BACKOFF_MULTIPLIER, BACKOFF_MAX_MS);
+            backoffRef.current = Math.min(
+                backoffRef.current * BACKOFF_MULTIPLIER,
+                BACKOFF_MAX_MS,
+            );
             retryTimerRef.current = setTimeout(() => {
                 if (!desmontadoRef.current) abrirConexion();
             }, delay);
         };
 
-    }, [resolverIdEmpresa, cerrarConexion, agregarEvento, setConectado]);
+        ws.onerror = () => {
+            // onerror siempre va seguido de onclose, que maneja la reconexión.
+            // Cerrar aquí fuerza el ciclo de reconexión de forma consistente.
+            ws.close();
+        };
+    }, [resolverIdEmpresa, cerrarConexion, agregarEvento, agregarAlerta, setConectado]);
 
     // Reconectar cuando cambia token O empresa activa (sudo_erp cambia empresa)
     useEffect(() => {

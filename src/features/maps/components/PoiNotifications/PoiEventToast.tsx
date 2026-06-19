@@ -40,26 +40,32 @@ const MAX_TOASTS_VISIBLES = 3;
 // ── Tono por tipo de evento (frecuencia en Hz) ────────────────────────────────
 // Frecuencias más altas = más urgente.
 // El operador aprende a distinguirlos con el uso (retroalimentación auditiva).
-const TONO_POR_TIPO: Record<TipoEventoPoi, number> = {
+const TONO_POR_TIPO: Partial<Record<TipoEventoPoi, number>> = {
+    3: 990,   // Inicio exceso velocidad global — urgente
+    4: 330,   // Fin exceso velocidad global — resolución
     10: 880,  // Entró — La5 (tono positivo, agudo suave)
     11: 440,  // Salió — La4 (tono neutro)
     12: 660,  // Permanencia máxima — Mi5 (alerta media)
     13: 550,  // Permanencia mínima — Do#5 (alerta media-baja)
     14: 990,  // Velocidad excedida — Si5 (más urgente)
     15: 330,  // Velocidad normalizada — Mi4 (resolución, grave)
+    19: 770,  // Paso por geocerca — tono medio-alto
 };
 
 // ── Colores por tipo de evento ────────────────────────────────────────────────
-const COLOR_POR_TIPO: Record<
+const COLOR_POR_TIPO: Partial<Record<
     TipoEventoPoi,
     { borde: string; bg: string; icono: string; texto: string }
-> = {
+>> = {
+    3: { borde: "border-l-red-500", bg: "bg-red-50", icono: "text-red-500", texto: "Exceso de velocidad" },
+    4: { borde: "border-l-blue-400", bg: "bg-blue-50", icono: "text-blue-500", texto: "Velocidad normalizada" },
     10: { borde: "border-l-emerald-500", bg: "bg-white", icono: "text-emerald-500", texto: "Entró al POI" },
     11: { borde: "border-l-slate-400", bg: "bg-white", icono: "text-slate-500", texto: "Salió del POI" },
     12: { borde: "border-l-amber-500", bg: "bg-amber-50", icono: "text-amber-500", texto: "Permanencia excedida" },
     13: { borde: "border-l-orange-500", bg: "bg-orange-50", icono: "text-orange-500", texto: "Permanencia insuficiente" },
     14: { borde: "border-l-red-500", bg: "bg-red-50", icono: "text-red-500", texto: "Exceso de velocidad" },
     15: { borde: "border-l-blue-400", bg: "bg-blue-50", icono: "text-blue-500", texto: "Velocidad normalizada" },
+    19: { borde: "border-l-violet-500", bg: "bg-violet-50", icono: "text-violet-500", texto: "Paso por geocerca" },
 };
 
 // ── Utilidad: reproducir beep sintético con Web Audio API ─────────────────────
@@ -133,6 +139,14 @@ const ToastItem = ({ evento, onCerrar }: ToastItemProps) => {
             onCerrar(evento.clientId);
         }, AUTO_DISMISS_MS);
     };
+
+    if (!cfg) {
+        console.warn(
+            "[PoiEventToast] tipo_evento sin configuración, se omite:",
+            evento.tipo_evento,
+        );
+        return null;
+    }
 
     return (
         <div
