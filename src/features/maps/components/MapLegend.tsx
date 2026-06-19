@@ -1,22 +1,3 @@
-// ══════════════════════════════════════════════════════════════════════════════
-// MapLegend.tsx — Botón + popover con la leyenda de colores del mapa
-// ══════════════════════════════════════════════════════════════════════════════
-//
-// Heurística Nielsen #10 (Ayuda y documentación): el esquema de dos ejes del
-// marcador (centro = estado del motor, borde = salud del dispositivo) es
-// potente pero NO autoexplicativo. Esta leyenda lo documenta dentro del
-// propio mapa, accesible en un clic, sin obligar al usuario a memorizar.
-//
-// ── Una sola fuente de verdad ─────────────────────────────────────────────────
-// Los colores y umbrales se importan de telemetry-status.ts. Si mañana
-// cambia el umbral de apagado prolongado o un color, la leyenda se
-// actualiza sola — nunca queda desincronizada de la lógica real.
-//
-// ── Componente autocontenido ──────────────────────────────────────────────────
-// Incluye su propio botón y maneja su propio estado de apertura.
-// Integración en MapToolbar: <MapLegend /> y listo, sin prop drilling.
-// ══════════════════════════════════════════════════════════════════════════════
-
 import { useEffect, useRef, useState } from "react";
 import { CircleHelp } from "lucide-react";
 import {
@@ -24,7 +5,7 @@ import {
     APAGADO_PROLONGADO_SEGS,
 } from "../lib/telemetry-status";
 
-// ── Estilo del botón (mismo patrón que MapToolbar) ───────────────────────────
+// ── Estilo del botón ───────────────────────────
 const toolbarButtonClass =
     "flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700";
 
@@ -77,17 +58,7 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
     </p>
 );
 
-/**
- * Botón de ayuda + popover con la leyenda de colores de los marcadores.
- *
- * El popover se cierra con:
- *   - Clic fuera del componente
- *   - Tecla Escape
- *   - Clic de nuevo en el botón (toggle)
- *
- * Accesibilidad: aria-expanded en el botón, aria-label descriptivo,
- * role="dialog" en el popover.
- */
+// Botón de ayuda + popover con la leyenda de colores de los marcadores.
 export const MapLegend = () => {
     const [open, setOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -173,33 +144,9 @@ export const MapLegend = () => {
                         />
                     </ul>
 
-                    {/* ── Eje 2: borde del marcador = salud del dispositivo ── */}
-                    <SectionTitle>Borde — salud del dispositivo GPS</SectionTitle>
-                    <ul>
-                        <LegendRow
-                            fill={UNIT_COLORS.GRIS_OSCURO}
-                            stroke={UNIT_COLORS.VERDE}
-                            label="Transmitiendo"
-                            detail="Último reporte hace menos de 5 min"
-                        />
-                        <LegendRow
-                            fill={UNIT_COLORS.GRIS_OSCURO}
-                            stroke={UNIT_COLORS.AMBAR}
-                            label="Retraso leve"
-                            detail="Entre 5 y 6 min sin reportar"
-                        />
-                        <LegendRow
-                            fill={UNIT_COLORS.GRIS_OSCURO}
-                            stroke={UNIT_COLORS.ROJO}
-                            label="Sin señal o exceso de velocidad"
-                            detail="Más de 6 min sin reportar, o supera su límite"
-                        />
-                    </ul>
-
-                    {/* ── Nota de lectura combinada ── */}
+                    {/* ── Nota de lectura ── */}
                     <p className="mt-3 border-t border-slate-100 pt-2 text-[11px] leading-snug text-slate-400">
-                        Los dos colores son independientes: el centro indica el motor,
-                        el borde indica si el equipo GPS está vivo.
+                        El color del centro indica el estado del motor de la unidad.
                     </p>
                 </div>
             )}

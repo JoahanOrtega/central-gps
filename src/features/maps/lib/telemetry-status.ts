@@ -196,13 +196,7 @@ export const getTelemetryStatusMeta = (
   const fillColor =
     effectiveEngineState === "off" ? UNIT_COLORS.GRIS_OSCURO : UNIT_COLORS.VERDE;
 
-  // Stroke = antigüedad de transmisión (+exceso de velocidad tiene prioridad)
-  const strokeColor = getUnitStrokeColor(
-    fillColor,
-    segundosSistema,
-    speed,
-    velMax,
-  );
+  const strokeColor = UNIT_COLORS.BLANCO;
 
   if (effectiveEngineState === "off") {
     // ── Apagado prolongado ──────────────────────────────────────────────
