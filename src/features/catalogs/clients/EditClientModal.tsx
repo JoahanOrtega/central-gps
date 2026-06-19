@@ -9,6 +9,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { ModalWithTabs } from "@/components/shared/ModalWithTabs";
 import { Field, inputClass } from "@/components/shared/form-helpers";
 import { GeoFenceTab, type GeoFenceValue } from "@/components/shared/GeoFenceTab";
+import { ClientTokenTab } from "./ClientTokenTab";
 
 interface EditClientModalProps {
     /** id del cliente a editar; null = modal cerrado */
@@ -233,6 +234,13 @@ export const EditClientModal = ({ idCliente, onClose, onSuccess }: EditClientMod
                         }
                     />
                 ) : null,
+            },
+            {
+                id: "token",
+                label: "Token de Rastreo",
+                content: (
+                    <ClientTokenTab idCliente={idCliente!} idEmpresa={idEmpresa} />
+                ),
             },
         ]
         : [

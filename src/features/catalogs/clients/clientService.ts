@@ -1,6 +1,9 @@
 import { apiFetch } from "@/lib/api";
 import type {
+  ClientDashboardConfig,
   ClientItem,
+  ClientTokenConfig,
+  ClientTokenResponse,
   CreateClientPayload,
   UpdateClientPayload,
 } from "./client.types";
@@ -83,4 +86,41 @@ export const clientService = {
       { method: "DELETE" },
     );
   },
+
+  // Lee la configuración de token de rastreo y dashboard del cliente.
+  getTokenConfig(
+    idCliente: number,
+    idEmpresa?: number | null,
+  ): Promise<ClientTokenResponse> {
+    const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
+    return apiFetch<ClientTokenResponse>(
+      `/catalogs/clients/${idCliente}/token${query}`,
+      { method: "GET" },
+    );
+  },
+
+  // Genera (o regenera) el token de rastreo y activa el acceso.
+  regenerateToken(
+    idCliente: number,
+    idEmpresa?: number | null,
+  ): Promise<{ message: string; token: string }> {
+    const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
+    return apiFetch(`/catalogs/clients/${idCliente}/token/regenerar${query}`, {
+      method: "POST",
+    });
+  },
+
+  // Actualiza las opciones de token/dashboard (no el token en sí).
+  updateTokenConfig(
+    idCliente: number,
+    payload: Partial<ClientTokenConfig & ClientDashboardConfig>,
+    idEmpresa?: number | null,
+  ): Promise<ClientTokenResponse & { message: string }> {
+    const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
+    return apiFetch(`/catalogs/clients/${idCliente}/token${query}`, {
+      method: "PUT",
+      body: payload,
+    });
+  },
 };
+
