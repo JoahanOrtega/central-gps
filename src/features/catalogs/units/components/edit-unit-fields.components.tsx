@@ -1,32 +1,9 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Componentes de campo para el editor de unidades
-// ─────────────────────────────────────────────────────────────────────────────
-//
-// Cada campo soporta:
-//   - `label`: etiqueta visible
-//   - `hint` (opcional): tooltip con ícono de ayuda al lado del label
-//     (Nielsen #6 — reconocimiento > recuerdo para campos técnicos)
-//   - `error` (opcional): mensaje de validación inline debajo del input
-//   - `readOnly`: estado visual distinto (fondo gris, sin focus)
-//   - `required`: marcador visual (asterisco rojo)
-//
-// Decisiones UX:
-//   - Los errores se muestran INLINE bajo el input, no en un toast.
-//     Así el usuario sabe exactamente qué campo corregir sin tener que
-//     buscar el banner (Nielsen #9 — recuperación específica).
-//   - Los campos readonly NO muestran cursor pointer ni border focus.
-//     La affordance visual debe decir "no puedes editarme" (Norman).
-//   - El asterisco rojo de required es discreto: comunica sin gritar.
-//
-// Patrón de controlled inputs: cada campo es controlado con value + onChange.
-// Para inputs numéricos convertimos string <-> number al borde del componente
-// para que el form store siempre tenga el tipo real.
-
-import { useId } from "react";
+import { useId, useState, type ChangeEvent } from "react";
 import { HelpCircle } from "lucide-react";
 
-// ── Clase base ───────────────────────────────────────────────────────────────
-// Mismo input que el legacy pero con variantes para readonly y error.
+import { unitService } from "../services/unitService";
+import { resolveUnitImageSrc } from "../lib/unit-image";
+
 const INPUT_BASE =
     "h-11 w-full rounded-lg border px-3 text-sm outline-none transition-colors";
 
@@ -38,8 +15,6 @@ const INPUT_READONLY =
 
 const INPUT_ERROR = "border-red-400 focus:border-red-500 focus:ring-red-500";
 
-// Combina las clases según el estado — helper privado para evitar ternarios
-// anidados en el JSX de cada campo.
 const getInputClass = (readOnly: boolean, hasError: boolean): string => {
     const state = readOnly
         ? INPUT_READONLY
@@ -49,7 +24,6 @@ const getInputClass = (readOnly: boolean, hasError: boolean): string => {
     return `${INPUT_BASE} ${state}`;
 };
 
-// ── Label con soporte de hint/tooltip y required ─────────────────────────────
 interface LabelProps {
     label: string;
     required?: boolean;
@@ -85,7 +59,6 @@ const FieldLabel = ({ label, required, hint, htmlFor }: LabelProps) => (
     </div>
 );
 
-// ── Mensaje de error inline ──────────────────────────────────────────────────
 const FieldError = ({ error }: { error?: string }) => {
     if (!error) return null;
     return (
@@ -95,7 +68,6 @@ const FieldError = ({ error }: { error?: string }) => {
     );
 };
 
-// ── TextField ────────────────────────────────────────────────────────────────
 interface TextFieldProps {
     label: string;
     value: string;
@@ -105,11 +77,9 @@ interface TextFieldProps {
     placeholder?: string;
     hint?: string;
     error?: string;
-    // maxLength útil para coincidir con límites del backend
-    // (ej: matrícula 20 chars) y evitar errores del servidor.
     maxLength?: number;
-    // type="text" por defecto; "tel" para teléfonos; no usamos "number"
-    // porque los controles nativos del navegador molestan más que ayudan.
+    // "tel" para teléfonos. No usamos "number" porque sus controles nativos
+    // estorban más de lo que ayudan.
     type?: "text" | "tel";
 }
 
@@ -145,10 +115,6 @@ export const TextField = ({
     );
 };
 
-// ── NumberField ──────────────────────────────────────────────────────────────
-// Maneja la conversión string <-> number. Si el usuario borra todo,
-// emite null en vez de 0 (importante para campos opcionales como
-// "rendimiento" donde 0 sería un dato válido erróneo).
 interface NumberFieldProps {
     label: string;
     value: number | null | undefined;
@@ -160,7 +126,6 @@ interface NumberFieldProps {
     error?: string;
     min?: number;
     step?: number | "any";
-    // Sufijo visual (ej: "km", "l", "km/l"). NO afecta el valor.
     suffix?: string;
 }
 
@@ -180,13 +145,15 @@ export const NumberField = ({
     const id = useId();
     const displayValue = value === null || value === undefined ? "" : String(value);
 
+    // Si el usuario borra todo, emitir null en vez de 0: para campos como
+    // "rendimiento", 0 sería un dato válido pero erróneo.
     const handleChange = (raw: string) => {
         if (raw === "") {
             onChange(null);
             return;
         }
         const parsed = Number(raw);
-        if (Number.isNaN(parsed)) return; // ignorar entrada no numérica
+        if (Number.isNaN(parsed)) return;
         onChange(parsed);
     };
 
@@ -217,8 +184,6 @@ export const NumberField = ({
     );
 };
 
-// ── DateField ────────────────────────────────────────────────────────────────
-// Input nativo tipo date (YYYY-MM-DD). Si llega ISO con tiempo, lo recorta.
 interface DateFieldProps {
     label: string;
     value: string | null | undefined;
@@ -227,7 +192,6 @@ interface DateFieldProps {
     readOnly?: boolean;
     hint?: string;
     error?: string;
-    // max ISO — ej: hoy, para prohibir fechas futuras.
     max?: string;
 }
 
@@ -242,8 +206,7 @@ export const DateField = ({
     max,
 }: DateFieldProps) => {
     const id = useId();
-    // Backend puede devolver "2024-03-15" o "2024-03-15T00:00:00". El input
-    // type="date" solo acepta YYYY-MM-DD, así que recortamos si hace falta.
+    // input type="date" solo acepta YYYY-MM-DD; si llega con hora, recortar.
     const displayValue = value ? value.slice(0, 10) : "";
 
     return (
@@ -264,9 +227,6 @@ export const DateField = ({
     );
 };
 
-// ── SelectField ──────────────────────────────────────────────────────────────
-// Opciones como array de { value, label }. El value se maneja como string
-// por el control nativo; el caller convierte a number si aplica.
 interface SelectOption {
     value: string | number;
     label: string;
@@ -282,8 +242,6 @@ interface SelectFieldProps {
     hint?: string;
     error?: string;
     placeholder?: string;
-    // Mostrar estado de carga (ej: mientras se traen operadores).
-    // Se ve como opción única "Cargando..." deshabilitada.
     loading?: boolean;
 }
 
@@ -300,7 +258,6 @@ export const SelectField = ({
     loading = false,
 }: SelectFieldProps) => {
     const id = useId();
-    // Normalizar a string para el <select> (acepta solo strings).
     const stringValue = value === null || value === undefined ? "" : String(value);
 
     return (
@@ -327,9 +284,8 @@ export const SelectField = ({
     );
 };
 
-// ── MultiSelectChips ─────────────────────────────────────────────────────────
-// Para id_grupo_unidades. Muestra las opciones como chips toggleables.
-// Más simple que un combobox multiselect y más visual para pocos grupos.
+// Para id_grupo_unidades: chips toggleables. Más visual que un combobox
+// multiselect cuando hay pocos grupos.
 interface MultiSelectChipsProps {
     label: string;
     values: number[];
@@ -383,8 +339,8 @@ export const MultiSelectChips = ({
                                 onClick={() => toggle(Number(opt.value))}
                                 disabled={readOnly}
                                 className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${isActive
-                                        ? "bg-emerald-500 text-white"
-                                        : "bg-slate-100 text-slate-700 enabled:hover:bg-slate-200"
+                                    ? "bg-emerald-500 text-white"
+                                    : "bg-slate-100 text-slate-700 enabled:hover:bg-slate-200"
                                     } ${readOnly ? "cursor-not-allowed opacity-75" : ""}`}
                             >
                                 {opt.label}
@@ -397,9 +353,8 @@ export const MultiSelectChips = ({
     );
 };
 
-// ── ToggleField (para input1/2, output1/2 — valores 0/1) ─────────────────────
-// Semánticamente cada input es "conectado / sin uso" (1 / 0). Un toggle
-// es más claro que un select de 2 opciones (Ley de Hick: reduce decisiones).
+// Para input1/2 y output1/2 (valores 0/1). Un toggle es más claro que un
+// select de dos opciones.
 interface ToggleFieldProps {
     label: string;
     value: number | undefined;
@@ -427,8 +382,8 @@ export const ToggleField = ({
                 onClick={() => !readOnly && onChange(isOn ? 0 : 1)}
                 disabled={readOnly}
                 className={`flex h-11 w-full items-center justify-between rounded-lg border px-3 text-sm transition-colors ${readOnly
-                        ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-500"
-                        : "border-slate-300 bg-white text-slate-700 hover:border-slate-400"
+                    ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-500"
+                    : "border-slate-300 bg-white text-slate-700 hover:border-slate-400"
                     }`}
             >
                 <span>{isOn ? "Conectado" : "Sin uso"}</span>
@@ -447,9 +402,6 @@ export const ToggleField = ({
     );
 };
 
-// ── SectionHeader ────────────────────────────────────────────────────────────
-// Divider visual entre grupos de campos. Mejora el escaneo visual
-// (Ley de Miller: agrupamos en ≤7 elementos por sección).
 export const SectionHeader = ({
     title,
     description,
@@ -464,3 +416,68 @@ export const SectionHeader = ({
         )}
     </div>
 );
+
+// Imagen de la unidad. El archivo se sube al backend (que lo guarda y devuelve
+// una ruta); en el campo imagen se guarda esa ruta, no la imagen. Muestra
+// "Subiendo..." mientras tanto y el error si la subida falla.
+interface ImageFieldProps {
+    label: string;
+    // Ruta de la imagen (lo que se guarda en el campo). null si no hay.
+    value: string | null;
+    onChange: (ruta: string) => void;
+    readOnly?: boolean;
+    hint?: string;
+}
+
+export const ImageField = ({
+    label,
+    value,
+    onChange,
+    readOnly = false,
+    hint,
+}: ImageFieldProps) => {
+    const id = useId();
+    const [subiendo, setSubiendo] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setError(null);
+        setSubiendo(true);
+        try {
+            const { ruta } = await unitService.uploadImage(file);
+            onChange(ruta);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "No se pudo subir la imagen");
+        } finally {
+            setSubiendo(false);
+        }
+    };
+
+    return (
+        <div className="flex flex-col items-center">
+            <FieldLabel label={label} hint={hint} htmlFor={id} />
+            <div className="flex h-44 w-full max-w-[220px] items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-300">
+                {value
+                    ? <img src={resolveUnitImageSrc(value)!} alt="Imagen de la unidad" className="h-full w-full object-cover" />
+                    : <span>Sin imagen</span>}
+            </div>
+            {!readOnly && (
+                <>
+                    <input id={id} type="file" accept="image/*" onChange={handleFile} className="hidden" disabled={subiendo} />
+                    <button
+                        type="button"
+                        onClick={() => document.getElementById(id)?.click()}
+                        disabled={subiendo}
+                        className="mt-3 text-sm text-slate-500 hover:text-slate-700 disabled:opacity-50"
+                    >
+                        {subiendo ? "Subiendo..." : value ? "Cambiar imagen" : "Agregar imagen"}
+                    </button>
+                </>
+            )}
+            {error && <p className="mt-1 text-xs text-red-600" role="alert">{error}</p>}
+        </div>
+    );
+};

@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiUpload } from "@/lib/api";
 import type {
   CreateUnitPayload,
   CreateUnitResponse,
@@ -109,5 +109,11 @@ export const unitService = {
     return apiFetch<DeleteUnitResponse>(`/units/${idUnidad}${query}`, {
       method: "DELETE",
     });
+  },
+
+  // Sube la imagen de la unidad y devuelve la ruta pública con la que el
+  // backend la sirve. Esa ruta es la que se guarda en el campo imagen.
+  uploadImage(file: File): Promise<{ ruta: string }> {
+    return apiUpload<{ ruta: string }>("/units/upload-image", file);
   },
 };
