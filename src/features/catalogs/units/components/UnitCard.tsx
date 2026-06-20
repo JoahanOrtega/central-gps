@@ -1,24 +1,26 @@
 import type { UnitItem } from "../types/unit.types";
 import { BusFront, FileImage, Pencil, Trash2 } from "lucide-react";
 import { KebabMenu } from "@/components/shared";
+import { resolveUnitImageSrc } from "../lib/unit-image";
 
 interface UnitCardProps {
   unit: UnitItem;
-  canEdit?:   boolean;
+  canEdit?: boolean;
   canDelete?: boolean;
-  onEdit?:    (idUnidad: number) => void;
-  onDelete?:  (unit: UnitItem) => void;
+  onEdit?: (idUnidad: number) => void;
+  onDelete?: (unit: UnitItem) => void;
 }
 
 export const UnitCard = ({
   unit,
-  canEdit   = false,
+  canEdit = false,
   canDelete = false,
   onEdit,
   onDelete,
 }: UnitCardProps) => {
-  const statusLabel   = "Apagada";
+  const statusLabel = "Apagada";
   const operatorLabel = unit.id_operador ? `Operador ${unit.id_operador}` : "--- --- ---";
+  const imageSrc = resolveUnitImageSrc(unit.imagen);
 
   const menuItems = [
     canEdit && {
@@ -50,30 +52,44 @@ export const UnitCard = ({
         )}
       </div>
 
-      <div className="mt-6 grid grid-cols-[120px_1fr_1fr] gap-6">
-        <div className="flex flex-col items-center justify-center rounded-lg border border-slate-100 bg-slate-50 p-4">
-          <FileImage className="h-14 w-14 text-slate-400" />
-          <p className="mt-4 text-sm text-slate-500">Operador</p>
-          <p className="mt-1 text-sm text-slate-700">{operatorLabel}</p>
+      <div className="mt-5 flex flex-col gap-6 sm:flex-row">
+        {/* Foto a la izquierda con su propio espacio. Placeholder si no hay. */}
+        <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-slate-50">
+          {imageSrc ? (
+            <img src={imageSrc} alt={`Unidad ${unit.numero}`} className="h-full w-full object-cover" />
+          ) : (
+            <FileImage className="h-10 w-10 text-slate-300" />
+          )}
         </div>
 
-        <div className="space-y-3 text-sm text-slate-700">
-          <div className="flex items-center gap-2">
-            <BusFront className="h-4 w-4 text-slate-400" />
-            <span className="font-medium">Tipo</span>
+        <div className="grid flex-1 grid-cols-2 gap-x-6 gap-y-3 text-sm text-slate-700">
+          <div>
+            <p className="flex items-center gap-1.5 font-medium">
+              <BusFront className="h-4 w-4 text-slate-400" />
+              Tipo
+            </p>
+            <p className="mt-0.5">{unit.tipo}</p>
           </div>
-          <p>{unit.tipo}</p>
-          <p className="font-medium">IMEI AVL</p>
-          <p>{unit.imei}</p>
-        </div>
-
-        <div className="space-y-3 text-sm text-slate-700">
-          <p className="font-medium">Matrícula</p>
-          <p>{unit.matricula}</p>
-          <p className="font-medium">Chip</p>
-          <p>{unit.chip}</p>
-          <p className="font-medium">Año</p>
-          <p>{unit.anio}</p>
+          <div>
+            <p className="font-medium">Matrícula</p>
+            <p className="mt-0.5">{unit.matricula}</p>
+          </div>
+          <div>
+            <p className="font-medium">IMEI AVL</p>
+            <p className="mt-0.5">{unit.imei}</p>
+          </div>
+          <div>
+            <p className="font-medium">Chip</p>
+            <p className="mt-0.5">{unit.chip}</p>
+          </div>
+          <div>
+            <p className="font-medium">Año</p>
+            <p className="mt-0.5">{unit.anio}</p>
+          </div>
+          <div>
+            <p className="font-medium">Operador</p>
+            <p className="mt-0.5">{operatorLabel}</p>
+          </div>
         </div>
       </div>
     </article>

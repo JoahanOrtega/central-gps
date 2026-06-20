@@ -1,19 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Tab "Datos Generales" del editor de unidades
-// ─────────────────────────────────────────────────────────────────────────────
-//
-// Contiene 3 secciones:
-//   1. Identidad  → número, marca, modelo, año, no.serie, matrícula, tipo,
-//                   odómetro
-//   2. Asignación → operador + fecha asignación, grupos
-//   3. Equipo instalado → SOLO para sudo_erp (canViewTechnical)
-//                         Modelo AVL, fecha instalación, IMEI, chip,
-//                         inputs 1-2, outputs 1-2
-//
-// Todos los campos leen `canEdit` desde props para propagar readonly
-// sin duplicar lógica. Los errores inline vienen de `errors[campo]`
-// si existen.
-
 import { useMemo } from "react";
 
 import {
@@ -24,6 +8,7 @@ import {
     MultiSelectChips,
     ToggleField,
     SectionHeader,
+    ImageField,
 } from "./edit-unit-fields.components";
 
 import { useOperators, useUnitGroups, useAvlModels } from "@/hooks/useCatalogQueries";
@@ -32,9 +17,8 @@ import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import type { UpdateUnitPayload } from "../types/unit-edit.types";
 import type { FieldErrors } from "../lib/edit-unit-validation";
 
-// ── Catálogo de tipos de unidad (espejo del backend: ids 1-7) ────────────────
-// Está hardcodeado porque no hay endpoint aún — si se crea, migramos al
-// hook correspondiente. Las etiquetas son las del legacy PHP.
+// TODO: este catálogo no coincide con el del alta ni con el legacy (1=Camión...).
+// Hardcodeado por falta de endpoint. Corregir junto con el selector de tipo.
 const TIPOS_UNIDAD: { value: number; label: string }[] = [
     { value: 1, label: "Automóvil" },
     { value: 2, label: "Camioneta" },
@@ -62,14 +46,10 @@ export const EditUnitGeneralTab = ({
 }: EditUnitGeneralTabProps) => {
     const { idEmpresa } = useEmpresaActiva();
 
-    // Catálogos: TanStack Query cachea 5 min, así que abrir/cerrar el modal
-    // no re-fetchea. En la primera apertura hay 3 requests paralelos.
     const { data: operators = [], isLoading: loadingOps } = useOperators(idEmpresa);
     const { data: groups = [], isLoading: loadingGroups } = useUnitGroups(idEmpresa);
     const { data: avlModels = [], isLoading: loadingAvl } = useAvlModels();
 
-    // Transformar catálogos al formato { value, label } que esperan
-    // los campos. useMemo para no recalcular en cada render.
     const operatorOptions = useMemo(
         () => operators.map((o) => ({ value: o.id_operador, label: o.nombre })),
         [operators],
@@ -83,103 +63,106 @@ export const EditUnitGeneralTab = ({
         [avlModels],
     );
 
-    // Fecha máxima: hoy (formato YYYY-MM-DD). Para el input de fecha
-    // instalación — el backend valida que no sea futura, prevenimos el
-    // error del lado del cliente para ahorrar el roundtrip.
+    // Tope en hoy para prevenir fecha de instalación futura sin ir al backend.
     const today = new Date().toISOString().slice(0, 10);
 
     const readOnly = !canEdit;
 
     return (
         <div className="space-y-6">
-            {/* ═══════════════════════════════════════════════════════════════ */}
-            {/* Sección 1: Identidad                                             */}
-            {/* ═══════════════════════════════════════════════════════════════ */}
             <div className="space-y-4">
                 <SectionHeader
                     title="Identidad"
                     description="Datos básicos que identifican la unidad"
                 />
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <TextField
-                        label="Número"
-                        value={form.numero ?? ""}
-                        onChange={(v) => patchForm({ numero: v })}
-                        required
-                        readOnly={readOnly}
-                        maxLength={20}
-                        error={errors.numero}
-                        placeholder="Ej. 01"
-                    />
-                    <TextField
-                        label="Marca"
-                        value={form.marca ?? ""}
-                        onChange={(v) => patchForm({ marca: v })}
-                        required
-                        readOnly={readOnly}
-                        maxLength={50}
-                        error={errors.marca}
-                        placeholder="Ej. Volkswagen"
-                    />
-                    <TextField
-                        label="Modelo"
-                        value={form.modelo ?? ""}
-                        onChange={(v) => patchForm({ modelo: v || null })}
-                        readOnly={readOnly}
-                        maxLength={50}
-                        error={errors.modelo}
-                        placeholder="Ej. Jetta"
-                    />
-                    <TextField
-                        label="Año"
-                        value={form.anio ?? ""}
-                        onChange={(v) => patchForm({ anio: v || null })}
-                        readOnly={readOnly}
-                        maxLength={4}
-                        error={errors.anio}
-                        placeholder="Ej. 2024"
-                    />
-                    <TextField
-                        label="No. Serie"
-                        value={form.no_serie ?? ""}
-                        onChange={(v) => patchForm({ no_serie: v || null })}
-                        readOnly={readOnly}
-                        error={errors.no_serie}
-                    />
-                    <TextField
-                        label="Matrícula"
-                        value={form.matricula ?? ""}
-                        onChange={(v) => patchForm({ matricula: v || null })}
-                        readOnly={readOnly}
-                        maxLength={20}
-                        error={errors.matricula}
-                        placeholder="Ej. ABC-123-D"
-                    />
-                    <SelectField
-                        label="Tipo"
-                        value={form.tipo}
-                        onChange={(v) => patchForm({ tipo: v ? Number(v) : undefined })}
-                        options={TIPOS_UNIDAD}
-                        required
-                        readOnly={readOnly}
-                        error={errors.tipo}
-                    />
-                    <NumberField
-                        label="Odómetro"
-                        value={form.odometro_inicial}
-                        onChange={(v) => patchForm({ odometro_inicial: v ?? undefined })}
-                        readOnly={readOnly}
-                        min={0}
-                        suffix="km"
-                        error={errors.odometro_inicial}
-                    />
+                <div className="flex flex-col gap-4 md:flex-row">
+                    <div className="md:w-[220px] md:shrink-0">
+                        <ImageField
+                            label="Fotografía"
+                            value={form.imagen ?? null}
+                            onChange={(base64) => patchForm({ imagen: base64 })}
+                            readOnly={readOnly}
+                        />
+                    </div>
+
+                    <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
+                        <TextField
+                            label="Número"
+                            value={form.numero ?? ""}
+                            onChange={(v) => patchForm({ numero: v })}
+                            required
+                            readOnly={readOnly}
+                            maxLength={20}
+                            error={errors.numero}
+                            placeholder="Ej. 01"
+                        />
+                        <TextField
+                            label="Marca"
+                            value={form.marca ?? ""}
+                            onChange={(v) => patchForm({ marca: v })}
+                            required
+                            readOnly={readOnly}
+                            maxLength={50}
+                            error={errors.marca}
+                            placeholder="Ej. Volkswagen"
+                        />
+                        <TextField
+                            label="Modelo"
+                            value={form.modelo ?? ""}
+                            onChange={(v) => patchForm({ modelo: v || null })}
+                            readOnly={readOnly}
+                            maxLength={50}
+                            error={errors.modelo}
+                            placeholder="Ej. Jetta"
+                        />
+                        <TextField
+                            label="Año"
+                            value={form.anio ?? ""}
+                            onChange={(v) => patchForm({ anio: v || null })}
+                            readOnly={readOnly}
+                            maxLength={4}
+                            error={errors.anio}
+                            placeholder="Ej. 2024"
+                        />
+                        <TextField
+                            label="No. Serie"
+                            value={form.no_serie ?? ""}
+                            onChange={(v) => patchForm({ no_serie: v || null })}
+                            readOnly={readOnly}
+                            error={errors.no_serie}
+                        />
+                        <TextField
+                            label="Matrícula"
+                            value={form.matricula ?? ""}
+                            onChange={(v) => patchForm({ matricula: v || null })}
+                            readOnly={readOnly}
+                            maxLength={20}
+                            error={errors.matricula}
+                            placeholder="Ej. ABC-123-D"
+                        />
+                        <SelectField
+                            label="Tipo"
+                            value={form.tipo}
+                            onChange={(v) => patchForm({ tipo: v ? Number(v) : undefined })}
+                            options={TIPOS_UNIDAD}
+                            required
+                            readOnly={readOnly}
+                            error={errors.tipo}
+                        />
+                        <NumberField
+                            label="Odómetro"
+                            value={form.odometro_inicial}
+                            onChange={(v) => patchForm({ odometro_inicial: v ?? undefined })}
+                            readOnly={readOnly}
+                            min={0}
+                            suffix="km"
+                            error={errors.odometro_inicial}
+                        />
+                    </div>
                 </div>
             </div>
 
-            {/* ═══════════════════════════════════════════════════════════════ */}
-            {/* Sección 2: Asignación                                            */}
-            {/* ═══════════════════════════════════════════════════════════════ */}
             <div className="space-y-4">
                 <SectionHeader
                     title="Asignación"
@@ -224,9 +207,6 @@ export const EditUnitGeneralTab = ({
                 />
             </div>
 
-            {/* ═══════════════════════════════════════════════════════════════ */}
-            {/* Sección 3: Equipo instalado (SOLO sudo_erp)                      */}
-            {/* ═══════════════════════════════════════════════════════════════ */}
             {canViewTechnical && (
                 <div className="space-y-4 rounded-lg border border-amber-200 bg-amber-50/30 p-4">
                     <SectionHeader

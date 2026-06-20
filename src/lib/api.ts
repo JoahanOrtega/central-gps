@@ -203,3 +203,39 @@ export const apiFetch = async <T>(
 
   return data as T;
 };
+// Sube un archivo por multipart/form-data. No usa apiFetch porque este fuerza
+// Content-Type: application/json; con FormData hay que dejar que el navegador
+// ponga el multipart con su boundary. Reusa el token y el API_URL.
+export const apiUpload = async <T>(
+  endpoint: string,
+  file: File,
+  fieldName = "file",
+): Promise<T> => {
+  const token = useAuthStore.getState().token;
+
+  const formData = new FormData();
+  formData.set(fieldName, file);
+
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    method: "POST",
+    headers,
+    credentials: "include",
+    body: formData,
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      (data && (data.message || data.error)) || "No se pudo subir el archivo";
+    throw new ApiError(
+      typeof message === "string" ? message : "No se pudo subir el archivo",
+      response.status,
+    );
+  }
+
+  return data as T;
+};
