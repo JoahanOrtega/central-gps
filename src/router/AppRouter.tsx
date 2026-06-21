@@ -54,6 +54,19 @@ const LazyPage = ({
   <Suspense fallback={<PageLoader name={name} />}>{children}</Suspense>
 );
 
+const HomeIndexRedirect = () => {
+  const isMobile =
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 767px)").matches;
+
+  return (
+    <Navigate
+      to={isMobile ? "/home/maps": "/home/dashboard"}
+      replace
+    />
+  );
+}
+
 export const appRouter = createBrowserRouter([
   { path: "/", element: <Navigate to="/login" replace /> },
   { path: "/login", element: <LoginPage /> },
@@ -67,7 +80,7 @@ export const appRouter = createBrowserRouter([
       </PrivateRoute>
     ),
     children: [
-      { index: true, element: <Navigate to="/home/dashboard" replace /> },
+      { index: true, element: <HomeIndexRedirect /> },
 
       // Sistema principal
       {
