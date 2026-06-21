@@ -181,8 +181,7 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
             <Menu className="h-5 w-5" />
           </button>
 
-          <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-            {/* Grupos de módulos */}
+          <div className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex">            {/* Grupos de módulos */}
             {GRUPOS_CONFIG.map((grupo) => {
               const items = itemsVisibles.filter((i) => i.grupo === grupo.id);
               if (items.length === 0) return null;

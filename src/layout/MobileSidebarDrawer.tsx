@@ -113,11 +113,6 @@ export const MobileSidebarDrawer = ({
 
           {/* Principal */}
           <div>
-            <DrawerLink
-              to="/home/dashboard" label="Dashboard"
-              icon={<LayoutDashboard className="h-4 w-4" />}
-              onClose={onClose}
-            />
             {puedeMapa && (
               <DrawerLink
                 to="/home/maps" label="Mapa"
@@ -125,6 +120,11 @@ export const MobileSidebarDrawer = ({
                 onClose={onClose}
               />
             )}
+            <DrawerLink
+              to="/home/dashboard" label="Dashboard"
+              icon={<LayoutDashboard className="h-4 w-4" />}
+              onClose={onClose}
+            />
             {puedeReportes && (
               <DrawerLink
                 to="/home/reports" label="Reportes"
