@@ -7,36 +7,30 @@ import { ErpRoute } from "./ErpRoute";
 import { PermisoRoute } from "./PermisoRoute";
 import { HomeLayout } from "@/layout/HomeLayout";
 
-// Lazy loading por ruta
-// Cada página se convierte en un chunk separado que solo se descarga
-// cuando el usuario navega a ella reduce el bundle inicial.
-//
-// LoginPage y HomeLayout son carga inmediata:
-//   - LoginPage → primera pantalla de la app
-//   - HomeLayout → shell siempre presente tras el login
+// Cada página lazy es un chunk aparte que solo se descarga al navegar a ella,
+// para no inflar el bundle inicial. LoginPage y HomeLayout van en carga directa
+// porque son el primer render y el shell siempre presente tras el login.
 
-// Sistema principal
-const DashboardPage = lazy(() => import("@/pages/DashboardPage").then(m => ({ default: m.DashboardPage })));
-const MapsPage = lazy(() => import("@/pages/MapsPage").then(m => ({ default: m.MapsPage })));
-const ReportsPage = lazy(() => import("@/pages/ReportsPage").then(m => ({ default: m.ReportsPage })));
-const UnitsPage = lazy(() => import("@/pages/UnitsPage").then(m => ({ default: m.UnitsPage })));
-const MonitorPage = lazy(() => import("@/pages/MonitorPage").then(m => ({ default: m.MonitorPage })));
-const FuelPage = lazy(() => import("@/pages/FuelPage").then(m => ({ default: m.FuelPage })));
-const PointsOfInterestPage = lazy(() => import("@/pages/PointsOfInterestPage").then(m => ({ default: m.PointsOfInterestPage })));
-const PoiGroupsPage = lazy(() => import("@/pages/PoiGroupsPage").then(m => ({ default: m.PoiGroupsPage })));
+const DashboardPage = lazy(() => import("@/features/dashboard/pages/DashboardPage").then(m => ({ default: m.DashboardPage })));
+const MapsPage = lazy(() => import("@/features/maps/pages/MapsPage").then(m => ({ default: m.MapsPage })));
+const ReportsPage = lazy(() => import("@/features/reports/pages/ReportsPage").then(m => ({ default: m.ReportsPage })));
+const UnitsPage = lazy(() => import("@/features/catalogs/units/pages/UnitsPage").then(m => ({ default: m.UnitsPage })));
+const MonitorPage = lazy(() => import("@/features/operation/pages/MonitorPage").then(m => ({ default: m.MonitorPage })));
+const FuelPage = lazy(() => import("@/features/fuel/pages/FuelPage").then(m => ({ default: m.FuelPage })));
+const PointsOfInterestPage = lazy(() => import("@/features/catalogs/pois/pages/PointsOfInterestPage").then(m => ({ default: m.PointsOfInterestPage })));
+const PoiGroupsPage = lazy(() => import("@/features/catalogs/pois/pages/PoiGroupsPage").then(m => ({ default: m.PoiGroupsPage })));
+const ClientsPage = lazy(() => import("@/features/catalogs/clients/pages/ClientsPage").then(m => ({ default: m.ClientsPage })));
+const OperatorsPage = lazy(() => import("@/features/catalogs/operators/pages/OperatorsPage").then(m => ({ default: m.OperatorsPage })));
+const RoutesPage = lazy(() => import("@/features/operation/routes/pages/RoutesPage").then(m => ({ default: m.RoutesPage })));
+const ItinerariesPage = lazy(() => import("@/features/operation/itineraries/pages/ItinerariesPage").then(m => ({ default: m.ItinerariesPage })));
 const UsersPage = lazy(() => import("@/features/catalogs/users/pages/UsersPage").then(m => ({ default: m.UsersPage })));
-const ClientsPage = lazy(() => import("@/pages/ClientsPage").then(m => ({ default: m.ClientsPage })));
-const OperatorsPage = lazy(() => import("@/pages/OperatorsPage").then(m => ({ default: m.OperatorsPage })));
-const RoutesPage = lazy(() => import("@/pages/RoutesPage").then(m => ({ default: m.RoutesPage })));
-const ItinerariesPage = lazy(() => import("@/pages/ItinerariesPage").then(m => ({ default: m.ItinerariesPage })));
 const PublicUnitTrackPage = lazy(() => import("@/features/public-track/pages/PublicUnitTrackPage").then(m => ({ default: m.PublicUnitTrackPage })));
 
-// Panel ERP — solo sudo_erp lo descarga
+// El panel ERP solo lo descarga sudo_erp.
 const EmpresasPage = lazy(() => import("@/features/erp/pages/EmpresasPage").then(m => ({ default: m.EmpresasPage })));
 const PermisosPage = lazy(() => import("@/features/erp/pages/PermisosPage").then(m => ({ default: m.PermisosPage })));
 const AuditoriaPage = lazy(() => import("@/features/erp/pages/AuditoriaPage").then(m => ({ default: m.AuditoriaPage })));
 
-// Loader de página con nombre del módulo
 const PageLoader = ({ name }: { name: string }) => (
   <div className="flex h-full flex-col items-center justify-center gap-3">
     <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-slate-500" />
@@ -44,7 +38,7 @@ const PageLoader = ({ name }: { name: string }) => (
   </div>
 );
 
-// Wrapper que envuelve cada página lazy con Suspense y un loader específico
+// Envuelve cada página lazy en Suspense con un loader que nombra el módulo.
 const LazyPage = ({
   children,
   name,
@@ -55,6 +49,7 @@ const LazyPage = ({
   <Suspense fallback={<PageLoader name={name} />}>{children}</Suspense>
 );
 
+// En móvil arranca en el mapa y en escritorio, en el dashboard.
 const HomeIndexRedirect = () => {
   const isMobile =
     typeof window !== "undefined" &&
@@ -71,6 +66,8 @@ const HomeIndexRedirect = () => {
 export const appRouter = createBrowserRouter([
   { path: "/", element: <Navigate to="/login" replace /> },
   { path: "/login", element: <LoginPage /> },
+
+  // Rastreo público por token: sin PrivateRoute, el token es la credencial.
   {
     path: "/track/unit/:token",
     element: (
@@ -80,7 +77,7 @@ export const appRouter = createBrowserRouter([
     ),
   },
 
-  // Todo dentro del HomeLayout, protegido por PrivateRoute (requiere login).
+  // Todo bajo HomeLayout exige login (PrivateRoute).
   {
     path: "/home",
     element: (
@@ -91,7 +88,6 @@ export const appRouter = createBrowserRouter([
     children: [
       { index: true, element: <HomeIndexRedirect /> },
 
-      // Sistema principal
       {
         path: "dashboard",
         element: <PermisoRoute permiso={null}><LazyPage name="Dashboard"><DashboardPage /></LazyPage></PermisoRoute>,
@@ -145,7 +141,7 @@ export const appRouter = createBrowserRouter([
         element: <PermisoRoute permiso="cargas.ver"><LazyPage name="Combustible"><FuelPage /></LazyPage></PermisoRoute>,
       },
 
-      // Panel ERP — rutas protegidas con ErpRoute que verifica sudo_erp
+      // ErpRoute verifica el rol sudo_erp antes de dar acceso.
       {
         path: "admin-erp",
         children: [
