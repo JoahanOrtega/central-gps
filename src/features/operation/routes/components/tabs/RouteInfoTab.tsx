@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { TipoRuta } from "../route.types";
+import type { TipoRuta } from "../../types/route.types"
 import { clientService } from "@/features/catalogs/clients/clientService";
 import type { ClientItem } from "@/features/catalogs/clients/client.types";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";

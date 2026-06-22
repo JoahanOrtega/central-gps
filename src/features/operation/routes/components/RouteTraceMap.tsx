@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { Maximize2 } from "lucide-react";
-import type { LatLng, Parada } from "./route.types";
+import type { LatLng, Parada } from "../types/route.types";
 import { loadGoogleMaps } from "@/lib/loadGoogleMaps";
 
 const DEFAULT_CENTER = { lat: 21.88234, lng: -102.28259 }; // Aguascalientes

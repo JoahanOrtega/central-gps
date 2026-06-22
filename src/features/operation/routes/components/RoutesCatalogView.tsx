@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Route as RouteIcon } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { routeService } from "./routeService";
-import type { RouteItem } from "./route.types";
+import { routeService } from "../services/routeService";
+import type { RouteItem } from "../types/route.types";
 import { RouteCard } from "./RouteCard";
 import { NewRouteModal } from "./NewRouteModal";
 import { EditRouteModal } from "./EditRouteModal";

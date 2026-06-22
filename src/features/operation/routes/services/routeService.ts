@@ -3,7 +3,7 @@ import type {
   RouteItem,
   Route,
   CreateRoutePayload,
-} from "./route.types";
+} from "../types/route.types";
 
 const buildQuery = (params: Record<string, string | number | null | undefined>): string => {
   const search = new URLSearchParams();

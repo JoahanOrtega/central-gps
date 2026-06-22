@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Upload, MapPin, Trash2, Crosshair, MapPinned, Flag, CircleDot, Route, Loader2, Pencil, Check, Ban } from "lucide-react";
-import type { Logistica, Parada, LatLng } from "../route.types";
-import { parseKmlRoute } from "../kml";
+import type { Logistica, Parada, LatLng } from "../../types/route.types";
+import { parseKmlRoute } from "../../lib/kml"
 import { notify } from "@/stores/notificationStore";
 import { Field, inputClass } from "@/components/shared/form-helpers";
 import { RouteTraceMap, type RouteTraceMapHandle } from "../RouteTraceMap";

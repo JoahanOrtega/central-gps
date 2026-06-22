@@ -1,4 +1,4 @@
-import type { KmlImportResult, LatLng, Parada } from "./route.types";
+import type { KmlImportResult, LatLng, Parada } from "../types/route.types";
 
 // Parser de archivos KML
 const ALIAS_NOMBRE = ["nombre", "name", "title", "label"];
