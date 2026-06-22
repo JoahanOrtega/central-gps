@@ -1,73 +1,71 @@
-# React + TypeScript + Vite
+# central-gps
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend de **CentralGPS**, plataforma de rastreo y gestión de vehículos por GPS. Permite monitorear unidades en tiempo real sobre un mapa, administrar catálogos (unidades, clientes, operadores, puntos de interés), y compartir el rastreo de una unidad mediante un enlace público con token.
 
-Currently, two official plugins are available:
+Es la interfaz del backend [`central-gps-api`].
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Stack
 
-## React Compiler
+- **React 19** + **TypeScript** sobre **Vite 7**
+- **Tailwind CSS 4** para estilos
+- **TanStack Query** para estado de servidor
+- **Zustand** para estado global de cliente
+- **React Router** con carga diferida por ruta
+- **Google Maps JS API** (AdvancedMarkerElement) para el mapa
+- **Zod** para validación de formularios
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+## Ejecución con Docker (recomendado)
 
-## Expanding the ESLint configuration
+En desarrollo, el frontend corre dentro de un contenedor orquestado por el repo de infraestructura (`docker-compose.yml` / `podman compose`), junto con la API, la base de datos y Redis.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Desde el repo de infraestructura:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+podman compose up -d --build        # levanta web + API + DB + Redis
+podman compose ps                   # verifica que los contenedores estén healthy
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+> **Importante:** las imágenes usan `COPY` al construirse, así que `podman compose restart` **no** recarga el código. Tras cambiar código, reconstruye con `--build`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Ejecución standalone (sin Docker)
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Para desarrollar el frontend de forma aislada, con hot reload:
+
+```bash
+npm install
+npm run dev       # ejecutar
 ```
+
+## Variables de entorno
+
+Crea un archivo `.env` en la raíz. Los valores van **sin comillas**:
+
+```
+VITE_API_URL=http://localhost:5000
+VITE_GOOGLE_MAPS_API_KEY=tu_clave_de_google_maps
+VITE_GOOGLE_MAPS_MAP_ID=DEMO_MAP_ID
+```
+
+## Estructura del proyecto
+
+El código se organiza por **features** (funcionalidades). Cada feature agrupa todo lo que necesita y sigue un patrón interno consistente:
+
+```
+features/<feature>/
+├── components/   # componentes de UI (Cards, Modals, Views, Tabs)
+├── hooks/        # hooks propios de la feature
+├── services/     # llamadas a la API
+├── types/        # tipos TypeScript (kebab-case.types.ts)
+├── lib/          # utilidades puras
+└── pages/        # páginas enrutadas
+```
+
+Cada página se carga de forma diferida (`lazy`), generando un chunk independiente que solo se descarga cuando el usuario navega a ella.
+
+## Autenticación y permisos
+
+La sesión usa JWT. Las rutas privadas viven bajo `/home` y están protegidas por `PrivateRoute`. El acceso a cada módulo se controla por permisos (`PermisoRoute`), y el panel ERP por rol (`ErpRoute`, solo `sudo_erp`). El rastreo público (`/track/unit/:token`) no requiere login: el token es la credencial.
+
+## Zona horaria
+
+Toda la aplicación trabaja en `America/Mexico_City` (UTC-6) de extremo a extremo. Las fechas sin offset que llegan de la API se interpretan en esa zona.
