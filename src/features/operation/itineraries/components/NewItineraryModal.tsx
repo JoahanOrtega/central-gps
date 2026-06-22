@@ -8,12 +8,12 @@ import { ApiError } from "@/lib/api";
 import { ModalWithTabs, type ModalTab } from "@/components/shared";
 import { Label } from "@/components/ui/label";
 
-import { itineraryService } from "./itineraryService";
+import { itineraryService } from "../services/itineraryService";
 import { routeService } from "@/features/operation/routes/services/routeService";
 import type {
     CreateItinerarioPayload,
     ParadaItinerario,
-} from "./itinerary.types";
+} from "../types/itinerary.types";
 import {
     GeneralStep,
     StopsStep,

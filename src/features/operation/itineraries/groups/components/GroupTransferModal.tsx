@@ -7,11 +7,11 @@ import { queryKeys } from "@/lib/query-keys";
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { itineraryGroupService } from "./itineraryGroupService";
-import { itineraryService } from "../itineraryService";
-import { formatWeekdaySummary } from "../weekday-summary";
-import type { ItineraryGroupDetail } from "./itinerary-group.types";
-import type { DiaSemana, ItinerarioItem } from "../itinerary.types";
+import { itineraryGroupService } from "../services/itineraryGroupService";
+import { itineraryService } from "../../services/itineraryService";
+import { formatWeekdaySummary } from "../../lib/weekday-summary";
+import type { ItineraryGroupDetail } from "../types/itinerary-group.types";
+import type { DiaSemana, ItinerarioItem } from "../../types/itinerary.types";
 
 interface GroupTransferModalProps {
     group: ItineraryGroupDetail | null;
@@ -140,7 +140,7 @@ export const GroupTransferModal = ({
                     dias: (Array.isArray(i.dias)
                         ? i.dias
                         : String(i.dias ?? "").split(" ").map(Number).filter((n) => !isNaN(n))
-                    ) as import("../itinerary.types").DiaSemana[],
+                    ) as import("../../types/itinerary.types").DiaSemana[],
                     // Garantizar que id_itinerario sea siempre número
                     id_itinerario: Number(i.id_itinerario),
                 }))

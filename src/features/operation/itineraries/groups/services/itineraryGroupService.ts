@@ -2,7 +2,7 @@ import { apiFetch } from "@/lib/api";
 import type {
     ItineraryGroup, ItineraryGroupDetail, CreateGroupPayload,
     ItineraryRole, ItineraryRoleDetail, CreateRolePayload,
-} from "./itinerary-group.types";
+} from "../types/itinerary-group.types";
 
 const buildQuery = (
     params: Record<string, string | number | null | undefined>,

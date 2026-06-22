@@ -10,9 +10,9 @@ import {
     CatalogLayout, CatalogHeader, EmptyState, ErrorBanner,
     ConfirmDialog, KebabMenu, useDebounce, PoiCardSkeleton
 } from "@/components/shared";
-import { itineraryRoleService } from "./itineraryGroupService";
+import { itineraryRoleService } from "../services/itineraryGroupService";
 import { RoleFormModal } from "./RoleFormModal";
-import type { ItineraryRole } from "./itinerary-group.types";
+import type { ItineraryRole } from "../types/itinerary-group.types";
 
 export const ItineraryRolesView = () => {
     const { idEmpresa } = useEmpresaActiva();

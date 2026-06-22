@@ -4,7 +4,7 @@ import type {
     ItinerariosPaginados,
     Itinerario,
     CreateItinerarioPayload,
-} from "./itinerary.types";
+} from "../types/itinerary.types";
 
 // Construye query string descartando valores vacíos/nulos
 const buildQuery = (
@@ -45,7 +45,7 @@ export const itineraryService = {
                     dias: (Array.isArray(i.dias)
                         ? i.dias
                         : String(i.dias ?? "").split(" ").map(Number).filter((n) => !isNaN(n))
-                    ) as import("./itinerary.types").DiaSemana[],
+                    ) as import("../types/itinerary.types").DiaSemana[],
                     id_itinerario: Number(i.id_itinerario),
                 })),
             }))

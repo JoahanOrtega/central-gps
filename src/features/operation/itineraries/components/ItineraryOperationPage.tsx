@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { CalendarClock, CalendarRange, FolderOpen } from "lucide-react";
 import { ItinerariesCatalogView } from "./ItinerariesCatalogView";
-import { ItineraryGroupsView } from "./groups/ItineraryGroupsView";
-import { ItineraryRolesView } from "./groups/ItineraryRolesView";
+import { ItineraryGroupsView } from "../groups/components/ItineraryGroupsView";
+import { ItineraryRolesView } from "../groups/components/ItineraryRolesView";
 
 
 type Tab = "itineraries" | "groups" | "roles";
