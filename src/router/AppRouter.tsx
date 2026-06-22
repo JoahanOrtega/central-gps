@@ -29,6 +29,7 @@ const ClientsPage = lazy(() => import("@/pages/ClientsPage").then(m => ({ defaul
 const OperatorsPage = lazy(() => import("@/pages/OperatorsPage").then(m => ({ default: m.OperatorsPage })));
 const RoutesPage = lazy(() => import("@/pages/RoutesPage").then(m => ({ default: m.RoutesPage })));
 const ItinerariesPage = lazy(() => import("@/pages/ItinerariesPage").then(m => ({ default: m.ItinerariesPage })));
+const PublicUnitTrackPage = lazy(() => import("@/features/public-track/pages/PublicUnitTrackPage").then(m => ({ default: m.PublicUnitTrackPage })));
 
 // Panel ERP — solo sudo_erp lo descarga
 const EmpresasPage = lazy(() => import("@/features/erp/pages/EmpresasPage").then(m => ({ default: m.EmpresasPage })));
@@ -61,7 +62,7 @@ const HomeIndexRedirect = () => {
 
   return (
     <Navigate
-      to={isMobile ? "/home/maps": "/home/dashboard"}
+      to={isMobile ? "/home/maps" : "/home/dashboard"}
       replace
     />
   );
@@ -70,6 +71,14 @@ const HomeIndexRedirect = () => {
 export const appRouter = createBrowserRouter([
   { path: "/", element: <Navigate to="/login" replace /> },
   { path: "/login", element: <LoginPage /> },
+  {
+    path: "/track/unit/:token",
+    element: (
+      <LazyPage name="Rastreo">
+        <PublicUnitTrackPage />
+      </LazyPage>
+    ),
+  },
 
   // Todo dentro del HomeLayout, protegido por PrivateRoute (requiere login).
   {
