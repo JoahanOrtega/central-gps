@@ -302,7 +302,7 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
     setGenerando(true);
     try {
       const stops = ubicadas.map((p) => ({ lat: p.latitud, lng: p.longitud }));
-      const result = await mapRef.current.generateTrace(stops, "driving");
+      const result = await mapRef.current.generateTrace(stops);
 
       if (!result || result.path.length === 0) {
         notify.error(
