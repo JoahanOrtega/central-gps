@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Building2 } from "lucide-react";
-import { clientService } from "./clientService";
-import type { ClientFieldErrors } from "./client.types";
+import { clientService } from "../services/clientService";
+import type { ClientFieldErrors } from "../types/client.types";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { notify } from "@/stores/notificationStore";
 import { ModalWithTabs } from "@/components/shared/ModalWithTabs";
@@ -16,44 +16,44 @@ interface NewClientModalProps {
 
 interface ClientForm {
   // Tab Datos del Cliente
-  clave:         string;
-  nombre:        string;
-  contacto:      string;
-  telefono:      string;
-  email:         string;
+  clave: string;
+  nombre: string;
+  contacto: string;
+  telefono: string;
+  email: string;
   observaciones: string;
   //Tab Ubicación
-  tipo_poi:              number;
-  direccion:             string;
+  tipo_poi: number;
+  direccion: string;
   direccionEsAproximada: boolean;
-  lat:                   number | null;
-  lng:                   number | null;
-  radio:                 number;
-  bounds:                string;
-  area:                  string;
-  polygon_path:          string;
-  polygon_color:         string;
-  radio_color:           string;
+  lat: number | null;
+  lng: number | null;
+  radio: number;
+  bounds: string;
+  area: string;
+  polygon_path: string;
+  polygon_color: string;
+  radio_color: string;
 }
 
 const EMPTY_FORM: ClientForm = {
-  clave:         "",
-  nombre:        "",
-  contacto:      "",
-  telefono:      "",
-  email:         "",
+  clave: "",
+  nombre: "",
+  contacto: "",
+  telefono: "",
+  email: "",
   observaciones: "",
-  tipo_poi:              1,
-  direccion:             "",
+  tipo_poi: 1,
+  direccion: "",
   direccionEsAproximada: false,
-  lat:                   null,
-  lng:                   null,
-  radio:                 50,
-  bounds:                "",
-  area:                  "",
-  polygon_path:          "",
-  polygon_color:         "#5e6383",
-  radio_color:           "#5e6383",
+  lat: null,
+  lng: null,
+  radio: 50,
+  bounds: "",
+  area: "",
+  polygon_path: "",
+  polygon_color: "#5e6383",
+  radio_color: "#5e6383",
 };
 
 export const NewClientModal = ({
@@ -63,9 +63,9 @@ export const NewClientModal = ({
 }: NewClientModalProps) => {
   const { idEmpresa } = useEmpresaActiva();
 
-  const [form, setForm]           = useState<ClientForm>(EMPTY_FORM);
-  const [errors, setErrors]       = useState<ClientFieldErrors>({});
-  const [error, setError]         = useState("");
+  const [form, setForm] = useState<ClientForm>(EMPTY_FORM);
+  const [errors, setErrors] = useState<ClientFieldErrors>({});
+  const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("general");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -94,7 +94,7 @@ export const NewClientModal = ({
 
   const validate = (): boolean => {
     const newErrors: ClientFieldErrors = {};
-    if (!form.clave.trim())  newErrors.clave  = ["La clave es requerida"];
+    if (!form.clave.trim()) newErrors.clave = ["La clave es requerida"];
     if (!form.nombre.trim()) newErrors.nombre = ["El nombre es requerido"];
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       newErrors.email = ["Ingresa un email válido"];
@@ -114,27 +114,26 @@ export const NewClientModal = ({
     setError("");
     try {
       await clientService.create({
-        clave:         form.clave.trim(),
-        nombre:        form.nombre.trim(),
-        contacto:      form.contacto.trim()      || null,
-        telefono:      form.telefono.trim()      || null,
-        email:         form.email.trim()         || null,
+        clave: form.clave.trim(),
+        nombre: form.nombre.trim(),
+        contacto: form.contacto.trim() || null,
+        telefono: form.telefono.trim() || null,
+        email: form.email.trim() || null,
         observaciones: form.observaciones.trim() || null,
-        id_empresa:    idEmpresa ?? undefined,
+        id_empresa: idEmpresa ?? undefined,
         // Datos de ubicación
         ...(form.lat !== null && form.lng !== null && {
           poi: {
-            tipo_elemento: "cliente",
-            tipo_poi:      form.tipo_poi,
-            direccion:     form.direccion,
-            lat:           form.lat,
-            lng:           form.lng,
-            radio:         form.radio,
-            bounds:        form.bounds,
-            area:          form.area,
-            polygon_path:  form.polygon_path,
+            tipo_poi: form.tipo_poi,
+            direccion: form.direccion,
+            lat: form.lat,
+            lng: form.lng,
+            radio: form.radio,
+            bounds: form.bounds,
+            area: form.area,
+            polygon_path: form.polygon_path,
             polygon_color: form.polygon_color,
-            radio_color:   form.radio_color,
+            radio_color: form.radio_color,
           },
         }),
       });
@@ -157,17 +156,17 @@ export const NewClientModal = ({
 
   // GeoFenceValue extrae los campos de geometría del form para pasarlos al tab
   const geoValue: GeoFenceValue = {
-    tipo_poi:              form.tipo_poi,
-    direccion:             form.direccion,
+    tipo_poi: form.tipo_poi,
+    direccion: form.direccion,
     direccionEsAproximada: form.direccionEsAproximada,
-    lat:                   form.lat,
-    lng:                   form.lng,
-    radio:                 form.radio,
-    bounds:                form.bounds,
-    area:                  form.area,
-    polygon_path:          form.polygon_path,
-    polygon_color:         form.polygon_color,
-    radio_color:           form.radio_color,
+    lat: form.lat,
+    lng: form.lng,
+    radio: form.radio,
+    bounds: form.bounds,
+    area: form.area,
+    polygon_path: form.polygon_path,
+    polygon_color: form.polygon_color,
+    radio_color: form.radio_color,
   };
 
   const tabs = [
@@ -224,8 +223,8 @@ export const NewClientModal = ({
 // Tab Datos del Cliente
 
 interface ClientGeneralTabProps {
-  form:     ClientForm;
-  errors:   ClientFieldErrors;
+  form: ClientForm;
+  errors: ClientFieldErrors;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
 }
 
