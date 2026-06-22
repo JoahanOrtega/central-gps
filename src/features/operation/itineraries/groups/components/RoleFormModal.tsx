@@ -12,9 +12,9 @@ import { Label } from "@/components/ui/label";
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { itineraryRoleService } from "./itineraryGroupService";
-import { itineraryService } from "../itineraryService";
-import type { ItineraryRole, DiaRol } from "./itinerary-group.types";
+import { itineraryRoleService } from "../services/itineraryGroupService";
+import { itineraryService } from "../../services/itineraryService";
+import type { ItineraryRole, DiaRol } from "../types/itinerary-group.types";
 
 interface RoleFormModalProps {
     open: boolean;

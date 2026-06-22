@@ -11,8 +11,8 @@
 
 import { Clock, MapPin, Pencil, Trash2, CalendarDays, CalendarRange } from "lucide-react";
 import { KebabMenu } from "@/components/shared";
-import type { ItinerarioItem } from "./itinerary.types";
-import { formatWeekdaySummary } from "./weekday-summary.ts";
+import type { ItinerarioItem } from "../types/itinerary.types";
+import { formatWeekdaySummary } from "../lib/weekday-summary";
 
 interface ItineraryCardProps {
     itinerario: ItinerarioItem;

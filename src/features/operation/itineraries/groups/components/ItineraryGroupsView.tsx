@@ -11,10 +11,10 @@ import {
     ConfirmDialog, KebabMenu, useDebounce,
 } from "@/components/shared";
 import { PoiCardSkeleton } from "@/components/shared/SkeletonCard";
-import { itineraryGroupService } from "./itineraryGroupService";
+import { itineraryGroupService } from "../services/itineraryGroupService";
 import { GroupFormModal } from "./GroupFormModal";
 import { GroupTransferModal } from "./GroupTransferModal";
-import type { ItineraryGroup, ItineraryGroupDetail } from "./itinerary-group.types";
+import type { ItineraryGroup, ItineraryGroupDetail } from "../types/itinerary-group.types";
 export const ItineraryGroupsView = () => {
     const { idEmpresa } = useEmpresaActiva();
     const queryClient = useQueryClient();

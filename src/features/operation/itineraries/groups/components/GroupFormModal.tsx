@@ -11,8 +11,8 @@ import { Label } from "@/components/ui/label";
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { itineraryGroupService } from "./itineraryGroupService";
-import type { ItineraryGroup } from "./itinerary-group.types";
+import { itineraryGroupService } from "../services/itineraryGroupService";
+import type { ItineraryGroup } from "../types/itinerary-group.types";
 
 interface GroupFormModalProps {
     open: boolean;

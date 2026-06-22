@@ -15,8 +15,8 @@ import { queryKeys } from "@/lib/query-keys";
 import { ApiError } from "@/lib/api";
 import { ModalWithTabs, type ModalTab } from "@/components/shared";
 
-import { itineraryService } from "./itineraryService";
-import type { CreateItinerarioPayload } from "./itinerary.types";
+import { itineraryService } from "../services/itineraryService";
+import type { CreateItinerarioPayload } from "../types/itinerary.types";
 import {
     GeneralStep,
     StopsStep,

@@ -5,8 +5,8 @@ import type {
     DiaSemana,
     TipoItinerario,
     ParadaItinerario,
-} from "./itinerary.types";
-import { DIA_LABEL } from "./itinerary.types";
+} from "../types/itinerary.types";
+import { DIA_LABEL } from "../types/itinerary.types";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Estado compartido del formulario

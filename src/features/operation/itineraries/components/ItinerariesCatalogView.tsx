@@ -15,11 +15,11 @@ import {
     PoiCardSkeleton,
     ConfirmDialog
 } from "@/components/shared";
-import { itineraryService } from "./itineraryService";
+import { itineraryService } from "../services/itineraryService";
 import { ItineraryCard } from "./ItineraryCard";
 import { NewItineraryModal } from "./NewItineraryModal";
 import { EditItineraryModal } from "./EditItineraryModal";
-import type { ItinerarioItem, ItinerarioGrupoRuta } from "./itinerary.types";
+import type { ItinerarioItem, ItinerarioGrupoRuta } from "../types/itinerary.types";
 
 // ── Grupo colapsable por ruta ─────────────────────────────────────────────────
 

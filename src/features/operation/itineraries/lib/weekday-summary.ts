@@ -3,8 +3,8 @@
 //   [1,3,5]         → "Lun · Mié · Vie"
 //   [6,0]           → "Sáb a Dom"
 //   []              → "Sin días"
-import type { DiaSemana } from "./itinerary.types";
-import { DIA_LABEL } from "./itinerary.types";
+import type { DiaSemana } from "../types/itinerary.types";
+import { DIA_LABEL } from "../types/itinerary.types";
 
 // Orden visual de la semana: lunes primero, domingo al final
 const ORDEN_SEMANA: DiaSemana[] = [1, 2, 3, 4, 5, 6, 0];
