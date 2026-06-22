@@ -8,9 +8,8 @@ import { useMapUnits } from "../hooks/useMapUnits";
 import { useMapRoute } from "../hooks/useMapRoute";
 import { RoutePlayback } from "./RoutePlayback";
 
-// ── API imperativa expuesta al componente padre (MapsView) ────
-// Permite que MapsView controle el mapa sin acceder a su estado
-// interno — patrón forwardRef + useImperativeHandle.
+// API imperativa que MapsView usa para controlar el mapa sin tocar su estado
+// interno (patrón forwardRef + useImperativeHandle).
 export interface MapCanvasHandle {
   focusMexico: () => void;
   focusUserLocation: () => void;
@@ -32,28 +31,24 @@ export interface MapCanvasHandle {
   setRouteVisible: (visible: boolean) => void;
   setRouteStartEndVisible: (visible: boolean) => void;
   setRouteDirectionVisible: (visible: boolean) => void;
-  // Controla una capa individual (stops, speed, engine, doors, rfid, alerts, arrows, flags)
+  // Controla una capa individual (stops, speed, engine, doors, rfid, alerts, arrows, flags).
   setLayerVisible: (layer: string, visible: boolean) => void;
 }
 
 /**
  * Componente coordinador del mapa de Google Maps.
  *
- * Responsabilidad única: montar los hooks especializados y exponer
- * su API imperativa al componente padre mediante useImperativeHandle.
- *
- * Toda la lógica de negocio vive en los hooks:
- *   - useMapInit    → inicialización, tráfico, búsqueda, fullscreen
- *   - useMapPois    → markers y geometrías de Puntos de Interés
- *   - useMapUnits   → markers de unidades en monitoreo
- *   - useMapRoute   → polyline, flechas y markers de recorridos
- *   - RoutePlayback → reproducción animada del recorrido (capa aparte)
+ * Su única responsabilidad es montar los hooks especializados y exponer su API
+ * imperativa al padre. Toda la lógica de negocio vive en los hooks:
+ *   useMapInit    → inicialización, tráfico, búsqueda, fullscreen
+ *   useMapPois    → markers y geometrías de Puntos de Interés
+ *   useMapUnits   → markers de unidades en monitoreo
+ *   useMapRoute   → polyline, flechas y markers de recorridos
+ *   RoutePlayback → reproducción animada del recorrido (capa aparte)
  */
 export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
-
-  // ── Inicialización del mapa ───────────────────────────────────
-  // mapRef e infoWindowRef son compartidos con los demás hooks
-  // para que todos operen sobre la misma instancia del mapa.
+  // mapRef e infoWindowRef se comparten con los demás hooks para que todos
+  // operen sobre la misma instancia del mapa.
   const {
     containerRef,
     mapRef,
@@ -65,19 +60,16 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     toggleFullscreen,
   } = useMapInit();
 
-  // ── Puntos de Interés ─────────────────────────────────────────
   const { focusPoi, showPois, hidePois } = useMapPois({
     mapRef,
     infoWindowRef,
   });
 
-  // ── Unidades en monitoreo ─────────────────────────────────────
   const { focusUnit, showUnits, hideUnits } = useMapUnits({
     mapRef,
     infoWindowRef,
   });
 
-  // ── Recorridos de telemetría ──────────────────────────────────
   const {
     showUnitRoute,
     hideUnitRoute,
@@ -87,33 +79,28 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     setLayerVisible,
   } = useMapRoute({ mapRef, infoWindowRef });
 
-  // ── Estado del modo playback ──────────────────────────────────
-  // Guardamos los puntos del recorrido activo aquí para alimentar al
-  // componente RoutePlayback. Se llenan cuando se muestra un recorrido
-  // y se limpian al ocultarlo. El playback es una capa independiente:
-  // no toca los markers/polylines que dibuja useMapRoute.
+  // Puntos del recorrido activo, para alimentar a RoutePlayback. El playback es
+  // una capa independiente: no toca los markers/polylines de useMapRoute.
   const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
   const [playbackActive, setPlaybackActive] = useState(false);
 
-  // Wrapper de showUnitRoute: además de dibujar la ruta, captura los
-  // puntos para el playback y resetea cualquier reproducción previa.
+  // Además de dibujar la ruta, captura sus puntos y resetea el playback previo.
   const handleShowRoute = useCallback(
     (points: RoutePoint[], unitLabel?: string) => {
       setRoutePoints(points);
-      setPlaybackActive(false); // recorrido nuevo → cerrar playback anterior
+      setPlaybackActive(false); // recorrido nuevo cierra el playback anterior
       showUnitRoute(points, unitLabel);
     },
     [showUnitRoute],
   );
 
-  // Wrapper de hideUnitRoute: limpia el playback antes de ocultar la ruta.
+  // Limpia el playback antes de ocultar la ruta.
   const handleHideRoute = useCallback(() => {
     setPlaybackActive(false);
     setRoutePoints([]);
     hideUnitRoute();
   }, [hideUnitRoute]);
 
-  // ── API imperativa hacia MapsView ─────────────────────────────
   useImperativeHandle(ref, () => ({
     focusMexico,
     focusUserLocation,
@@ -121,7 +108,6 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     searchAddress,
     toggleFullscreen,
 
-    // Limpiar todos los elementos activos del mapa
     clearMap: () => {
       hidePois();
       hideUnits();
@@ -145,17 +131,16 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
       setLayerVisible(layer as keyof import('../types/map.types').RouteDisplayOptions, visible),
   }));
 
-  // ── Render ────────────────────────────────────────────────────
   return (
     <div className="relative h-full w-full overflow-hidden bg-slate-100">
       <div className="absolute right-4 top-2 z-[1] flex flex-col gap-3">
-        {/* Botón de playback solo visible cuando hay un recorrido cargado. */}
+        {/* El botón de playback solo aparece cuando hay un recorrido cargado. */}
         {routePoints.length >= 2 && (
           <button
             type="button"
             className={`flex h-10 w-10 items-center justify-center rounded border shadow-sm ${playbackActive
-                ? "border-blue-500 bg-blue-600 text-white"
-                : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+              ? "border-blue-500 bg-blue-600 text-white"
+              : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
               }`}
             title="Reproducir recorrido"
             onClick={() => setPlaybackActive((v) => !v)}
@@ -175,9 +160,8 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
 
       <div ref={containerRef} className="h-full w-full" />
 
-      {/* Modo playback: capa independiente sobre el mapa.
-          Se monta/desmonta con playbackActive; al desmontarse limpia
-          su propio marcador y trail sin tocar el recorrido estático. */}
+      {/* Modo playback: capa independiente que se monta/desmonta con
+          playbackActive y limpia su marcador y trail sin tocar el recorrido. */}
       {playbackActive && (
         <RoutePlayback
           map={mapRef.current}
