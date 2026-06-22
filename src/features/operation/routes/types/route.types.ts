@@ -25,16 +25,15 @@ export interface Parada {
 // Logistica = un sentido de la ruta (ida o vuelta)
 export interface Logistica {
   id_logistica_ruta?: number;
-  tipo_logistica: 1 | 2;          // 1=A-B, 2=B-A
+  tipo_logistica: 1 | 2;
   direccion_inicio: string;
   direccion_fin: string;
-  fecha_inicio: string | null;  // ISO date
+  fecha_inicio: string | null;
   tiempo_recorrido_min: number | null;
   kilometros: number | null;
-  // Trazo de la ruta como lista de coordenadas (en el front).
-  // El backend lo codifica a polyline antes de guardar.
   path: LatLng[];
   paradas: Parada[];
+  trace_color?: string;
 }
 
 // Tipo de ruta — refleja el select "Tipo de ruta" del modal

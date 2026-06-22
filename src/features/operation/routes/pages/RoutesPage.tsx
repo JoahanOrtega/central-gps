@@ -1,4 +1,4 @@
-import { RoutesCatalogView } from "@/features/operation/routes/RoutesCatalogView";
+import { RoutesCatalogView } from "@/features/operation/routes/components/RoutesCatalogView";
 
 export const RoutesPage = () => {
     return <RoutesCatalogView />;

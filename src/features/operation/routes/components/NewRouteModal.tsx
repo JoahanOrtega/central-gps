@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Route as RouteIcon } from "lucide-react";
-import { routeService } from "./routeService";
-import type { CreateRoutePayload, Logistica, TipoRuta } from "./route.types";
+import { routeService } from "../services/routeService";
+import type { CreateRoutePayload, Logistica, TipoRuta } from "../types/route.types";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { notify } from "@/stores/notificationStore";
 import { ModalWithTabs } from "@/components/shared/ModalWithTabs";

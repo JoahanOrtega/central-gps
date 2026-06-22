@@ -22,7 +22,7 @@ import type { PoiItem } from "@/features/catalogs/pois/poi.types";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { useDebounce } from "@/components/shared";
 import { queryKeys } from "@/lib/query-keys";
-import type { Parada } from "./route.types";
+import type { Parada } from "../types/route.types";
 
 interface PoiSelectorModalProps {
     open: boolean;

@@ -1,6 +1,6 @@
 import { Route as RouteIcon, MapPin, Pencil, Trash2 } from "lucide-react";
 import { KebabMenu } from "@/components/shared";
-import type { RouteItem, TipoRuta } from "./route.types";
+import type { RouteItem, TipoRuta } from "../types/route.types";
 
 interface RouteCardProps {
   route:      RouteItem;

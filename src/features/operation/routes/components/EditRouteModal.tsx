@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Route as RouteIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { routeService } from "./routeService";
-import type { CreateRoutePayload, Logistica, Route, TipoRuta } from "./route.types";
+import { routeService } from "../services/routeService";
+import type { CreateRoutePayload, Logistica, Route, TipoRuta } from "../types/route.types";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { notify } from "@/stores/notificationStore";
 import { queryKeys } from "@/lib/query-keys";

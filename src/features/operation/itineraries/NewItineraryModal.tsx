@@ -9,7 +9,7 @@ import { ModalWithTabs, type ModalTab } from "@/components/shared";
 import { Label } from "@/components/ui/label";
 
 import { itineraryService } from "./itineraryService";
-import { routeService } from "@/features/operation/routes/routeService";
+import { routeService } from "@/features/operation/routes/services/routeService";
 import type {
     CreateItinerarioPayload,
     ParadaItinerario,
