@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { loadGoogleMaps } from "@/lib/loadGoogleMaps";
+import { loadGoogleMaps, GOOGLE_MAPS_MAP_ID } from "@/lib/loadGoogleMaps";
 import { buildSearchMarkerContent } from "../lib/map-markers";
 
 // Centro por defecto: ciudad de Aguascalientes, donde opera la flota.
@@ -21,7 +21,7 @@ export interface UseMapInitReturn {
 
 // Última ubicación conocida en localStorage. Firefox no persiste el permiso de
 // geolocalización en localhost (HTTP), así que sin esto el mapa pediría permiso
-// y haría el salto visual en cada recarga.
+// y saltaría visualmente en cada recarga.
 const GEO_CACHE_KEY = "cgps_last_location";
 
 interface CachedLocation {
@@ -74,8 +74,8 @@ export const useMapInit = (): UseMapInitReturn => {
 
             if (!containerRef.current || !window.google?.maps || !isMounted) return;
 
-            // Arrancar en la ubicación cacheada si existe, para evitar el salto
-            // visual mientras el navegador resuelve la geolocalización.
+            // Arrancar en la ubicación cacheada (si existe) evita el salto visual
+            // mientras el navegador resuelve la geolocalización.
             const cached = getCachedLocation();
             const initialCenter = cached
                 ? { lat: cached.lat, lng: cached.lng }
@@ -94,13 +94,13 @@ export const useMapInit = (): UseMapInitReturn => {
                     style: window.google.maps.MapTypeControlStyle.DROPDOWN_MENU,
                 },
                 mapTypeId: "roadmap",
-                mapId: "DEMO_MAP_ID",
+                mapId: GOOGLE_MAPS_MAP_ID,
             });
 
             mapRef.current = map;
 
             // Marcar la primera interacción manual para no reposicionar el mapa
-            // por debajo del usuario. El listener se autoremueve tras dispararse.
+            // por debajo del usuario.
             const markUserInteraction = () => {
                 userHasInteractedRef.current = true;
             };
@@ -168,8 +168,8 @@ export const useMapInit = (): UseMapInitReturn => {
                         createOrMoveUserMarker(location);
                     },
                     () => {
-                        // Permiso denegado o timeout: el mapa ya está en el centro
-                        // por defecto, no hay nada que hacer.
+                        // Permiso denegado o timeout: el mapa ya está centrado por
+                        // defecto, no hay nada que hacer.
                     },
                     { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 },
                 );

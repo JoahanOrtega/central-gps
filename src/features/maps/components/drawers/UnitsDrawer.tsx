@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { Search, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, X, ChevronDown, ChevronRight, Satellite, Route } from 'lucide-react';
 import { useUnitsLive } from '../../hooks/useUnitsLive';
 import { formatElapsedTimeFromApiDate } from '@/lib/date-time';
 import {
@@ -8,6 +8,7 @@ import {
   UNIT_COLORS,
 } from '../../lib/telemetry-status';
 import { DrawerSkeletonList } from '@/components/shared/SkeletonCard';
+import { KebabMenu } from '@/components/shared';
 import type { MapUnitItem } from '../../types/map.types';
 import { UnitStateFilterChips, getUnitFilterState } from "./UnitStateFilterChips";
 import { useUnitsDrawerStore } from "../../stores/unitsDrawerStore";
@@ -17,6 +18,9 @@ interface UnitsDrawerProps {
   onSelectUnit: (unit: MapUnitItem) => void;
   onUnitsSelectionChange: (units: MapUnitItem[]) => void;
   onUnitsHidden: () => void;
+  // Acciones del menú kebab de cada unidad.
+  onShowToken: (unit: MapUnitItem) => void;
+  onShowTrip: (unit: MapUnitItem) => void;
 }
 
 interface UnitGroup { nombre: string; units: MapUnitItem[]; }
@@ -87,11 +91,13 @@ UnitStatusIcon.displayName = 'UnitStatusIcon';
 // memo: las callbacks llegan estabilizadas con useCallback desde el padre, así
 // la tarjeta solo se re-renderiza si su propia unidad cambió.
 const UnitCard = memo(({
-  unit, isChecked, onToggle, onSelect,
+  unit, isChecked, onToggle, onSelect, onShowToken, onShowTrip,
 }: {
   unit: MapUnitItem; isChecked: boolean;
   onToggle: (u: MapUnitItem) => void;
   onSelect: (u: MapUnitItem) => void;
+  onShowToken: (u: MapUnitItem) => void;
+  onShowTrip: (u: MapUnitItem) => void;
 }) => {
   const meta = getTelemetryStatusMeta(
     unit.telemetry?.engine_state, unit.telemetry?.velocidad,
@@ -99,6 +105,23 @@ const UnitCard = memo(({
   );
   const elapsed = formatElapsedTimeFromApiDate(unit.telemetry?.fecha_hora_gps);
   const numero = unit.numero ?? '';
+
+  // Acciones del menú kebab. Token y Recorrido por ahora; a futuro se suman
+  // Detalles, Editar, etc. sin rediseñar la fila.
+  const menuItems = [
+    {
+      id: 'token',
+      label: 'Token de rastreo',
+      icon: Satellite,
+      onClick: () => onShowToken(unit),
+    },
+    {
+      id: 'trip',
+      label: 'Recorrido',
+      icon: Route,
+      onClick: () => onShowTrip(unit),
+    },
+  ];
 
   return (
     <div
@@ -141,17 +164,25 @@ const UnitCard = memo(({
           {(unit as MapUnitItem & { operador?: string }).operador ?? 'Sin operador'}
         </p>
       </div>
+
+      {/* Menú de acciones. stopPropagation para que abrir el menú no enfoque
+          la unidad en el mapa. */}
+      <div onClick={(e) => e.stopPropagation()}>
+        <KebabMenu items={menuItems} entityName={`unidad ${numero}`} />
+      </div>
     </div>
   );
 });
 UnitCard.displayName = 'UnitCard';
 
 const UnitGroupSection = ({
-  group, selectedIds, onToggle, onSelect, defaultOpen,
+  group, selectedIds, onToggle, onSelect, onShowToken, onShowTrip, defaultOpen,
 }: {
   group: UnitGroup; selectedIds: number[];
   onToggle: (u: MapUnitItem) => void;
   onSelect: (u: MapUnitItem) => void;
+  onShowToken: (u: MapUnitItem) => void;
+  onShowTrip: (u: MapUnitItem) => void;
   defaultOpen: boolean;
 }) => {
   const [open, setOpen] = useState(defaultOpen);
@@ -204,6 +235,8 @@ const UnitGroupSection = ({
               isChecked={selectedIds.includes(u.id)}
               onToggle={onToggle}
               onSelect={onSelect}
+              onShowToken={onShowToken}
+              onShowTrip={onShowTrip}
             />
           ))}
         </div>
@@ -214,6 +247,7 @@ const UnitGroupSection = ({
 
 export const UnitsDrawer = ({
   onClose, onSelectUnit, onUnitsSelectionChange, onUnitsHidden,
+  onShowToken, onShowTrip,
 }: UnitsDrawerProps) => {
   const {
     units, counts, selectedIds, selectedUnits, search,
@@ -354,6 +388,8 @@ export const UnitsDrawer = ({
                 selectedIds={selectedIds}
                 onToggle={toggleUnit}
                 onSelect={onSelectUnit}
+                onShowToken={onShowToken}
+                onShowTrip={onShowTrip}
                 defaultOpen={groups.length === 1}
               />
             ))}

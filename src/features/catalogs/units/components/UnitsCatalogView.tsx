@@ -6,6 +6,7 @@ import type { UnitItem } from "../types/unit.types";
 import { UnitCard } from "./UnitCard";
 import { NewUnitModal } from "./NewUnitModal";
 import { EditUnitModal } from "./EditUnitModal";
+import { UnitTokenModal } from "./UnitTokenModal";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { usePermiso } from "@/hooks/usePermiso";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
@@ -23,14 +24,15 @@ export const UnitsCatalogView = () => {
   const queryClient = useQueryClient();
   const { idEmpresa } = useEmpresaActiva();
 
-  const [search, setSearch]             = useState("");
+  const [search, setSearch] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingUnitId, setEditingUnitId] = useState<number | null>(null);
+  const [tokenUnit, setTokenUnit] = useState<UnitItem | null>(null);
 
   const debouncedSearch = useDebounce(search);
 
-  const puedeCrearUnidad   = usePermiso("unidades.crear");
-  const puedeEditarUnidad  = usePermiso("unidades.editar");
+  const puedeCrearUnidad = usePermiso("unidades.crear");
+  const puedeEditarUnidad = usePermiso("unidades.editar");
   const puedeEliminarUnidad = usePermiso("unidades.eliminar");
 
   const { data: units = [], isLoading, error, refetch } = useQuery<UnitItem[]>({
@@ -102,6 +104,7 @@ export const UnitsCatalogView = () => {
               canDelete={puedeEliminarUnidad}
               onEdit={(id) => setEditingUnitId(id)}
               onDelete={askDelete}
+              onShowToken={(u) => setTokenUnit(u)}
             />
           )}
           keyExtractor={(unit) => unit.id}
@@ -125,6 +128,16 @@ export const UnitsCatalogView = () => {
       <EditUnitModal
         idUnidad={editingUnitId}
         onClose={() => setEditingUnitId(null)}
+      />
+
+      <UnitTokenModal
+        idUnidad={tokenUnit?.id ?? null}
+        numero={tokenUnit?.numero}
+        marca={tokenUnit?.marca}
+        modelo={tokenUnit?.modelo}
+        idEmpresa={idEmpresa}
+        canEdit={puedeEditarUnidad}
+        onClose={() => setTokenUnit(null)}
       />
 
       <ConfirmDialog

@@ -1,5 +1,5 @@
 import type { UnitItem } from "../types/unit.types";
-import { BusFront, FileImage, Pencil, Trash2 } from "lucide-react";
+import { BusFront, FileImage, Pencil, Trash2, Satellite } from "lucide-react";
 import { KebabMenu } from "@/components/shared";
 import { resolveUnitImageSrc } from "../lib/unit-image";
 
@@ -9,6 +9,7 @@ interface UnitCardProps {
   canDelete?: boolean;
   onEdit?: (idUnidad: number) => void;
   onDelete?: (unit: UnitItem) => void;
+  onShowToken?: (unit: UnitItem) => void;
 }
 
 export const UnitCard = ({
@@ -17,12 +18,19 @@ export const UnitCard = ({
   canDelete = false,
   onEdit,
   onDelete,
+  onShowToken,
 }: UnitCardProps) => {
   const statusLabel = "Apagada";
   const operatorLabel = unit.id_operador ? `Operador ${unit.id_operador}` : "--- --- ---";
   const imageSrc = resolveUnitImageSrc(unit.imagen);
 
   const menuItems = [
+    {
+      id: "token",
+      label: "Token de rastreo",
+      icon: Satellite,
+      onClick: () => onShowToken?.(unit),
+    },
     canEdit && {
       id: "edit",
       label: "Editar",

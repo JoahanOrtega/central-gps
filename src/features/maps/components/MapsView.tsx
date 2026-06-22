@@ -5,7 +5,10 @@ import { MapToolbar } from "./MapToolbar";
 import { MapCanvas, type MapCanvasHandle } from "./MapCanvas";
 import { UnitsDrawer } from "./drawers/UnitsDrawer";
 import { TripDrawer } from "./drawers/TripDrawer";
+import { UnitTokenModal } from "@/features/catalogs/units/components/UnitTokenModal";
+import { useTripDrawerStore } from "../stores/tripDrawerStore";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
+import { usePermiso } from "@/hooks/usePermiso";
 
 import type { MapUnitItem, RoutePoint, RouteDisplayOptions } from "../types/map.types";
 
@@ -16,7 +19,11 @@ type ActiveDrawer = "units" | "trips" | null;
 export const MapsView = () => {
   const mapCanvasRef = useRef<MapCanvasHandle | null>(null);
   const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
+  // Unidad cuyo token se está viendo (modal independiente).
+  const [tokenUnit, setTokenUnit] = useState<MapUnitItem | null>(null);
   const { idEmpresa } = useEmpresaActiva();
+  const setSelectedUnitImei = useTripDrawerStore((s) => s.setSelectedUnitImei);
+  const puedeEditarUnidad = usePermiso("unidades.editar");
 
   // Al cambiar de empresa, cerrar drawers y limpiar el mapa. Cada drawer
   // recarga sus datos al reabrirse.
@@ -43,6 +50,18 @@ export const MapsView = () => {
   const handleSelectUnit = useCallback((unit: MapUnitItem) => {
     mapCanvasRef.current?.focusUnit(unit);
   }, []);
+
+  // Abre el modal de token de la unidad (independiente de los drawers).
+  const handleShowToken = useCallback((unit: MapUnitItem) => {
+    setTokenUnit(unit);
+  }, []);
+
+  // Abre el recorrido de la unidad: setea su imei en el store del trip y abre
+  // el TripDrawer, que al montar carga el recorrido de esa unidad solo.
+  const handleShowTrip = useCallback((unit: MapUnitItem) => {
+    setSelectedUnitImei(unit.imei);
+    setActiveDrawer("trips");
+  }, [setSelectedUnitImei]);
 
   const handleRouteSelected = useCallback((points: RoutePoint[]) => {
     if (points.length === 0) { mapCanvasRef.current?.hideUnitRoute(); return; }
@@ -88,6 +107,8 @@ export const MapsView = () => {
               onSelectUnit={handleSelectUnit}
               onUnitsSelectionChange={handleUnitsSelectionChange}
               onUnitsHidden={handleUnitsHidden}
+              onShowToken={handleShowToken}
+              onShowTrip={handleShowTrip}
             />
           )}
 
@@ -104,6 +125,16 @@ export const MapsView = () => {
           )}
         </div>
       </section>
+
+      <UnitTokenModal
+        idUnidad={tokenUnit?.id ?? null}
+        numero={tokenUnit?.numero}
+        marca={tokenUnit?.marca}
+        modelo={tokenUnit?.modelo}
+        idEmpresa={idEmpresa}
+        canEdit={puedeEditarUnidad}
+        onClose={() => setTokenUnit(null)}
+      />
     </main>
   );
 };

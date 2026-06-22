@@ -1,5 +1,12 @@
 let googleMapsPromise: Promise<void> | null = null
 
+// Map ID de Google Maps, requerido por AdvancedMarkerElement. Se lee del .env
+// para no hardcodearlo en cada componente. "DEMO_MAP_ID" es el placeholder de
+// Google para desarrollo; en producción configurar VITE_GOOGLE_MAPS_MAP_ID con
+// un Map ID real creado en Cloud Console (Google Maps > Map Management).
+export const GOOGLE_MAPS_MAP_ID =
+  import.meta.env.VITE_GOOGLE_MAPS_MAP_ID ?? "DEMO_MAP_ID"
+
 declare global {
   interface Window {
     googleMapsInit?: () => void
