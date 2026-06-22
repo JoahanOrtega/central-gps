@@ -9,6 +9,11 @@ import type {
   UpdateUnitPayload,
   UpdateUnitResponse,
 } from "../types/unit-edit.types";
+import type {
+  UnitTokenConfig,
+  RegenerateUnitTokenResponse,
+} from "../types/unit-token.types";
+
 
 // ── Tipo de respuesta del DELETE ─────────────────────────────────────────────
 // El backend retorna {message, eliminado, id_unidad} con 200 OK.
@@ -115,5 +120,44 @@ export const unitService = {
   // backend la sirve. Esa ruta es la que se guarda en el campo imagen.
   uploadImage(file: File): Promise<{ ruta: string }> {
     return apiUpload<{ ruta: string }>("/units/upload-image", file);
+  },
+
+  // ── Token de rastreo ───────────────────────────────────────────────────────
+  // Mismo patrón de idEmpresa que getDetail/update: sudo_erp lo pasa explícito,
+  // otros roles lo heredan del JWT.
+
+  // Lee la configuración del token de rastreo de la unidad.
+  getTokenConfig(
+    idUnidad: number,
+    idEmpresa?: number | null,
+  ): Promise<UnitTokenConfig> {
+    const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
+    return apiFetch<UnitTokenConfig>(`/units/${idUnidad}/token${query}`, {
+      method: "GET",
+    });
+  },
+
+  // Genera (o regenera) el token y activa el acceso público. Al regenerar, el
+  // enlace anterior deja de funcionar.
+  regenerateToken(
+    idUnidad: number,
+    idEmpresa?: number | null,
+  ): Promise<RegenerateUnitTokenResponse> {
+    const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
+    return apiFetch<RegenerateUnitTokenResponse>(
+      `/units/${idUnidad}/token/regenerar${query}`,
+      { method: "POST" },
+    );
+  },
+
+  // Revoca el token: el enlace público deja de funcionar de inmediato.
+  revokeToken(
+    idUnidad: number,
+    idEmpresa?: number | null,
+  ): Promise<{ message: string }> {
+    const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
+    return apiFetch<{ message: string }>(`/units/${idUnidad}/token${query}`, {
+      method: "DELETE",
+    });
   },
 };

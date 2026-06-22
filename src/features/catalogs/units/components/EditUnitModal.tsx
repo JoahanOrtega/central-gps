@@ -54,6 +54,8 @@ import {
     validateUnitForm,
     hasErrors,
 } from "../lib/edit-unit-validation";
+import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
+import { UnitTokenTab } from "./UnitTokenTab";
 
 // ── Props ────────────────────────────────────────────────────────────────────
 interface EditUnitModalProps {
@@ -64,11 +66,13 @@ interface EditUnitModalProps {
     onClose: () => void;
 }
 
-type TabKey = "general" | "additional";
+type TabKey = "general" | "additional" | "token";
 
 export const EditUnitModal = ({ idUnidad, onClose }: EditUnitModalProps) => {
     const [activeTab, setActiveTab] = useState<TabKey>("general");
     const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
+
+    const { idEmpresa } = useEmpresaActiva();
 
     const {
         detail,
@@ -194,6 +198,12 @@ export const EditUnitModal = ({ idUnidad, onClose }: EditUnitModalProps) => {
                             >
                                 Datos Adicionales
                             </TabButton>
+                            <TabButton
+                                active={activeTab === "token"}
+                                onClick={() => setActiveTab("token")}
+                            >
+                                Token de Rastreo
+                            </TabButton>
                         </div>
                     </DialogHeader>
 
@@ -241,6 +251,13 @@ export const EditUnitModal = ({ idUnidad, onClose }: EditUnitModalProps) => {
                                         patchForm={patchForm}
                                         canEdit={canEdit}
                                         errors={errors}
+                                    />
+                                )}
+                                {activeTab === "token" && idUnidad !== null && (
+                                    <UnitTokenTab
+                                        idUnidad={idUnidad}
+                                        idEmpresa={idEmpresa}
+                                        canEdit={canEdit}
                                     />
                                 )}
                             </div>
@@ -339,8 +356,8 @@ const TabButton = ({
         type="button"
         onClick={onClick}
         className={`-mb-px border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${active
-                ? "border-emerald-500 text-emerald-600"
-                : "border-transparent text-slate-500 hover:text-slate-700"
+            ? "border-emerald-500 text-emerald-600"
+            : "border-transparent text-slate-500 hover:text-slate-700"
             }`}
     >
         {children}
