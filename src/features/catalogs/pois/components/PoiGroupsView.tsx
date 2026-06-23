@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { FolderTree, Plus, Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { poiService } from "./poiService";
-import type { PoiGroupItem } from "./poi.types";
+import { poiService } from "../services/poiService";
+import type { PoiGroupItem } from "../types/poi.types";
 import { NewPoiGroupModal } from "./NewPoiGroupModal";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { EmptyState } from "@/components/shared/EmptyState";

@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
 import { MapPin, Search, X, MapPinned } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { poiService } from "@/features/catalogs/pois/poiService";
-import type { PoiItem } from "@/features/catalogs/pois/poi.types";
+import { poiService } from "@/features/catalogs/pois/services/poiService";
+import type { PoiItem } from "@/features/catalogs/pois/types/poi.types";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { useDebounce } from "@/components/shared";
 import { useClickOutside } from "@/hooks/useClickOutside";

@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Copy, RefreshCw, Check } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { clientService } from "./clientService";
+import { clientService } from "../services/clientService";
 import type {
     ClientTokenConfig,
     ClientDashboardConfig,
-} from "./client.types";
+} from "../types/client.types";
 import { notify } from "@/stores/notificationStore";
 
 interface ClientTokenTabProps {

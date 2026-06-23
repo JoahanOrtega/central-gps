@@ -17,8 +17,8 @@ import {
     DialogTitle,
     DialogDescription,
 } from "@/components/ui/dialog";
-import { poiService } from "@/features/catalogs/pois/poiService";
-import type { PoiItem } from "@/features/catalogs/pois/poi.types";
+import { poiService } from "@/features/catalogs/pois/services/poiService";
+import type { PoiItem } from "@/features/catalogs/pois/types/poi.types";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { useDebounce } from "@/components/shared";
 import { queryKeys } from "@/lib/query-keys";

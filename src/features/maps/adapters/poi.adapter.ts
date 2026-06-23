@@ -1,5 +1,5 @@
 import type { MapPoiItem } from "../types/map.types";
-import type { PoiItem } from "@/features/catalogs/pois/poi.types";
+import type { PoiItem } from "@/features/catalogs/pois/types/poi.types";
 
 /**
  * Convierte el modelo de POI del catálogo al modelo consumido por el mapa.

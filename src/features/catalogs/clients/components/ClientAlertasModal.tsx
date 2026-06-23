@@ -10,13 +10,13 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 
-import { clientAlertasService } from "./clientAlertasService";
+import { clientAlertasService } from "../services/clientAlertasService";
 import { notify } from "@/stores/notificationStore";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { queryKeys } from "@/lib/query-keys";
 import { SaveButton } from "@/components/shared/SaveButton";
-import type { AlertaPoi, UpsertAlertaPoiPayload } from "@/features/catalogs/pois/poi.alertas.types";
-import type { ClientItem } from "./client.types";
+import type { AlertaPoi, UpsertAlertaPoiPayload } from "@/features/catalogs/pois/types/poi-alertas.types";
+import type { ClientItem } from "../types/client.types";
 import { Field } from "@/components/shared/form-helpers";
 
 interface ClientAlertasModalProps {

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { MapPinned } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { poiService } from "./poiService";
-import type { PoiItem } from "./poi.types";
+import { poiService } from "../services/poiService";
+import type { PoiItem } from "../types/poi.types";
 import { PoiCard } from "./PoiCard";
 import { NewPoiModal } from "./NewPoiModal";
 import { EditPoiModal } from "./EditPoiModal";

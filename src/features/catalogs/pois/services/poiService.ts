@@ -6,7 +6,7 @@ import type {
   CreatePoiPayload,
   CreatePoiGroupPayload,
   UpdatePoiPayload,
-} from "./poi.types";
+} from "../types/poi.types";
 
 // ── Tipos de respuesta de update y delete ────────────────────────────────────
 // Inline porque solo se usan aquí — si crecen, se promueven a poi.types.ts.

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { MapPoiItem } from "../types/map.types";
-import { poiService } from "@/features/catalogs/pois/poiService";
+import { poiService } from "@/features/catalogs/pois/services/poiService";
 import { toMapPoiItem } from "../adapters/poi.adapter";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { usePoisDrawerStore } from "../stores/poisDrawerStore";

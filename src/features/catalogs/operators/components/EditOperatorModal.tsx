@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { UserRound } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { operatorService } from "./operatorService";
+import { operatorService } from "../services/operatorService";
 import { unitService } from "@/features/catalogs/units/services/unitService";
-import type { OperatorItem, OperatorFieldErrors } from "./operator.types";
+import type { OperatorItem, OperatorFieldErrors } from "../services/operator.types";
 import {
     type OperatorForm,
     OperatorGeneralTab,

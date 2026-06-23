@@ -1,6 +1,6 @@
 import { Building2, MapPin, Bell, Pencil, Trash2 } from "lucide-react";
 import { KebabMenu } from "@/components/shared";
-import type { ClientItem } from "./client.types";
+import type { ClientItem } from "../types/client.types";
 
 interface ClientCardProps {
   client: ClientItem;

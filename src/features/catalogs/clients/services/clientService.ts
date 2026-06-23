@@ -6,7 +6,7 @@ import type {
   ClientTokenResponse,
   CreateClientPayload,
   UpdateClientPayload,
-} from "./client.types";
+} from "../types/client.types";
 
 // Respuesta del DELETE
 interface DeleteClientResponse {

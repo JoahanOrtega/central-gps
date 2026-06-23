@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { MapPinned } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { poiService } from "./poiService";
-import type { PoiItem, UpdatePoiPayload } from "./poi.types";
+import { poiService } from "../services/poiService";
+import type { PoiItem, UpdatePoiPayload } from "../types/poi.types";
 import { notify } from "@/stores/notificationStore";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { queryKeys } from "@/lib/query-keys";

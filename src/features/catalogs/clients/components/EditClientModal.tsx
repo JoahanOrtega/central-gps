@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Building2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { clientService } from "./clientService";
-import type { ClientItem, ClientFieldErrors } from "./client.types";
+import { clientService } from "../services/clientService";
+import type { ClientItem, ClientFieldErrors } from "../types/client.types";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { notify } from "@/stores/notificationStore";
 import { queryKeys } from "@/lib/query-keys";

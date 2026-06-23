@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
-import { poiService } from "@/features/catalogs/pois/poiService";
+import { poiService } from "@/features/catalogs/pois/services/poiService";
 import { eventosService } from "./eventosService";
 import type { EventosFiltros } from "./eventos.types";
 

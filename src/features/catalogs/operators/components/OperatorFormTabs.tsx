@@ -1,5 +1,5 @@
 import { Field, inputClass } from "@/components/shared/form-helpers";
-import type { OperatorFieldErrors } from "./operator.types";
+import type { OperatorFieldErrors } from "../services/operator.types";
 
 // Opción genérica para los selects de grupos y unidades.
 export interface SelectOption {

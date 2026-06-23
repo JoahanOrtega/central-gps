@@ -3,7 +3,7 @@ import type {
     AlertaPoi,
     UpsertAlertaPoiPayload,
     UpsertAlertaPoiResponse,
-} from "@/features/catalogs/pois/poi.alertas.types";
+} from "@/features/catalogs/pois/types/poi-alertas.types";
 
 const buildQuery = (idEmpresa?: number | null): string =>
     idEmpresa ? `?id_empresa=${idEmpresa}` : "";

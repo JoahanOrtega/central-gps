@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { catalogService } from "@/features/catalogs/units/services/catalogServices";
-import { poiService } from "@/features/catalogs/pois/poiService";
+import { poiService } from "@/features/catalogs/pois/services/poiService";
 import { queryKeys } from "@/lib/query-keys";
 
 // ── Hooks de catálogos con TanStack Query ─────────────────────────────────────

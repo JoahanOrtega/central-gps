@@ -1,5 +1,5 @@
 import { Bell, Circle, Pentagon, Pencil, Trash2 } from "lucide-react";
-import type { PoiItem } from "./poi.types";
+import type { PoiItem } from "../types/poi.types";
 import { KebabMenu } from "@/components/shared";
 
 interface PoiCardProps {

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Building2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { clientService } from "./clientService";
-import type { ClientItem } from "./client.types";
+import { clientService } from "../services/clientService";
+import type { ClientItem } from "../types/client.types";
 import { ClientCard } from "./ClientCard";
 import { NewClientModal } from "./NewClientModal";
 import { EditClientModal } from "./EditClientModal";

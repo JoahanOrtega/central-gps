@@ -3,7 +3,7 @@ import { Field, RadioOption, inputClass } from "@/components/shared/form-helpers
 import {
   PoiGeometryEditor,
   type PoiGeometryEditorHandle,
-} from "@/features/catalogs/pois/PoiGeometryEditor"
+} from "@/features/catalogs/pois/components/PoiGeometryEditor"
 
 export interface GeoFenceValue {
   tipo_poi:              number

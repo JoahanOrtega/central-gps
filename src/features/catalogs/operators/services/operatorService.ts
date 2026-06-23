@@ -7,7 +7,7 @@ import type {
     CreateOperatorGroupPayload,
     UpdateOperatorGroupPayload,
     AssignOperatorPayload,
-} from "./operator.types";
+} from "../services/operator.types";
 
 interface MessageResponse {
     message: string;

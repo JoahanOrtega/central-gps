@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { UserRound } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { operatorService } from "./operatorService";
-import type { OperatorItem } from "./operator.types";
+import { operatorService } from "../services/operatorService";
+import type { OperatorItem } from "../services/operator.types";
 import { OperatorCard } from "./OperatorCard";
 import { NewOperatorModal } from "./NewOperatorModal";
 import { EditOperatorModal } from "./EditOperatorModal";

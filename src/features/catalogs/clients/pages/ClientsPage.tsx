@@ -1,4 +1,4 @@
-import { ClientsCatalogView } from "@/features/catalogs/clients/ClientsCatalogView";
+import { ClientsCatalogView } from "@/features/catalogs/clients/components/ClientsCatalogView";
 
 export const ClientsPage = () => {
   return <ClientsCatalogView />;
