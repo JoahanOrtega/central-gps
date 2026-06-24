@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 
-import { LoginPage } from "../auth/pages/LoginPage";
+import { LoginPage } from "@/features/auth/pages/LoginPage";
 import { PrivateRoute } from "./PrivateRoute";
 import { ErpRoute } from "./ErpRoute";
 import { PermisoRoute } from "./PermisoRoute";

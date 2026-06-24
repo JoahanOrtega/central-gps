@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChangePasswordModal } from "@/auth/components/ChangePasswordModal";
+import { ChangePasswordModal } from "@/features/auth/components/ChangePasswordModal";
 
 export const UserMenu = () => {
   const navigate = useNavigate();
