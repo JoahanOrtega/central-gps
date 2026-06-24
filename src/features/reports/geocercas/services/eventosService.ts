@@ -3,7 +3,7 @@
 // Servicio para el historial de eventos de geocerca.
 
 import { apiFetch } from "@/lib/api";
-import type { EventosResponse, EventosFiltros } from "./eventos.types";
+import type { EventosResponse, EventosFiltros } from "../types/eventos.types";
 
 // Convierte el objeto de filtros a query params
 const buildParams = (

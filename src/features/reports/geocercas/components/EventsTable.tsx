@@ -8,7 +8,7 @@ import {
     type EventoGeocerca,
     type TipoEventoGeocerca,
     type TipoEventoConfig,
-} from "../eventos.types";
+} from "../types/eventos.types";
 
 interface EventsTableProps {
     eventos: EventoGeocerca[];
