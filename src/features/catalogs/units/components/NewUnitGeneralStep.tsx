@@ -1,4 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
+import { unitService } from "../services/unitService";
+import { resolveUnitImageSrc } from "../lib/unit-image";
 import type { AvlModelOption, OperatorOption, UnitGroupOption } from "../services/catalogServices";
 import { inputClass } from "./new-unit-form.constants";
 import type { FieldProps, NewUnitStepProps } from "../types/new-unit-form.types";
@@ -24,15 +26,26 @@ export const NewUnitGeneralStep = ({
   errors = {},
   touched = {},
 }: NewUnitGeneralStepProps) => {
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [subiendoImagen, setSubiendoImagen] = useState(false);
+  const [errorImagen, setErrorImagen] = useState<string | null>(null);
+
+  // Subimos el archivo al volumen y guardamos solo la ruta que devuelve el
+  // backend. Antes se mandaba el base64 en el campo imagen, pero ese string
+  // excede la columna VARCHAR(200) y reventaba el INSERT con un 500. Este es
+  // el mismo patrón que ya usa el formulario de edición.
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const base64 = ev.target?.result as string;
-        onImageChange?.(base64);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    setErrorImagen(null);
+    setSubiendoImagen(true);
+    try {
+      const { ruta } = await unitService.uploadImage(file);
+      onImageChange?.(ruta);
+    } catch (err) {
+      setErrorImagen(err instanceof Error ? err.message : "No se pudo subir la imagen");
+    } finally {
+      setSubiendoImagen(false);
     }
   };
 
@@ -216,15 +229,21 @@ export const NewUnitGeneralStep = ({
         <p className="mb-4 text-center text-base font-medium text-slate-600 md:text-lg">Agregar Fotografía</p>
         <div className="flex h-56 w-full max-w-[260px] items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-300 md:h-72">
           {form.imagen ? (
-            <img src={form.imagen} alt="Preview" className="h-full w-full object-cover rounded-lg" />
+            <img src={resolveUnitImageSrc(form.imagen)!} alt="Preview" className="h-full w-full object-cover rounded-lg" />
           ) : (
             <span>Sin imagen</span>
           )}
         </div>
-        <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" id="imagen-input" />
-        <button type="button" onClick={() => document.getElementById('imagen-input')?.click()} className="mt-6 text-slate-500 hover:text-slate-700">
-          Cambiar Imagen
+        <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" id="imagen-input" disabled={subiendoImagen} />
+        <button
+          type="button"
+          onClick={() => document.getElementById('imagen-input')?.click()}
+          disabled={subiendoImagen}
+          className="mt-6 text-slate-500 hover:text-slate-700 disabled:opacity-50"
+        >
+          {subiendoImagen ? "Subiendo..." : form.imagen ? "Cambiar Imagen" : "Agregar Imagen"}
         </button>
+        {errorImagen && <p className="mt-2 text-xs text-rose-500" role="alert">{errorImagen}</p>}
       </div>
     </div>
   );
