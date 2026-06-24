@@ -15,8 +15,8 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { APP_TIMEZONE } from "@/lib/date-time";
-import type { EventosFiltros, TipoEventoGeocerca } from "./eventos.types";
-import { validarFiltros } from "./eventos.schema";
+import type { EventosFiltros, TipoEventoGeocerca } from "../types/eventos.types";
+import { validarFiltros } from "../lib/eventos.schema";
 
 // ── Helpers de fecha ─────────────────────────────────────────────────────────
 // Tu vista actual los tiene inline. Aquí viven una sola vez y la vista los

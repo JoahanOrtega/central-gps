@@ -11,7 +11,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { z } from "zod";
-import type { TipoEventoGeocerca } from "./eventos.types";
+import type { TipoEventoGeocerca } from "../types/eventos.types";
 
 // Tipos de evento válidos — coincide con `validos` del validator Python.
 const TIPOS_VALIDOS = [3, 4, 10, 11, 12, 13, 14, 15, 19] as const satisfies readonly TipoEventoGeocerca[];

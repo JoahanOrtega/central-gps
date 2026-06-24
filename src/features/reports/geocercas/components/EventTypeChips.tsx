@@ -7,7 +7,7 @@ import {
     TIPOS_EVENTO_CONFIG,
     GRUPOS_EVENTO,
     type TipoEventoGeocerca,
-} from "../eventos.types";
+} from "../types/eventos.types";
 
 interface EventTypeChipsProps {
     selected: TipoEventoGeocerca[];

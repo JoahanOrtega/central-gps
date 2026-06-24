@@ -16,16 +16,16 @@ import { ErrorBanner, clasificarError } from "@/components/shared/ErrorBanner";
 import { TableSkeleton } from "@/components/shared/SkeletonCard";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 
-import { eventosService } from "./eventosService";
-import { useEventosFilters } from "./useEventosFilters";
+import { eventosService } from "../services/eventosService";
+import { useEventosFilters } from "../hooks/useEventosFilters";
 import {
     useEventosQuery,
     usePoisQuery,
     useUnidadesQuery,
-} from "./useEventosQueries";
-import { FiltersPanel } from "./components/FiltersPanel";
-import { EventsTable } from "./components/EventsTable";
-import { EventsPagination } from "./components/EventsPagination";
+} from "../hooks/useEventosQueries";
+import { FiltersPanel } from "./FiltersPanel";
+import { EventsTable } from "./EventsTable";
+import { EventsPagination } from "./EventsPagination";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? "";
 

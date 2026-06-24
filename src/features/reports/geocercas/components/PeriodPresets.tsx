@@ -2,7 +2,7 @@
 // SRP: solo renderiza los presets y notifica selección. No conoce fechas.
 
 import { cn } from "@/lib/utils";
-import { PRESETS, type PresetId } from "../useEventosFilters";
+import { PRESETS, type PresetId } from "../hooks/useEventosFilters";
 
 interface PeriodPresetsProps {
     activeId: PresetId;

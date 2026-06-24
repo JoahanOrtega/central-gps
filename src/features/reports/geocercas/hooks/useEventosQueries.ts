@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import { poiService } from "@/features/catalogs/pois/services/poiService";
-import { eventosService } from "./eventosService";
-import type { EventosFiltros } from "./eventos.types";
+import { eventosService } from "../services/eventosService";
+import type { EventosFiltros } from "../types/eventos.types";
 
 // 5 minutos para listas que cambian poco
 const STALE_TIME_MS = 5 * 60 * 1000;

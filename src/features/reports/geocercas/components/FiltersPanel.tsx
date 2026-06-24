@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PeriodPresets } from "./PeriodPresets";
 import { EventTypeChips } from "./EventTypeChips";
-import type { UseEventosFiltersResult } from "../useEventosFilters";
+import type { UseEventosFiltersResult } from "../hooks/useEventosFilters";
 
 interface UnidadOption {
     id: number;
