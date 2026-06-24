@@ -1,7 +1,7 @@
 import React from "react";
 import type { AvlModelOption, OperatorOption, UnitGroupOption } from "../services/catalogServices";
 import { inputClass } from "./new-unit-form.constants";
-import type { FieldProps, NewUnitStepProps } from "./new-unit-form.types";
+import type { FieldProps, NewUnitStepProps } from "../types/new-unit-form.types";
 
 interface NewUnitGeneralStepProps extends NewUnitStepProps {
   operators: OperatorOption[];

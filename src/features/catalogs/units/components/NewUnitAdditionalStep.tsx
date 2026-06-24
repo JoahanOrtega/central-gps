@@ -1,5 +1,5 @@
 import { inputClass } from "./new-unit-form.constants"
-import type { FieldProps, NewUnitStepProps } from "./new-unit-form.types"
+import type { FieldProps, NewUnitStepProps } from "../types/new-unit-form.types"
 
 export const NewUnitAdditionalStep = ({
   form,
