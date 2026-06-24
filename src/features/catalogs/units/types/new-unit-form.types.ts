@@ -1,4 +1,4 @@
-import type { CreateUnitPayload } from "../types/unit.types"
+import type { CreateUnitPayload } from "./unit.types"
 
 export interface NewUnitModalProps {
   open: boolean
