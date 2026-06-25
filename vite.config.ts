@@ -116,6 +116,9 @@ export default defineConfig(({ mode }) => {
         "/clients": "http://localhost:5000",
         "/telemetry": "http://localhost:5000",
         "/health": "http://localhost:5000",
+        // Rastreo público por token (sin sesión). Va al backend como el resto;
+        // sin esta entrada Vite la trata como ruta de la SPA y sirve index.html.
+        "/public": "http://localhost:5000",
       },
       headers: {
         "Content-Security-Policy": csp,

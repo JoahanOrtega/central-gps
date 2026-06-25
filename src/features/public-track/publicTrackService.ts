@@ -5,13 +5,21 @@
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
-// Posición que devuelve el endpoint público (subset de la telemetría).
+// Posición que devuelve el endpoint público. Trae los mismos campos de
+// telemetría que el mapa interno, para poder reusar buildUnitMarkerContent y
+// pintar la unidad idéntica (flecha rotada por grados, color por estado).
 export interface PublicTrackPosition {
     latitud: number | null;
     longitud: number | null;
     velocidad: number | null;
+    grados: number | null;
     fecha_hora_gps: string | null;
     engine_state?: string | null;
+    segundos_en_estado_actual?: number | null;
+    segundos?: number | null;
+    segundos_sistema?: number | null;
+    status?: string | null;
+    tipo_alerta?: number | null;
 }
 
 // Respuesta de GET /public/track/unit/<token>.
@@ -20,6 +28,7 @@ export interface PublicTrackResponse {
         numero: string;
         marca: string;
         modelo: string | null;
+        vel_max?: number | null;
     };
     posicion: PublicTrackPosition | null;
 }
