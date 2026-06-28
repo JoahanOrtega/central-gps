@@ -11,6 +11,7 @@ import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { usePermiso } from "@/hooks/usePermiso";
 
 import type { MapUnitItem, RoutePoint, RouteDisplayOptions } from "../types/map.types";
+import { useUnitsLive } from "../hooks/useUnitsLive";
 
 type ActiveDrawer = "units" | "trips" | null;
 
@@ -24,6 +25,8 @@ export const MapsView = () => {
   const { idEmpresa } = useEmpresaActiva();
   const setSelectedUnitImei = useTripDrawerStore((s) => s.setSelectedUnitImei);
   const puedeEditarUnidad = usePermiso("unidades.editar");
+  const unitsLive = useUnitsLive();
+  const [focusedUnitId, setFocusedUnitId] = useState<number | null>(null);
 
   // Al cambiar de empresa, cerrar drawers y limpiar el mapa. Cada drawer
   // recarga sus datos al reabrirse.
@@ -48,8 +51,23 @@ export const MapsView = () => {
   }, []);
 
   const handleSelectUnit = useCallback((unit: MapUnitItem) => {
+    setFocusedUnitId(unit.id);
     mapCanvasRef.current?.focusUnit(unit);
   }, []);
+
+  useEffect(() => {
+    unitsLive.selectedUnits.forEach((unit) => {
+      mapCanvasRef.current?.updateUnit(unit);
+    });
+
+    const focusedUnit = unitsLive.units.find(
+      (unit) => unit.id === focusedUnitId,
+    );
+
+    if (focusedUnit) {
+      mapCanvasRef.current?.updateUnit(focusedUnit);
+    }
+  }, [unitsLive.units, unitsLive.selectedUnits, focusedUnitId]);
 
   // Abre el modal de token de la unidad (independiente de los drawers).
   const handleShowToken = useCallback((unit: MapUnitItem) => {
@@ -103,6 +121,7 @@ export const MapsView = () => {
 
           {activeDrawer === "units" && (
             <UnitsDrawer
+              unitsLive={unitsLive}
               onClose={closeAllDrawers}
               onSelectUnit={handleSelectUnit}
               onUnitsSelectionChange={handleUnitsSelectionChange}
