@@ -53,7 +53,11 @@ export const buildUnitMarkerContent = (unit: MapUnitItem): HTMLElement => {
     const fontSize = numero.length >= 5 ? "9px" : numero.length >= 4 ? "10px" : "12px";
 
     const wrapper = document.createElement("div");
-    wrapper.style.cssText = "cursor:pointer; position:relative;";
+    wrapper.style.cssText = `
+        cursor:pointer; 
+        position:relative;
+        transform: translatey(50%);
+    `;
 
     if (enMovimiento) {
         // Flecha SVG que rota según los grados del AVL

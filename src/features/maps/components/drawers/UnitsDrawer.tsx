@@ -21,7 +21,9 @@ interface UnitsDrawerProps {
   // Acciones del menú kebab de cada unidad.
   onShowToken: (unit: MapUnitItem) => void;
   onShowTrip: (unit: MapUnitItem) => void;
+  unitsLive: ReturnType<typeof useUnitsLive>;
 }
+
 
 interface UnitGroup { nombre: string; units: MapUnitItem[]; }
 
@@ -246,13 +248,13 @@ const UnitGroupSection = ({
 };
 
 export const UnitsDrawer = ({
-  onClose, onSelectUnit, onUnitsSelectionChange, onUnitsHidden,
+  unitsLive, onClose, onSelectUnit, onUnitsSelectionChange, onUnitsHidden,
   onShowToken, onShowTrip,
 }: UnitsDrawerProps) => {
   const {
     units, counts, selectedIds, selectedUnits, search,
     isLoading, error, setSearch, loadUnits, toggleUnit, clearSelection,
-  } = useUnitsLive();
+  } = unitsLive;
 
   const stateFilter = useUnitsDrawerStore((s) => s.stateFilter);
   const setStateFilter = useUnitsDrawerStore((s) => s.setStateFilter);

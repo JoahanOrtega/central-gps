@@ -33,6 +33,7 @@ export interface MapCanvasHandle {
   setRouteDirectionVisible: (visible: boolean) => void;
   // Controla una capa individual (stops, speed, engine, doors, rfid, alerts, arrows, flags).
   setLayerVisible: (layer: string, visible: boolean) => void;
+  updateUnit: (unit: MapUnitItem) => void;
 }
 
 /**
@@ -65,7 +66,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     infoWindowRef,
   });
 
-  const { focusUnit, showUnits, hideUnits } = useMapUnits({
+  const { focusUnit, showUnits, hideUnits, updateUnit } = useMapUnits({
     mapRef,
     infoWindowRef,
   });
@@ -121,6 +122,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     focusUnit,
     showUnits,
     hideUnits,
+    updateUnit, 
 
     showUnitRoute: handleShowRoute,
     hideUnitRoute: handleHideRoute,
