@@ -26,6 +26,10 @@ interface Step1DatosProps {
     // el campo "usuario" porque es el login y NO se puede cambiar (rompería
     // referencias históricas en logs y auditoría).
     isEditMode: boolean;
+    // ¿Quien edita puede cambiar el login (usuario/email)? Viene del permiso
+    // el permiso "usuarios.editar" (sudo_erp por bypass). En creación no
+    // aplica — el login siempre es editable al crear.
+    puedeEditarLogin: boolean;
 }
 
 export const Step1Datos = ({
@@ -34,12 +38,17 @@ export const Step1Datos = ({
     serverErrors,
     allowedRoles,
     isEditMode,
+    puedeEditarLogin,
 }: Step1DatosProps) => {
     // Toggles de visibilidad de password — estado local (no afecta otros steps).
     // En modo edición no se renderizan estos campos así que el state queda
     // muerto pero inocuo.
     const [showClave, setShowClave] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+
+    // El login (usuario/email) se bloquea solo si estamos editando Y quien
+    // edita NO tiene permiso para cambiarlo. Al crear siempre es editable.
+    const bloqueoLogin = isEditMode && !puedeEditarLogin;
 
     // ─── Validación local en tiempo real ──────────────────────────────────
     // Solo se muestran errores cuando el usuario ya escribió algo —
@@ -113,7 +122,7 @@ export const Step1Datos = ({
                     maxLength={USUARIO_MAX}
                     autoComplete="off"
                     placeholder="ej. juan.perez o juan@empresa.com"
-                    disabled={isEditMode}
+                    disabled={bloqueoLogin}
                     aria-invalid={Boolean(getError("usuario", usuarioError))}
                     aria-describedby={
                         getError("usuario", usuarioError) ? "wiz-usuario-error" : undefined
@@ -121,7 +130,7 @@ export const Step1Datos = ({
                     className={`h-10 rounded-lg border px-3 text-sm outline-none transition-colors ${getError("usuario", usuarioError)
                         ? "border-rose-300 focus:border-rose-400"
                         : "border-slate-300 focus:border-blue-400"
-                        } ${isEditMode ? "cursor-not-allowed bg-slate-50 text-slate-500" : ""
+                        } ${bloqueoLogin ? "cursor-not-allowed bg-slate-50 text-slate-500" : ""
                         }`}
                 />
                 {getError("usuario", usuarioError) && (
@@ -130,7 +139,7 @@ export const Step1Datos = ({
                     </p>
                 )}
                 <p className="text-xs text-slate-400">
-                    {isEditMode
+                    {bloqueoLogin
                         ? "El nombre de usuario no se puede modificar."
                         : "Será su nombre de inicio de sesión. No podrá cambiarlo después."}
                 </p>
@@ -209,12 +218,12 @@ export const Step1Datos = ({
                         // en este sistema "usuario" funciona también como email
                         // y "usuario" es inmutable. Mantener visible pero
                         // disabled comunica la info sin permitir error.
-                        disabled={isEditMode}
+                        disabled={bloqueoLogin}
                         aria-invalid={Boolean(getError("email", emailError))}
                         className={`h-10 rounded-lg border px-3 text-sm outline-none transition-colors ${getError("email", emailError)
                             ? "border-rose-300 focus:border-rose-400"
                             : "border-slate-300 focus:border-blue-400"
-                            } ${isEditMode ? "cursor-not-allowed bg-slate-50 text-slate-500" : ""
+                            } ${bloqueoLogin ? "cursor-not-allowed bg-slate-50 text-slate-500" : ""
                             }`}
                     />
                     {getError("email", emailError) && (

@@ -114,6 +114,7 @@ export function buildCreatePayload(form: WizardFormState): CreateUserPayload {
 export function buildUpdatePayload(
     form: WizardFormState,
     original: UserDetail,
+    puedeEditarLogin = false,
 ): UpdateUserPayload {
     const payload: UpdateUserPayload = {};
 
@@ -130,9 +131,13 @@ export function buildUpdatePayload(
     if (form.rol !== original.datos.rol) {
         datosChanges.rol = form.rol as RolCreable;
     }
-    // En este sistema, "email" del wizard se mapea al campo "usuario"
-    // del backend (no hay columna email separada). Por eso NO lo enviamos
-    // en updates — el "usuario" es inmutable.
+    // En este sistema, "email" del wizard se mapea al campo "usuario" del
+    // backend (no hay columna email separada). Para la mayoría de roles el
+    // "usuario" es inmutable, así que NO se envía. Solo si quien edita tiene
+    // permiso (usuarios.editar, o sudo) lo incluimos en el diff.
+    if (puedeEditarLogin && form.email.trim() !== original.datos.email) {
+        datosChanges.email = form.email.trim();
+    }
     const telefonoNorm = form.telefono.trim() || null;
     if (telefonoNorm !== original.datos.telefono) {
         datosChanges.telefono = telefonoNorm;
@@ -199,7 +204,6 @@ export function buildUpdatePayload(
  * Convierte el detalle del usuario que devuelve el backend al shape que
  * el wizard maneja internamente.
  *
- * Decisiones:
  *   - Convertir string "L,M,X" → array ["L", "M", "X"] para los checkboxes.
  *     Un string vacío produce array vacío (no [""]).
  *   - Convertir "HH:MM:SS" → "HH:MM" para el input nativo type=time.
