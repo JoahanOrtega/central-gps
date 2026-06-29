@@ -9,6 +9,7 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 import { useAuthStore } from "@/stores/authStore";
+import { usePermiso } from "@/hooks/usePermiso";
 import { notify } from "@/stores/notificationStore";
 import { queryKeys } from "@/lib/query-keys";
 import { userService } from "../../services/userService";
@@ -64,6 +65,9 @@ export const CreateUserWizard = ({
 }: CreateUserWizardProps) => {
     const queryClient = useQueryClient();
     const currentUser = useAuthStore((s) => s.user);
+    // Cambiar el login (usuario/email) requiere el mismo permiso que editar
+    // usuarios. usePermiso ya da true a sudo_erp por bypass.
+    const puedeEditarLogin = usePermiso("usuarios.editar");
 
     const isEditMode = editingUser !== null;
 
@@ -236,7 +240,7 @@ export const CreateUserWizard = ({
         try {
             // ── Modo edición: PATCH con DIFF ───────────────────────────
             if (isEditMode && detailData && editingUser) {
-                const payload = buildUpdatePayload(form, detailData);
+                const payload = buildUpdatePayload(form, detailData, puedeEditarLogin);
 
                 // Si no hay cambios, evitar la request — UX más rápida y
                 // honesta. El usuario ve el feedback de inmediato.
@@ -337,6 +341,7 @@ export const CreateUserWizard = ({
                     serverErrors={serverErrors.datos}
                     allowedRoles={allowedRoles}
                     isEditMode={isEditMode}
+                    puedeEditarLogin={puedeEditarLogin}
                 />
             );
         }
