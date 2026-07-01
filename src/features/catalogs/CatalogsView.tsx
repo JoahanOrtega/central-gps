@@ -1,5 +1,5 @@
 import { UnitsCatalogView } from "./units/components/UnitsCatalogView";
-import { ClientsCatalogView } from "./clients/ClientsCatalogView";
+import { ClientsCatalogView } from "./clients/components/ClientsCatalogView";
 
 
 interface CatalogsViewProps {

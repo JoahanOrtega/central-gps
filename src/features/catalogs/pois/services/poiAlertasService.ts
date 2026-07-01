@@ -8,7 +8,7 @@ import type {
     AlertaPoi,
     UpsertAlertaPoiPayload,
     UpsertAlertaPoiResponse,
-} from "./poi.alertas.types";
+} from "../types/poi-alertas.types";
 
 const buildEmpresaQuery = (idEmpresa?: number | null): string =>
     idEmpresa ? `?id_empresa=${idEmpresa}` : "";

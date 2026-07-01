@@ -13,7 +13,6 @@ import {
     buildEndFlagContent,
     buildStopEventContent,
     buildEngineEventContent,
-    buildDoorEventContent,
     buildSpeedEventContent,
     buildRfidEventContent,
 } from "../lib/map-html-builders";

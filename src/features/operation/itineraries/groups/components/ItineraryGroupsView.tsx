@@ -14,7 +14,7 @@ import { PoiCardSkeleton } from "@/components/shared/SkeletonCard";
 import { itineraryGroupService } from "../services/itineraryGroupService";
 import { GroupFormModal } from "./GroupFormModal";
 import { GroupTransferModal } from "./GroupTransferModal";
-import type { ItineraryGroup, ItineraryGroupDetail } from "../types/itinerary-group.types";
+import type { ItineraryGroup } from "../types/itinerary-group.types";
 export const ItineraryGroupsView = () => {
     const { idEmpresa } = useEmpresaActiva();
     const queryClient = useQueryClient();

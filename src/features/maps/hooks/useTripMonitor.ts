@@ -5,7 +5,6 @@ import { telemetryService, type RouteMode } from "../services/telemetryService";
 import type {
   MapUnitItem,
   RecentTripItem,
-  RoutePoint,
   TripUnitSummary,
 } from "../types/map.types";
 import { notify } from "@/stores/notificationStore";
