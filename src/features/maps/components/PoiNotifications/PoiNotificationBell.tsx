@@ -29,6 +29,9 @@ const CONFIG_EVENTO: Record<
     TipoEventoPoi,
     { label: string; color: string; dot: string }
 > = {
+    3: { label: "Inicio exceso velocidad", color: "text-red-700", dot: "bg-red-500" },
+    4: { label: "Fin exceso velocidad", color: "text-blue-700", dot: "bg-blue-400" },
+    19: { label: "Paso por geocerca", color: "text-slate-600", dot: "bg-slate-400" },
     10: { label: "Entró al POI", color: "text-emerald-700", dot: "bg-emerald-500" },
     11: { label: "Salió del POI", color: "text-slate-600", dot: "bg-slate-400" },
     12: { label: "Permanencia excedida", color: "text-amber-700", dot: "bg-amber-500" },

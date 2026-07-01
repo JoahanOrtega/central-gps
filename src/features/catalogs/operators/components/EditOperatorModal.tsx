@@ -3,7 +3,7 @@ import { UserRound } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { operatorService } from "../services/operatorService";
 import { unitService } from "@/features/catalogs/units/services/unitService";
-import type { OperatorItem, OperatorFieldErrors } from "../services/operator.types";
+import type { OperatorItem, OperatorFieldErrors } from "../types/operator.types";
 import {
     type OperatorForm,
     OperatorGeneralTab,
@@ -116,7 +116,7 @@ export const EditOperatorModal = ({
                 : prev,
         );
         if (errors[name as keyof OperatorFieldErrors]) {
-            setErrors((prev) => ({ ...prev, [name]: undefined }));
+            setErrors((prev: OperatorFieldErrors) => ({ ...prev, [name]: undefined }));
         }
         if (error) setError("");
     };

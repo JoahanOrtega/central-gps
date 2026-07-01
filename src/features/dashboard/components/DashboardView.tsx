@@ -18,7 +18,7 @@ import { Bus, CalendarDays, MapPin, Bell, ArrowRight, TrendingUp } from "lucide-
 import { monitorService } from "@/features/maps/services/monitorService";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { queryKeys } from "@/lib/query-keys";
-import { formatAppDateTimeShort, APP_TIMEZONE } from "@/lib/date-time";
+import { APP_TIMEZONE } from "@/lib/date-time";
 
 // ── Helper de fecha local ─────────────────────────────────────────────────────
 const fechaHoy = (): string => {

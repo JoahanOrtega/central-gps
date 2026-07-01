@@ -13,7 +13,7 @@ import { unitService } from "../services/unitService";
 import { defaultNewUnitForm } from "./new-unit-form.constants";
 import { NewUnitGeneralStep } from "./NewUnitGeneralStep";
 import { NewUnitAdditionalStep } from "./NewUnitAdditionalStep";
-import type { NewUnitModalProps, FieldError } from "./new-unit-form.types";
+import type { NewUnitModalProps, FieldError } from "../types/new-unit-form.types";
 import type { CreateUnitPayload } from "../types/unit.types";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
