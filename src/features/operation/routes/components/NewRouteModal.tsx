@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Route as RouteIcon } from "lucide-react";
 import { routeService } from "../services/routeService";
 import type { CreateRoutePayload, Logistica, TipoRuta } from "../types/route.types";
@@ -16,39 +16,39 @@ interface NewRouteModalProps {
 
 // Una logística vacía para inicializar cada sentido de la ruta
 const emptyLogistica = (tipo: 1 | 2): Logistica => ({
-  tipo_logistica:       tipo,
-  direccion_inicio:     "",
-  direccion_fin:        "",
-  fecha_inicio:         null,
+  tipo_logistica: tipo,
+  direccion_inicio: "",
+  direccion_fin: "",
+  fecha_inicio: null,
   tiempo_recorrido_min: null,
-  kilometros:           null,
-  path:                 [],
-  paradas:              [],
+  kilometros: null,
+  path: [],
+  paradas: [],
 });
 
 interface RouteForm {
-  clave:          string;
-  nombre:         string;
-  tipo:           TipoRuta | "";
-  id_cliente:     number | null;
-  observaciones:  string;
+  clave: string;
+  nombre: string;
+  tipo: TipoRuta | "";
+  id_cliente: number | null;
+  observaciones: string;
   id_grupo_rutas: number[];
   // Si la ruta tiene vuelta (segunda logística) o solo ida
-  tieneVuelta:    boolean;
-  logisticaAB:    Logistica;
-  logisticaBA:    Logistica;
+  tieneVuelta: boolean;
+  logisticaAB: Logistica;
+  logisticaBA: Logistica;
 }
 
 const EMPTY_FORM: RouteForm = {
-  clave:          "",
-  nombre:         "",
-  tipo:           "",
-  id_cliente:     null,
-  observaciones:  "",
+  clave: "",
+  nombre: "",
+  tipo: "",
+  id_cliente: null,
+  observaciones: "",
   id_grupo_rutas: [],
-  tieneVuelta:    false,
-  logisticaAB:    emptyLogistica(1),
-  logisticaBA:    emptyLogistica(2),
+  tieneVuelta: false,
+  logisticaAB: emptyLogistica(1),
+  logisticaBA: emptyLogistica(2),
 };
 
 export const NewRouteModal = ({
@@ -58,14 +58,23 @@ export const NewRouteModal = ({
 }: NewRouteModalProps) => {
   const { idEmpresa } = useEmpresaActiva();
 
-  const [form, setForm]           = useState<RouteForm>(EMPTY_FORM);
-  const [error, setError]         = useState("");
+  const [form, setForm] = useState<RouteForm>(EMPTY_FORM);
+  const [error, setError] = useState("");
+  // Errores de validación por campo (solo creación los usa hoy). Opcional: los modales que no validan por campo simplemente no la pasan.
+  const [fieldErrors, setFieldErrors] = useState<{ nombre?: string; tipo?: string }>({});
   const [activeTab, setActiveTab] = useState("info");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Detectar si hay cambios sin guardar para mostrar confirmación al cerrar
+  const hasUnsavedChanges = useMemo(
+    () => JSON.stringify(form) !== JSON.stringify(EMPTY_FORM),
+    [form],
+  );
 
   const handleReset = () => {
     setForm(EMPTY_FORM);
     setError("");
+    setFieldErrors({});
     setActiveTab("info");
   };
 
@@ -76,18 +85,19 @@ export const NewRouteModal = ({
 
   const handleSubmit = async () => {
     setError("");
+    setFieldErrors({});
 
-    // Validaciones básicas — saltan al tab donde está el problema
-    if (!form.nombre.trim()) {
-      setError("El nombre de la ruta es requerido");
+    // Validación de campos obligatorios
+    const nuevosErrores: { nombre?: string; tipo?: string } = {};
+    if (!form.nombre.trim()) nuevosErrores.nombre = "El nombre de la ruta es requerido";
+    if (!form.tipo) nuevosErrores.tipo = "Selecciona el tipo de ruta";
+    if (nuevosErrores.nombre || nuevosErrores.tipo) {
+      setFieldErrors(nuevosErrores);
       setActiveTab("info");
       return;
     }
-    if (!form.tipo) {
-      setError("Selecciona el tipo de ruta");
-      setActiveTab("info");
-      return;
-    }
+    // Validación de la logística A-B (ida) 
+    if (!form.tipo) return;
     if (form.logisticaAB.path.length === 0) {
       setError("La logística de ida (A-B) necesita un trazo. Súbelo desde un KML o dibújalo en el mapa.");
       setActiveTab("logistica-ab");
@@ -101,13 +111,13 @@ export const NewRouteModal = ({
     }
 
     const payload: CreateRoutePayload = {
-      clave:          form.clave.trim(),
-      nombre:         form.nombre.trim(),
-      tipo:           form.tipo,
-      id_cliente:     form.id_cliente,
-      observaciones:  form.observaciones.trim() || null,
+      clave: form.clave.trim(),
+      nombre: form.nombre.trim(),
+      tipo: form.tipo,
+      id_cliente: form.id_cliente,
+      observaciones: form.observaciones.trim() || null,
       id_grupo_rutas: form.id_grupo_rutas,
-      id_empresa:     idEmpresa ?? undefined,
+      id_empresa: idEmpresa ?? undefined,
       logisticas,
     };
 
@@ -136,8 +146,17 @@ export const NewRouteModal = ({
       label: "Info. General",
       content: (
         <RouteInfoTab
-          form={form}
-          onChange={(patch) => setForm((prev) => ({ ...prev, ...patch }))}
+          form={form} fieldErrors={fieldErrors}
+          onChange={(patch) => {
+            setForm((prev) => ({ ...prev, ...patch }));
+            // Al corregir un campo con error, su mensaje desaparece al instante.
+            setFieldErrors((prev) => {
+              const next = { ...prev };
+              if ("nombre" in patch) delete next.nombre;
+              if ("tipo" in patch) delete next.tipo;
+              return next;
+            });
+          }}
         />
       ),
     },
@@ -153,15 +172,15 @@ export const NewRouteModal = ({
     },
     ...(form.tieneVuelta
       ? [{
-          id: "logistica-ba",
-          label: "Logística B-A (Salida)",
-          content: (
-            <RouteLogisticaTab
-              logistica={form.logisticaBA}
-              onChange={(log) => setForm((prev) => ({ ...prev, logisticaBA: log }))}
-            />
-          ),
-        }]
+        id: "logistica-ba",
+        label: "Logística B-A (Salida)",
+        content: (
+          <RouteLogisticaTab
+            logistica={form.logisticaBA}
+            onChange={(log) => setForm((prev) => ({ ...prev, logisticaBA: log }))}
+          />
+        ),
+      }]
       : []),
   ];
 
@@ -179,6 +198,7 @@ export const NewRouteModal = ({
       isLoading={isLoading}
       error={error}
       confirmCloseDescription="Al cerrar, perderás la información capturada. ¿Deseas cerrar el formulario?"
+      hasUnsavedChanges={hasUnsavedChanges}
     />
   );
 };

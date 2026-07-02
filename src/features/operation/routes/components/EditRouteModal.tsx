@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Route as RouteIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { routeService } from "../services/routeService";
@@ -73,6 +73,12 @@ export const EditRouteModal = ({ idRuta, onClose, onSuccess }: EditRouteModalPro
         queryFn: () => routeService.getById(idRuta!, idEmpresa),
         enabled: idRuta !== null && !!idEmpresa,
     });
+
+    // Detectar si hay cambios sin guardar para mostrar confirmación al cerrar
+    const hasUnsavedChanges = useMemo(() => {
+        if (!form || !route) return false;
+        return JSON.stringify(form) !== JSON.stringify(routeToForm(route));
+    }, [form, route]);
 
     // Sincronizar el formulario cuando llega la ruta
     useEffect(() => {
@@ -207,6 +213,7 @@ export const EditRouteModal = ({ idRuta, onClose, onSuccess }: EditRouteModalPro
             saveLabel="Guardar cambios"
             error={error}
             confirmCloseDescription="Si cierras, perderás los cambios sin guardar. ¿Deseas cerrar?"
+            hasUnsavedChanges={hasUnsavedChanges}
         />
     );
 };
