@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { MapPoiItem } from "../types/map.types";
 import { buildPoiMarkerContent } from "../lib/map-markers";
 import {
@@ -55,6 +55,9 @@ export const useMapPois = ({
         poiPolygonsRef.current.forEach((polygon) => polygon.setMap(null));
         poiPolygonsRef.current.clear();
     };
+
+    // Ejecutar limpieza al desmontar el hook, para que no queden markers ni geometrías huérfanas en el mapa.
+    useEffect(() => () => { clearPoisMarkers(); clearPoiGeometry(); }, []);
 
     // ── Dibuja la geometría de un POI (círculo o polígono) ────────
     const drawSinglePoiGeometry = (poi: MapPoiItem) => {
