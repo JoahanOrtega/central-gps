@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, ApiError } from "@/lib/api";
 import { useAuthStore } from "./authStore";
 
 // ── Tipos ─────────────────────────────────────────────────────
@@ -54,6 +54,29 @@ const guardarUltimaEmpresa = (sub: string, idEmpresa: number): void => {
     }
 };
 
+// Reintentos ante fallos de red 
+const ESPERAS_REINTENTO_MS = [0, 1000, 3000];
+
+const esperar = (ms: number): Promise<void> =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
+const esErrorTransitorio = (error: unknown): boolean =>
+    !(error instanceof ApiError) || error.status >= 500;
+
+const fetchConReintentos = async <T>(path: string): Promise<T> => {
+    let ultimoError: unknown;
+    for (const espera of ESPERAS_REINTENTO_MS) {
+        if (espera > 0) await esperar(espera);
+        try {
+            return await apiFetch<T>(path);
+        } catch (error) {
+            ultimoError = error;
+            if (!esErrorTransitorio(error)) throw error;
+        }
+    }
+    throw ultimoError;
+};
+
 // ── Store de empresa activa ───────────────────────────────────
 export const useCompanyStore = create<CompanyStore>((set, get) => ({
     companies: [],
@@ -64,10 +87,13 @@ export const useCompanyStore = create<CompanyStore>((set, get) => ({
     fetchCompanies: async () => {
         const token = useAuthStore.getState().token;
         if (!token) return;
+        // Evita disparos duplicados (ej. el navbar y el listener de
+        // reconexión coincidiendo) — una sola petición en vuelo a la vez.
+        if (get().isLoading) return;
 
         set({ isLoading: true, fetchError: null });
         try {
-            const data = await apiFetch<Company[]>("/companies");
+            const data = await fetchConReintentos<Company[]>("/companies");
 
             const user = useAuthStore.getState().user;
             const jwtIdEmpresa = user?.id_empresa ?? null;
@@ -149,3 +175,13 @@ export const useCompanyStore = create<CompanyStore>((set, get) => ({
         }
     },
 }));
+// Al detectar que la red volvió, reintentamos solo si la store quedó en error o nunca llegó a resolver empresa. 
+// Esto evita que el usuario tenga que refrescar la página manualmente tras un fallo de red transitorio.
+window.addEventListener("online", () => {
+    const { fetchError, currentCompany, fetchCompanies } =
+        useCompanyStore.getState();
+    // Solo si quedó en error o nunca llegó a resolver empresa.
+    if (fetchError || !currentCompany) {
+        void fetchCompanies();
+    }
+});
