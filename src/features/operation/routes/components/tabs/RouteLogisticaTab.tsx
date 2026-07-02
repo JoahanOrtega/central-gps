@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
-import { Upload, MapPin, Trash2, Crosshair, MapPinned, Flag, CircleDot, Route, Loader2, Pencil, Check, Ban } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Upload, MapPin, Trash2, Crosshair, MapPinned, Flag, CircleDot, Route, Loader2, Pencil, Check, Ban, Undo2 } from "lucide-react";
 import type { Logistica, Parada, LatLng } from "../../types/route.types";
 import { parseKmlRoute } from "../../lib/kml"
+import { distanciaTrazoKm } from "../../lib/trace-distance";
 import { notify } from "@/stores/notificationStore";
 import { Field, inputClass } from "@/components/shared/form-helpers";
 import { RouteTraceMap, type RouteTraceMapHandle } from "../RouteTraceMap";
@@ -30,6 +31,44 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
   const [generando, setGenerando] = useState(false);
   // Parada que se está editando (por número); null = no se edita ninguna
   const [editandoParada, setEditandoParada] = useState<number | null>(null);
+
+  // Historial de cambios para deshacer (Ctrl+Z). Guardamos snapshots de la logística
+  const historialRef = useRef<Logistica[]>([]);
+  const [puedeDeshacer, setPuedeDeshacer] = useState(false);
+
+  const guardarSnapshot = () => {
+    historialRef.current.push(structuredClone(logistica));
+    // Tope acotado: 20 pasos cubren cualquier sesión real de edición sin
+    // acumular memoria sin límite.
+    if (historialRef.current.length > 20) historialRef.current.shift();
+    setPuedeDeshacer(true);
+  };
+
+  const handleDeshacer = () => {
+    const anterior = historialRef.current.pop();
+    if (!anterior) return;
+    onChange(anterior);
+    setPuedeDeshacer(historialRef.current.length > 0);
+  };
+
+  // Detectar Ctrl+Z / Cmd+Z para deshacer cambios. No interferir con inputs.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const enCampo = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+      if (enCampo) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        handleDeshacer();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
+  // Distancia real del trazo, recalculada solo cuando el path cambia.
+  const kmTrazo = useMemo(() => distanciaTrazoKm(logistica.path), [logistica.path]);
+  const paradasUbicadas = logistica.paradas.filter((p) => p.latitud !== 0 && p.longitud !== 0).length;
 
   // Subir KML
   const handleKmlSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,9 +100,7 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
         };
       });
 
-      // Resolvemos la dirección de inicio/fin. Si el KML no trae dirección
-      // (lo común), la obtenemos geocodificando al revés las coordenadas.
-      // Así el campo de texto y la parada muestran exactamente lo mismo.
+      // Si el KML no trae dirección, intentamos geocodificar la primera y última parada
       const inicioWp = result.waypoints[0];
       const finWp = total > 1 ? result.waypoints[total - 1] : undefined;
 
@@ -81,14 +118,14 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
         }
       }
 
-      // Reflejamos la dirección resuelta dentro de las paradas fijas
-      // para que la fila muestre lo mismo que el campo de arriba.
+      // Si hay paradas de inicio/fin, las marcamos como fijas y actualizamos la dirección de la logística
       const paradasSincronizadas = paradas.map((p) => {
         if (p.esFija === "inicio" && direccionInicio) return { ...p, direccion: direccionInicio };
         if (p.esFija === "fin" && direccionFin) return { ...p, direccion: direccionFin };
         return p;
       });
 
+      guardarSnapshot();
       onChange({
         ...logistica,
         path: result.trace,
@@ -109,6 +146,7 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
 
   // Paradas
   const updateParada = (numero: number, patch: Partial<Parada>) => {
+    guardarSnapshot();
     onChange({
       ...logistica,
       paradas: logistica.paradas.map((p) =>
@@ -121,13 +159,12 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
     const filtered = logistica.paradas
       .filter((p) => p.numero !== numero)
       .map((p, i) => ({ ...p, numero: i + 1 }));
+    guardarSnapshot();
     onChange({ ...logistica, paradas: filtered });
     if (placingParada === numero) setPlacingParada(null);
   };
 
-  // Agregar parada: intenta geocodificar la dirección; si no hay, pide click en mapa
-  // Reordena las paradas: la fija "inicio" siempre primero, la fija "fin"
-  // siempre al final, y las intermedias en medio. Renumera todo.
+  // Reordena las paradas para que la de inicio quede primera, la de fin última y las intermedias en medio.
   const reordenarParadas = (paradas: Parada[]): Parada[] => {
     const inicio = paradas.find((p) => p.esFija === "inicio");
     const fin = paradas.find((p) => p.esFija === "fin");
@@ -159,6 +196,7 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
       esFija: rol,
       id_poi: datos.id_poi ?? null,
     };
+    guardarSnapshot();
     onChange({
       ...logistica,
       [rol === "inicio" ? "direccion_inicio" : "direccion_fin"]: datos.direccion,
@@ -199,6 +237,7 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
 
     // Insertar respetando el orden (queda entre inicio y fin)
     const nuevas = reordenarParadas([...logistica.paradas, ubicada]);
+    guardarSnapshot();
     onChange({ ...logistica, paradas: nuevas });
     setSubTab("paradas");
 
@@ -312,6 +351,7 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
       }
 
       // Actualizamos el trazo y autocompletamos los kilómetros
+      guardarSnapshot();
       onChange({
         ...logistica,
         path: result.path,
@@ -363,6 +403,32 @@ export const RouteLogisticaTab = ({ logistica, onChange }: RouteLogisticaTabProp
           <SubTabButton active={subTab === "nueva"} onClick={() => setSubTab("nueva")}>
             3. Nuevo punto
           </SubTabButton>
+        </div>
+
+        {/* Barra de estado del trazo */}
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
+            <span>
+              <span className="font-medium text-slate-800">
+                {logistica.path.length > 0 ? `${kmTrazo.toFixed(1)} km` : "Sin trazo"}
+              </span>
+              {logistica.path.length > 0 && ` · ${logistica.path.length} puntos`}
+            </span>
+            <span>
+              <span className="font-medium text-slate-800">{paradasUbicadas}</span>
+              {` de ${logistica.paradas.length} paradas ubicadas`}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleDeshacer}
+            disabled={!puedeDeshacer}
+            title="Deshacer última acción (Ctrl+Z)"
+            className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Undo2 className="h-3.5 w-3.5" />
+            Deshacer
+          </button>
         </div>
 
         {subTab === "datos" && (
@@ -607,8 +673,8 @@ const SubTabButton = ({
     type="button"
     onClick={onClick}
     className={`rounded-t-lg px-3 py-2 text-sm font-medium ${active
-        ? "border border-b-white border-slate-200 bg-white text-cyan-700"
-        : "text-slate-500 hover:text-slate-700"
+      ? "border border-b-white border-slate-200 bg-white text-cyan-700"
+      : "text-slate-500 hover:text-slate-700"
       }`}
   >
     {children}

@@ -8,35 +8,37 @@ import { Field, inputClass } from "@/components/shared/form-helpers";
 
 // Lo que el tab necesita leer y escribir del formulario padre
 interface RouteInfoForm {
-  clave:         string;
-  nombre:        string;
-  tipo:          TipoRuta | "";
-  id_cliente:    number | null;
+  clave: string;
+  nombre: string;
+  tipo: TipoRuta | "";
+  id_cliente: number | null;
   observaciones: string;
-  tieneVuelta:   boolean;
+  tieneVuelta: boolean;
 }
 
 interface RouteInfoTabProps {
-  form:     RouteInfoForm;
+  form: RouteInfoForm;
   onChange: (patch: Partial<RouteInfoForm>) => void;
+  // Errores de validación por campo. Si no se pasa, no hay errores.
+  fieldErrors?: { nombre?: string; tipo?: string };
 }
 
 // Opciones del select de tipo de ruta — fiel al sistema v2.5
 const TIPO_OPCIONES: { value: TipoRuta; label: string }[] = [
   { value: "transporte_personal", label: "Transporte de Personal" },
-  { value: "transporte_publico",  label: "Transporte Público Colectivo" },
-  { value: "reparto",             label: "Reparto (Última milla)" },
-  { value: "viaje_especial",      label: "Viaje Especial" },
+  { value: "transporte_publico", label: "Transporte Público Colectivo" },
+  { value: "reparto", label: "Reparto (Última milla)" },
+  { value: "viaje_especial", label: "Viaje Especial" },
 ];
 
-export const RouteInfoTab = ({ form, onChange }: RouteInfoTabProps) => {
+export const RouteInfoTab = ({ form, onChange, fieldErrors }: RouteInfoTabProps) => {
   const { idEmpresa } = useEmpresaActiva();
 
   // Clientes para el select "Cliente asignado"
   const { data: clients = [] } = useQuery<ClientItem[]>({
     queryKey: queryKeys.catalogs.clients(idEmpresa),
-    queryFn:  () => clientService.list("", idEmpresa),
-    enabled:  !!idEmpresa,
+    queryFn: () => clientService.list("", idEmpresa),
+    enabled: !!idEmpresa,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -60,8 +62,12 @@ export const RouteInfoTab = ({ form, onChange }: RouteInfoTabProps) => {
               onChange={(e) => onChange({ nombre: e.target.value })}
               maxLength={500}
               placeholder="Nombre de la ruta"
-              className={inputClass}
+              aria-invalid={Boolean(fieldErrors?.nombre)}
+              className={`${inputClass} ${fieldErrors?.nombre ? "border-rose-300 focus:border-rose-400" : ""}`}
             />
+            {fieldErrors?.nombre && (
+              <p role="alert" className="mt-1 text-xs text-rose-600">{fieldErrors.nombre}</p>
+            )}
           </Field>
         </div>
 
@@ -70,13 +76,17 @@ export const RouteInfoTab = ({ form, onChange }: RouteInfoTabProps) => {
             <select
               value={form.tipo}
               onChange={(e) => onChange({ tipo: e.target.value as TipoRuta })}
-              className={inputClass}
+              aria-invalid={Boolean(fieldErrors?.tipo)}
+              className={`${inputClass} ${fieldErrors?.tipo ? "border-rose-300 focus:border-rose-400" : ""}`}
             >
               <option value="">-- seleccione --</option>
               {TIPO_OPCIONES.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
+            {fieldErrors?.tipo && (
+              <p role="alert" className="mt-1 text-xs text-rose-600">{fieldErrors.tipo}</p>
+            )}
           </Field>
 
           <Field label="Cliente asignado">
