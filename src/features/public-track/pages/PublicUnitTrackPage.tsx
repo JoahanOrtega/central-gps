@@ -35,15 +35,7 @@ export const PublicUnitTrackPage = () => {
     const [errorKind, setErrorKind] = useState<"invalid" | "error" | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // ── Inicializar el mapa una sola vez ────────────────────────────────────
-    // Esta página usa MapLibre con tiles de OpenStreetMap en vez de Google
-    // Maps a propósito: es PÚBLICA (cada visitante que abre el enlace sería
-    // una carga facturable de Dynamic Maps, ~$7 USD/1,000, sin control del
-    // volumen). Con MapLibre el costo por carga es cero. Es además el piloto
-    // de la migración MapLibre del backlog.
-    // Nota: los tiles públicos de OSM piden atribución (incluida) y son para
-    // volumen moderado; si el tráfico crece, cambiar a un proveedor de tiles
-    // o self-host — solo se cambia la URL de "tiles" aquí.
+    // Inicializar el mapa y el marcador (solo una vez, al montar el componente).
     useEffect(() => {
         if (!mapContainerRef.current) return;
 
@@ -71,7 +63,12 @@ export const PublicUnitTrackPage = () => {
         map.on("error", () => setErrorKind("error"));
         mapRef.current = map;
 
+        // Ajustar el mapa si cambia el tamaño del contenedor (p. ej. rotación de pantalla).
+        const resizeObserver = new ResizeObserver(() => map.resize());
+        resizeObserver.observe(mapContainerRef.current);
+
         return () => {
+            resizeObserver.disconnect();
             map.remove();
             mapRef.current = null;
         };
