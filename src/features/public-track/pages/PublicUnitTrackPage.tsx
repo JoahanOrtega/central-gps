@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { AlertCircle, Navigation } from "lucide-react";
-import { loadGoogleMaps, GOOGLE_MAPS_MAP_ID } from "@/lib/loadGoogleMaps";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { useAutoRefresh } from "@/features/maps/hooks/useAutoRefresh";
 import { PublicTrackCard } from "../components/PublicTrackCard";
 import { useSmoothMarker } from "../hooks/useSmoothMarker";
@@ -23,7 +24,7 @@ export const PublicUnitTrackPage = () => {
     const { token } = useParams<{ token: string }>();
 
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const mapRef = useRef<google.maps.Map | null>(null);
+    const mapRef = useRef<maplibregl.Map | null>(null);
     const yaCentroRef = useRef(false);
 
     const { moverA } = useSmoothMarker();
@@ -35,25 +36,44 @@ export const PublicUnitTrackPage = () => {
     const [loading, setLoading] = useState(true);
 
     // ── Inicializar el mapa una sola vez ────────────────────────────────────
+    // Esta página usa MapLibre con tiles de OpenStreetMap en vez de Google
+    // Maps a propósito: es PÚBLICA (cada visitante que abre el enlace sería
+    // una carga facturable de Dynamic Maps, ~$7 USD/1,000, sin control del
+    // volumen). Con MapLibre el costo por carga es cero. Es además el piloto
+    // de la migración MapLibre del backlog.
+    // Nota: los tiles públicos de OSM piden atribución (incluida) y son para
+    // volumen moderado; si el tráfico crece, cambiar a un proveedor de tiles
+    // o self-host — solo se cambia la URL de "tiles" aquí.
     useEffect(() => {
-        let cancelado = false;
-        loadGoogleMaps()
-            .then(() => {
-                if (cancelado || !mapContainerRef.current) return;
-                mapRef.current = new google.maps.Map(mapContainerRef.current, {
-                    center: DEFAULT_CENTER,
-                    zoom: 13,
-                    disableDefaultUI: true,
-                    zoomControl: true,
-                    mapId: GOOGLE_MAPS_MAP_ID,
-                });
-                setMapReady(true);
-            })
-            .catch(() => {
-                if (!cancelado) setErrorKind("error");
-            });
+        if (!mapContainerRef.current) return;
+
+        const map = new maplibregl.Map({
+            container: mapContainerRef.current,
+            style: {
+                version: 8,
+                sources: {
+                    osm: {
+                        type: "raster",
+                        tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+                        tileSize: 256,
+                        attribution: "© OpenStreetMap contributors",
+                    },
+                },
+                layers: [{ id: "osm", type: "raster", source: "osm" }],
+            },
+            // OJO: MapLibre usa orden [lng, lat] — al revés que Google Maps.
+            center: [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat],
+            zoom: 13,
+        });
+        map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
+
+        map.on("load", () => setMapReady(true));
+        map.on("error", () => setErrorKind("error"));
+        mapRef.current = map;
+
         return () => {
-            cancelado = true;
+            map.remove();
+            mapRef.current = null;
         };
     }, []);
 
@@ -74,10 +94,7 @@ export const PublicUnitTrackPage = () => {
             // Centrar solo la primera vez, para no pelear con el usuario si está
             // explorando el mapa.
             if (!yaCentroRef.current) {
-                map.setCenter({
-                    lat: unit.telemetry.latitud!,
-                    lng: unit.telemetry.longitud!,
-                });
+                map.setCenter([unit.telemetry.longitud!, unit.telemetry.latitud!]);
                 yaCentroRef.current = true;
             }
         },

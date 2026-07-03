@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { Maximize2 } from "lucide-react";
 import type { LatLng, Parada } from "../types/route.types";
+import { geocodeAddressCached, reverseGeocodeCached } from "@/lib/geocode-cache";
 import { loadGoogleMaps } from "@/lib/loadGoogleMaps";
 
 const DEFAULT_CENTER = { lat: 21.88234, lng: -102.28259 }; // Aguascalientes
@@ -277,30 +278,14 @@ export const RouteTraceMap = forwardRef<RouteTraceMapHandle, RouteTraceMapProps>
             geocodeAddress: async (address: string) => {
                 const geocoder = geocoderRef.current;
                 if (!geocoder || !address.trim()) return null;
-                return new Promise((resolve) => {
-                    geocoder.geocode({ address }, (results, status) => {
-                        if (status === "OK" && results?.[0]?.geometry.location) {
-                            const loc = results[0].geometry.location;
-                            resolve({
-                                lat: loc.lat(),
-                                lng: loc.lng(),
-                                formattedAddress: results[0].formatted_address,
-                            });
-                            return;
-                        }
-                        resolve(null);
-                    });
-                });
+                // Con caché: la misma dirección no se vuelve a pagar a Google.
+                return geocodeAddressCached(geocoder, address);
             },
 
             reverseGeocode: async (lat: number, lng: number) => {
                 const geocoder = geocoderRef.current;
                 if (!geocoder) return null;
-                return new Promise((resolve) => {
-                    geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-                        resolve(status === "OK" && results?.[0] ? results[0].formatted_address : null);
-                    });
-                });
+                return reverseGeocodeCached(geocoder, lat, lng);
             },
 
             fitAll: () => fitToContent(),
@@ -312,9 +297,7 @@ export const RouteTraceMap = forwardRef<RouteTraceMapHandle, RouteTraceMapProps>
                 const service = directionsRef.current;
                 if (!service || !window.google?.maps) return null;
 
-                // Directions admite máx 25 puntos por request.
-                // Si hay más paradas, dividimos en segmentos que se solapan en los
-                // extremos para que el trazo quede continuo.
+                // Google Directions solo permite hasta 25 puntos (origen + destino + 23 waypoints) por petición.
                 const MAX_POINTS = 25;
                 const fullPath: LatLng[] = [];
                 let totalMeters = 0;
