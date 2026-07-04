@@ -1,11 +1,13 @@
 import { forwardRef, useImperativeHandle, useState, useCallback } from "react";
 import { Play } from "lucide-react";
 import type { MapPoiItem, MapUnitItem, RoutePoint } from "../types/map.types";
+import type { Route as CatalogRoute } from "@/features/operation/routes/types/route.types";
 
 import { useMapInit } from "../hooks/useMapInit";
 import { useMapPois } from "../hooks/useMapPois";
 import { useMapUnits } from "../hooks/useMapUnits";
 import { useMapRoute } from "../hooks/useMapRoute";
+import { useMapCatalogRoutes } from "../hooks/useMapCatalogRoutes";
 import { RoutePlayback } from "./RoutePlayback";
 
 // API imperativa que MapsView usa para controlar el mapa sin tocar su estado
@@ -28,6 +30,9 @@ export interface MapCanvasHandle {
 
   showUnitRoute: (points: RoutePoint[], unitLabel?: string) => void;
   hideUnitRoute: () => void;
+  showCatalogRoute: (route: CatalogRoute) => void;
+  hideCatalogRoute: (idRuta: number) => void;
+  clearCatalogRoutes: () => void;
   setRouteVisible: (visible: boolean) => void;
   setRouteStartEndVisible: (visible: boolean) => void;
   setRouteDirectionVisible: (visible: boolean) => void;
@@ -80,6 +85,12 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     setLayerVisible,
   } = useMapRoute({ mapRef, infoWindowRef });
 
+  const {
+    showCatalogRoute,
+    hideCatalogRoute,
+    clearCatalogRoutes,
+  } = useMapCatalogRoutes({ mapRef });
+
   // Puntos del recorrido activo, para alimentar a RoutePlayback. El playback es
   // una capa independiente: no toca los markers/polylines de useMapRoute.
   const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
@@ -113,6 +124,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
       hidePois();
       hideUnits();
       handleHideRoute();
+      clearCatalogRoutes();
     },
 
     focusPoi,
@@ -122,10 +134,13 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     focusUnit,
     showUnits,
     hideUnits,
-    updateUnit, 
+    updateUnit,
 
     showUnitRoute: handleShowRoute,
     hideUnitRoute: handleHideRoute,
+    showCatalogRoute,
+    hideCatalogRoute,
+    clearCatalogRoutes,
     setRouteVisible,
     setRouteStartEndVisible,
     setRouteDirectionVisible,

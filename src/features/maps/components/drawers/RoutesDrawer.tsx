@@ -11,9 +11,15 @@ import { useState } from "react";
 
 interface RoutesDrawerProps {
     onClose: () => void;
+    selectedRouteIds: number[];
+    onRouteToggle: (idRuta: number, checked: boolean) => Promise<void>;
 }
 
-export const RoutesDrawer = ({ onClose }: RoutesDrawerProps) => {
+export const RoutesDrawer = ({
+    onClose,
+    selectedRouteIds,
+    onRouteToggle,
+}: RoutesDrawerProps) => {
 
     const { idEmpresa } = useEmpresaActiva();
     const puedeEditar = usePermiso("rutas.editar");
@@ -21,6 +27,7 @@ export const RoutesDrawer = ({ onClose }: RoutesDrawerProps) => {
     const [search, setSearch] = useState("");
     const [appliedSearch, setAppliedSearch] = useState("");
     const [open, setOpen] = useState(true);
+    const [loadingRouteIds, setLoadingRouteIds] = useState<number[]>([]);
 
     // Estados para menu interno del drawer de rutas
     const [editingRouteId, setEditingRouteId] = useState<number | null>(null);
@@ -43,6 +50,17 @@ export const RoutesDrawer = ({ onClose }: RoutesDrawerProps) => {
             void refetch();
         } else {
             setAppliedSearch(value);
+        }
+    };
+
+    const handleRouteToggle = async (idRuta: number, checked: boolean) => {
+        setLoadingRouteIds((current) => [...current, idRuta]);
+        try {
+            await onRouteToggle(idRuta, checked);
+        } finally {
+            setLoadingRouteIds((current) =>
+                current.filter((loadingId) => loadingId !== idRuta),
+            );
         }
     };
 
@@ -143,7 +161,18 @@ export const RoutesDrawer = ({ onClose }: RoutesDrawerProps) => {
                                     key={route.id_ruta}
                                     className="flex items-center gap-3 border-t border-slate-100 px-3 py-2"
                                 >
-                                    <input type="checkbox" className="h-4 w-4 accent-emerald-500" />
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedRouteIds.includes(route.id_ruta)}
+                                        disabled={loadingRouteIds.includes(route.id_ruta)}
+                                        onChange={(event) =>
+                                            void handleRouteToggle(
+                                                route.id_ruta,
+                                                event.target.checked,
+                                            )
+                                        }
+                                        className="h-4 w-4 cursor-pointer accent-emerald-500 disabled:cursor-wait disabled:opacity-50"
+                                    />
 
                                     <GitBranch className="h-4 w-4 shrink-0 text-slate-500" />
 
