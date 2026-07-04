@@ -12,8 +12,9 @@ import { usePermiso } from "@/hooks/usePermiso";
 
 import type { MapUnitItem, RoutePoint, RouteDisplayOptions } from "../types/map.types";
 import { useUnitsLive } from "../hooks/useUnitsLive";
+import { RoutesDrawer } from "./drawers/RoutesDrawer";
 
-type ActiveDrawer = "units" | "trips" | null;
+type ActiveDrawer = "units" | "trips" | "routes" | null;
 
 // Contenedor del módulo de mapas: coordina toolbar, canvas y drawers. Mantiene
 // un solo drawer abierto a la vez y delega las acciones del mapa al canvas vía ref.
@@ -113,6 +114,7 @@ export const MapsView = () => {
             onClearMap={() => mapCanvasRef.current?.clearMap()}
             onToggleUnitsDrawer={() => toggleDrawer("units")}
             onToggleTripsDrawer={() => toggleDrawer("trips")}
+            onToggleRoutesDrawer={() => toggleDrawer("routes")}
           />
         </div>
 
@@ -142,6 +144,11 @@ export const MapsView = () => {
               onLayerChange={handleLayerVisibilityChange}
             />
           )}
+
+          {activeDrawer === "routes" && (
+            <RoutesDrawer onClose={closeAllDrawers} />
+          )}
+
         </div>
       </section>
 
