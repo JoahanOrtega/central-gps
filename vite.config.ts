@@ -85,6 +85,10 @@ export default defineConfig(({ mode }) => {
               id.includes("loadGoogleMaps")) {
               return "vendor-maps";
             }
+            // MapLibre GL — usado en /maps y /operation/routes
+            if (id.includes("node_modules/maplibre-gl")) {
+              return "vendor-maplibre";
+            }
             // Zustand + Zod — pequeños pero vale separar
             if (id.includes("node_modules/zustand") ||
               id.includes("node_modules/zod")) {
