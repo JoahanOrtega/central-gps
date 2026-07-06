@@ -59,11 +59,19 @@ export const PublicUnitTrackPage = () => {
         });
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
 
-        map.on("load", () => setMapReady(true));
+        map.on("load", () => {
+            // El mapa ya está listo, pero el contenedor puede haber cambiado de tamaño
+            map.resize();
+            setMapReady(true);
+        });
         map.on("error", () => setErrorKind("error"));
         mapRef.current = map;
 
-        // Ajustar el mapa si cambia el tamaño del contenedor (p. ej. rotación de pantalla).
+        // Cinturón contra el timing del CSS lazy: al estar el estilo listo, 
+        // re-medimos por si el contenedor creció después de crear el mapa (canvas atorado en el fallback de 300px).
+        requestAnimationFrame(() => map.resize());
+
+        // Y un ResizeObserver para que el mapa se redibuje si cambia el tamaño del contenedor.
         const resizeObserver = new ResizeObserver(() => map.resize());
         resizeObserver.observe(mapContainerRef.current);
 
@@ -150,7 +158,7 @@ export const PublicUnitTrackPage = () => {
     return (
         <div className="relative h-screen w-screen overflow-hidden">
             {/* Mapa de fondo */}
-            <div ref={mapContainerRef} className="absolute inset-0" />
+            <div ref={mapContainerRef} className="absolute inset-0" style={{ height: "100dvh", width: "100vw" }} />
 
             {/* Marca discreta arriba a la izquierda */}
             <div className="absolute left-4 top-4 flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
