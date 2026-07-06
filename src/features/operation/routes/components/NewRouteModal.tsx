@@ -96,10 +96,10 @@ export const NewRouteModal = ({
       setActiveTab("info");
       return;
     }
-    // Validación de la logística A-B (ida) 
+    // Validación de la logística de entrada 
     if (!form.tipo) return;
     if (form.logisticaAB.path.length === 0) {
-      setError("La logística de ida (A-B) necesita un trazo. Súbelo desde un KML o dibújalo en el mapa.");
+      setError("La logística de entrada necesita un trazo. Súbelo desde un KML o dibújalo en el mapa.");
       setActiveTab("logistica-ab");
       return;
     }
@@ -139,7 +139,7 @@ export const NewRouteModal = ({
     }
   };
 
-  // Tabs: Info General siempre; Logística A-B siempre; B-A solo si tiene vuelta
+  // Tabs: Info General siempre; Logística de entrada siempre; salida solo si aplica
   const tabs = [
     {
       id: "info",
@@ -162,7 +162,7 @@ export const NewRouteModal = ({
     },
     {
       id: "logistica-ab",
-      label: "Logística A-B (Entrada)",
+      label: "Logística de entrada",
       content: (
         <RouteLogisticaTab
           logistica={form.logisticaAB}
@@ -173,7 +173,7 @@ export const NewRouteModal = ({
     ...(form.tieneVuelta
       ? [{
         id: "logistica-ba",
-        label: "Logística B-A (Salida)",
+        label: "Logística de salida",
         content: (
           <RouteLogisticaTab
             logistica={form.logisticaBA}

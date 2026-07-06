@@ -110,7 +110,7 @@ export const EditRouteModal = ({ idRuta, onClose, onSuccess }: EditRouteModalPro
             return;
         }
         if (form.logisticaAB.path.length === 0) {
-            setError("La logística de ida (A-B) necesita un trazo. Súbelo desde un KML o dibújalo en el mapa.");
+            setError("La logística de entrada necesita un trazo. Súbelo desde un KML o dibújalo en el mapa.");
             setActiveTab("logistica-ab");
             return;
         }
@@ -164,7 +164,7 @@ export const EditRouteModal = ({ idRuta, onClose, onSuccess }: EditRouteModalPro
             },
             {
                 id: "logistica-ab",
-                label: "Logística A-B (Entrada)",
+                label: "Logística de entrada",
                 content: (
                     <RouteLogisticaTab
                         logistica={form.logisticaAB}
@@ -175,7 +175,7 @@ export const EditRouteModal = ({ idRuta, onClose, onSuccess }: EditRouteModalPro
             ...(form.tieneVuelta
                 ? [{
                     id: "logistica-ba",
-                    label: "Logística B-A (Salida)",
+                    label: "Logística de salida",
                     content: (
                         <RouteLogisticaTab
                             logistica={form.logisticaBA}
