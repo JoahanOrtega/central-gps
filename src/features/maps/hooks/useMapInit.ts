@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { buildSearchMarkerContent } from "../lib/map-markers";
+import { geocodeAddressCached } from "@/lib/geocode-cache";
 import {
     getOrCreateMapSingleton,
     setCachedLocation,
@@ -104,19 +105,11 @@ export const useMapInit = (): UseMapInitReturn => {
         const s = singletonRef.current;
         if (!s || !address.trim()) return;
 
-        const result = await new Promise<google.maps.GeocoderResult | null>((resolve) => {
-            s.geocoder.geocode({ address }, (results, status) => {
-                if (status === "OK" && results && results.length > 0) {
-                    resolve(results[0]);
-                    return;
-                }
-                resolve(null);
-            });
-        });
+        // Con caché: repetir la misma búsqueda no vuelve a pagar a Google.
+        const result = await geocodeAddressCached(s.geocoder, address);
+        if (!result) return;
 
-        if (!result?.geometry.location) return;
-
-        const location = result.geometry.location;
+        const location = { lat: result.lat, lng: result.lng };
         s.map.panTo(location);
         s.map.setZoom(16);
 
@@ -125,7 +118,7 @@ export const useMapInit = (): UseMapInitReturn => {
             s.searchMarker = new window.google.maps.marker.AdvancedMarkerElement({
                 map: s.map,
                 position: location,
-                title: result.formatted_address,
+                title: result.formattedAddress,
                 content: buildSearchMarkerContent(),
             });
             return;
