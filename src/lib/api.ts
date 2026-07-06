@@ -2,7 +2,7 @@ import { useAuthStore } from "@/stores/authStore";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
-// ── Tipos de respuesta de error que aceptamos ────────────────────────────────
+// Tipos de respuesta de error que aceptamos 
 // El backend puede devolver el error en varias formas:
 //   { error: "Mensaje plano" }
 //   { error: { campo: ["msg1", "msg2"] } }    ← Marshmallow validate
@@ -14,7 +14,7 @@ interface ApiErrorResponse {
   message?: string;
 }
 
-// ── Clase de error tipada ────────────────────────────────────────────────────
+// Clase de error tipada 
 // Reemplaza al `new Error(...)` plano. La vista puede inspeccionar .status
 // para decidir qué banner mostrar (ver clasificarError en ErrorBanner.tsx).
 
@@ -34,14 +34,7 @@ export class ApiError extends Error {
   }
 }
 
-// ── Parser de mensajes de error ──────────────────────────────────────────────
-// Convierte cualquier formato de error del backend en:
-//   { message: string, fieldErrors?: { campo: string } }
-//
-// CLAVE: cuando `error` es un objeto (Marshmallow validation), antes se hacía
-// `String(error)` → "[object Object]". Ahora aplanamos a un mensaje legible
-// y guardamos el detalle por campo para la UI.
-
+// Parseo de errores del backend
 interface ParsedError {
   message: string;
   fieldErrors?: Record<string, string>;
@@ -88,13 +81,18 @@ const parseError = (data: unknown, fallback: string): ParsedError => {
   return { message: fallback };
 };
 
-// ── Renovación automática del access token ───────────────────────────────────
+//  Renovación automática del access token ─
 
 interface ApiRequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
   requiresAuth?: boolean;
   _isRetryAfterRefresh?: boolean;
+  // Timeout en milisegundos para la petición. Si se supera, aborta y lanza un ApiError 408.
+  timeoutMs?: number;
 }
+
+// Timeout por defecto para las peticiones. Se puede sobreescribir en cada llamada.
+const DEFAULT_TIMEOUT_MS = 30000;
 
 let _refreshPromise: Promise<boolean> | null = null;
 
@@ -127,7 +125,7 @@ const refreshAccessToken = async (): Promise<boolean> => {
   return _refreshPromise;
 };
 
-// ── Cliente HTTP centralizado ────────────────────────────────────────────────
+//  Cliente HTTP centralizado 
 
 export const apiFetch = async <T>(
   endpoint: string,
@@ -137,6 +135,7 @@ export const apiFetch = async <T>(
     body,
     requiresAuth = true,
     _isRetryAfterRefresh = false,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
     headers: extraHeaders,
     ...rest
   } = options;
@@ -152,14 +151,37 @@ export const apiFetch = async <T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...rest,
-    headers,
-    credentials: "include",
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  // Timeout y abort controller para la petición
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
 
-  // ── Interceptor de renovación de token ───────────────────────────────────
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${endpoint}`, {
+      ...rest,
+      headers,
+      credentials: "include",
+      signal: rest.signal ?? timeoutController.signal,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (err) {
+    // Timeout de la petición (AbortError). Se lanza un ApiError 408 para que la UI pueda mostrar un banner.
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new ApiError(
+        "El servidor tardó demasiado en responder. Intenta nuevamente.",
+        408,
+      );
+    }
+    // Fallo de red real (sin conexión, DNS, etc.).
+    throw new ApiError(
+      "No se pudo conectar con el servidor. Revisa tu conexión.",
+      0,
+    );
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  //  Interceptor de renovación de token ─
   if (response.status === 401 && requiresAuth && !_isRetryAfterRefresh) {
     const refreshed = await refreshAccessToken();
 
@@ -203,9 +225,7 @@ export const apiFetch = async <T>(
 
   return data as T;
 };
-// Sube un archivo por multipart/form-data. No usa apiFetch porque este fuerza
-// Content-Type: application/json; con FormData hay que dejar que el navegador
-// ponga el multipart con su boundary. Reusa el token y el API_URL.
+// Función para subir archivos al backend con autenticación y manejo de errores
 export const apiUpload = async <T>(
   endpoint: string,
   file: File,
