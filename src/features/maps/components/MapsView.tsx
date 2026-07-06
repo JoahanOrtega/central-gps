@@ -6,14 +6,17 @@ import { MapCanvas, type MapCanvasHandle } from "./MapCanvas";
 import { UnitsDrawer } from "./drawers/UnitsDrawer";
 import { TripDrawer } from "./drawers/TripDrawer";
 import { UnitTokenModal } from "@/features/catalogs/units/components/UnitTokenModal";
+import { routeService } from "@/features/operation/routes/services/routeService";
 import { useTripDrawerStore } from "../stores/tripDrawerStore";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { usePermiso } from "@/hooks/usePermiso";
+import { notify } from "@/stores/notificationStore";
 
 import type { MapUnitItem, RoutePoint, RouteDisplayOptions } from "../types/map.types";
 import { useUnitsLive } from "../hooks/useUnitsLive";
+import { RoutesDrawer } from "./drawers/RoutesDrawer";
 
-type ActiveDrawer = "units" | "trips" | null;
+type ActiveDrawer = "units" | "trips" | "routes" | null;
 
 // Contenedor del módulo de mapas: coordina toolbar, canvas y drawers. Mantiene
 // un solo drawer abierto a la vez y delega las acciones del mapa al canvas vía ref.
@@ -27,11 +30,13 @@ export const MapsView = () => {
   const puedeEditarUnidad = usePermiso("unidades.editar");
   const unitsLive = useUnitsLive();
   const [focusedUnitId, setFocusedUnitId] = useState<number | null>(null);
+  const [selectedRouteIds, setSelectedRouteIds] = useState<number[]>([]);
 
   // Al cambiar de empresa, cerrar drawers y limpiar el mapa. Cada drawer
   // recarga sus datos al reabrirse.
   useEffect(() => {
     setActiveDrawer(null);
+    setSelectedRouteIds([]);
     mapCanvasRef.current?.clearMap();
   }, [idEmpresa]);
 
@@ -100,6 +105,34 @@ export const MapsView = () => {
     [],
   );
 
+  const handleCatalogRouteToggle = useCallback(
+    async (idRuta: number, checked: boolean) => {
+      if (!checked) {
+        mapCanvasRef.current?.hideCatalogRoute(idRuta);
+        setSelectedRouteIds((current) =>
+          current.filter((selectedId) => selectedId !== idRuta),
+        );
+        return;
+      }
+
+      try {
+        const route = await routeService.getById(idRuta, idEmpresa);
+        mapCanvasRef.current?.showCatalogRoute(route);
+        setSelectedRouteIds((current) =>
+          current.includes(idRuta) ? current : [...current, idRuta],
+        );
+      } catch {
+        notify.error("No fue posible mostrar la ruta en el mapa");
+      }
+    },
+    [idEmpresa],
+  );
+
+  const handleClearMap = useCallback(() => {
+    setSelectedRouteIds([]);
+    mapCanvasRef.current?.clearMap();
+  }, []);
+
   return (
     <main className="h-full overflow-hidden bg-[#f5f6f8] p-3 md:p-6">
       <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -110,9 +143,10 @@ export const MapsView = () => {
           </div>
           <MapToolbar
             onToggleTraffic={() => mapCanvasRef.current?.toggleTraffic()}
-            onClearMap={() => mapCanvasRef.current?.clearMap()}
+            onClearMap={handleClearMap}
             onToggleUnitsDrawer={() => toggleDrawer("units")}
             onToggleTripsDrawer={() => toggleDrawer("trips")}
+            onToggleRoutesDrawer={() => toggleDrawer("routes")}
           />
         </div>
 
@@ -142,6 +176,15 @@ export const MapsView = () => {
               onLayerChange={handleLayerVisibilityChange}
             />
           )}
+
+          {activeDrawer === "routes" && (
+            <RoutesDrawer
+              onClose={closeAllDrawers}
+              selectedRouteIds={selectedRouteIds}
+              onRouteToggle={handleCatalogRouteToggle}
+            />
+          )}
+
         </div>
       </section>
 

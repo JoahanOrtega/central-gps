@@ -9,6 +9,7 @@ interface MapToolbarProps {
   onClearMap: () => void;
   onToggleUnitsDrawer: () => void;
   onToggleTripsDrawer: () => void;
+  onToggleRoutesDrawer?: () => void;
 }
 
 // Barra superior del módulo de mapas. 
@@ -17,6 +18,7 @@ export const MapToolbar = ({
   onClearMap,
   onToggleUnitsDrawer,
   onToggleTripsDrawer,
+  onToggleRoutesDrawer,
 }: MapToolbarProps) => {
   return (
     <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
@@ -38,7 +40,12 @@ export const MapToolbar = ({
         <BusFront className="h-4 w-4" />
       </button>
 
-      <button type="button" className={toolbarButtonClass} title="Rutas">
+      <button
+        type="button"
+        className={toolbarButtonClass}
+        title="Rutas"
+        onClick={onToggleRoutesDrawer}
+      >
         <GitBranch className="h-4 w-4" />
       </button>
 
