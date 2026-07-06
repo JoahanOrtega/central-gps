@@ -253,7 +253,7 @@ export const UnitsDrawer = ({
 }: UnitsDrawerProps) => {
   const {
     units, counts, selectedIds, selectedUnits, search,
-    isLoading, error, setSearch, loadUnits, toggleUnit, clearSelection,
+    isLoading, error, esperandoEmpresa, setSearch, loadUnits, toggleUnit, clearSelection,
   } = unitsLive;
 
   const stateFilter = useUnitsDrawerStore((s) => s.stateFilter);
@@ -362,8 +362,30 @@ export const UnitsDrawer = ({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
-        {isLoading && <DrawerSkeletonList count={6} />}
-        {error && !isLoading && (
+        {/* Empresa aún no resuelta: en vez de un skeleton que nunca
+            terminaría (sin empresa no se piden unidades), mostramos un
+            estado claro y accionable. Reintentar recarga la lista de
+            empresas, la causa suele ser un fetchCompanies que murió
+            en una red lenta. */}
+        {esperandoEmpresa && (
+          <div className="px-3 py-8 text-center">
+            <p className="text-sm text-slate-500">
+              No se pudo cargar la información de la empresa.
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              Revisa tu conexión e inténtalo de nuevo.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-4 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
+        {!esperandoEmpresa && isLoading && <DrawerSkeletonList count={6} />}
+        {!esperandoEmpresa && error && !isLoading && (
           <div className="px-3 py-6 text-center">
             <p className="text-sm text-red-500">{error}</p>
             <button type="button" onClick={() => void loadUnits(search)}
@@ -372,7 +394,7 @@ export const UnitsDrawer = ({
             </button>
           </div>
         )}
-        {!isLoading && !error && filteredUnits.length === 0 && (
+        {!esperandoEmpresa && !isLoading && !error && filteredUnits.length === 0 && (
           <p className="px-3 py-8 text-center text-sm text-slate-400">
             {search
               ? `Sin resultados para "${search}"`
@@ -381,7 +403,7 @@ export const UnitsDrawer = ({
                 : "No hay unidades disponibles."}
           </p>
         )}
-        {!isLoading && !error && groups.length > 0 && (
+        {!esperandoEmpresa && !isLoading && !error && groups.length > 0 && (
           <div className="space-y-2">
             {groups.map((g) => (
               <UnitGroupSection
