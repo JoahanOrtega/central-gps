@@ -114,10 +114,10 @@ export const RouteInfoTab = ({ form, onChange, fieldErrors }: RouteInfoTabProps)
               onChange={(e) => onChange({ tieneVuelta: e.target.checked })}
               className="h-4 w-4"
             />
-            Esta ruta tiene logística de vuelta (B-A)
+            Esta ruta tiene logística de salida
           </label>
           <p className="mt-1 text-xs text-slate-400">
-            Actívalo si la ruta hace ida y vuelta. Aparecerá una pestaña extra para la logística B-A.
+            Actívalo si la ruta hace entrada y salida. Aparecerá una pestaña extra para la logística de salida.
           </p>
         </Field>
 
