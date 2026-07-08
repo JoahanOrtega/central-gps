@@ -7,15 +7,12 @@ import type {
     CreateOperatorGroupPayload,
     UpdateOperatorGroupPayload,
     AssignOperatorPayload,
-} from "../services/operator.types";
+} from "../types/operator.types";
 
 interface MessageResponse {
     message: string;
 }
 
-// El id_empresa viaja por query param (no en el body): el backend de
-// operadores lo resuelve así, y es consistente con el resto de catálogos.
-// Para usuarios no-sudo el JWT ya filtra, pero pasarlo no estorba.
 const empresaQuery = (idEmpresa?: number | null): string =>
     idEmpresa ? `?id_empresa=${idEmpresa}` : "";
 

@@ -93,6 +93,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: <CalendarClock className="h-4 w-4 shrink-0" />,
     badge: "Nuevo",
   },
+  {
+    id: "aforos", label: "Aforos",
+    path: "/home/operation/aforos", grupo: "operation",
+    permiso: "aforos.ver", disponible: true,
+    icon: <CalendarClock className="h-4 w-4 shrink-0" />,
+    badge: "Nuevo",
+  },
 
   // Combustible
   {

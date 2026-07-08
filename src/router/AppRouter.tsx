@@ -23,6 +23,7 @@ const ClientsPage = lazy(() => import("@/features/catalogs/clients/pages/Clients
 const OperatorsPage = lazy(() => import("@/features/catalogs/operators/pages/OperatorsPage").then(m => ({ default: m.OperatorsPage })));
 const RoutesPage = lazy(() => import("@/features/operation/routes/pages/RoutesPage").then(m => ({ default: m.RoutesPage })));
 const ItinerariesPage = lazy(() => import("@/features/operation/itineraries/pages/ItinerariesPage").then(m => ({ default: m.ItinerariesPage })));
+const AforosPage = lazy(() => import("@/features/operation/aforos/pages/AforosPage").then(m => ({ default: m.AforosPage })));
 const UsersPage = lazy(() => import("@/features/catalogs/users/pages/UsersPage").then(m => ({ default: m.UsersPage })));
 const PublicUnitTrackPage = lazy(() => import("@/features/public-track/pages/PublicUnitTrackPage").then(m => ({ default: m.PublicUnitTrackPage })));
 
@@ -131,6 +132,10 @@ export const appRouter = createBrowserRouter([
       {
         path: "operation/itineraries",
         element: <PermisoRoute permiso="itinerarios.ver"><LazyPage name="Itinerarios"><ItinerariesPage /></LazyPage></PermisoRoute>,
+      },
+      {
+        path: "operation/aforos",
+        element: <PermisoRoute permiso="aforos.ver"><LazyPage name="Aforos"><AforosPage /></LazyPage></PermisoRoute>,
       },
       {
         path: "operation/routes",
