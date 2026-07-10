@@ -44,6 +44,8 @@ export const GroupsModal = ({
   const [idCliente, setIdCliente] = useState<string>("");
   const [idRuta, setIdRuta] = useState<string>("");
 
+  const [claveError, setClaveError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!open || !idEmpresa) return;
 
@@ -64,6 +66,7 @@ export const GroupsModal = ({
     setObservaciones("");
     setIdCliente("");
     setIdRuta("");
+    setClaveError(null);
     setEditingGroup(null);
     setIsFormOpen(false);
   };
@@ -105,17 +108,29 @@ export const GroupsModal = ({
     setObservaciones(group.observaciones || "");
     setIdCliente(group.id_cliente ? String(group.id_cliente) : "");
     setIdRuta(group.id_ruta ? String(group.id_ruta) : "");
+    setClaveError(null);
     setIsFormOpen(true);
   };
 
   const handleSaveGroup = async (e: React.FormEvent) => {
     e.preventDefault();
+    setClaveError(null);
     
     if (!nombre.trim() || !clave.trim() || !idCliente) return;
 
+    const claveLimpia = clave.trim();
+    const duplicateClave = groups.find(
+      (g) => g.clave?.toLowerCase() === claveLimpia.toLowerCase() && g.id_grupo_aforos !== editingGroup?.id_grupo_aforos
+    );
+
+    if (duplicateClave) {
+      setClaveError("Esta clave ya se encuentra en uso por otro grupo.");
+      return;
+    }
+
     const payload = {
       nombre: nombre.trim(),
-      clave: clave.trim(),
+      clave: claveLimpia,
       observaciones: observaciones.trim() || null,
       id_cliente: Number(idCliente),
       id_ruta: idRuta ? Number(idRuta) : null,
@@ -177,6 +192,23 @@ export const GroupsModal = ({
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Clave *</label>
+                  <input
+                    type="text"
+                    required
+                    value={clave}
+                    onChange={(e) => {
+                      setClave(e.target.value);
+                      setClaveError(null);
+                    }}
+                    className={`w-full h-10 rounded-lg border px-3 text-sm outline-none transition-colors ${
+                      claveError ? "border-red-500 focus:border-red-500 bg-red-50/50" : "border-slate-200 focus:border-blue-500"
+                    }`}
+                    placeholder="Ej: G-NORTE"
+                  />
+                  {claveError && <span className="text-[10px] text-red-500 mt-1 block font-semibold">{claveError}</span>}
+                </div>
+                <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1">Nombre del Grupo *</label>
                   <input
                     type="text"
@@ -185,17 +217,6 @@ export const GroupsModal = ({
                     onChange={(e) => setNombre(e.target.value)}
                     className="w-full h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-500"
                     placeholder="Ej: Grupo Norte"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Clave *</label>
-                  <input
-                    type="text"
-                    required
-                    value={clave}
-                    onChange={(e) => setClave(e.target.value)}
-                    className="w-full h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-500"
-                    placeholder="Ej: G-NORTE"
                   />
                 </div>
 
@@ -299,7 +320,6 @@ export const GroupsModal = ({
                         const clientObj = clients.find(c => Number(c.id_cliente) === Number(group.id_cliente));
                         const routeObj = routes.find(r => Number(r.id_ruta) === Number(group.id_ruta));
                         
-                        // Cálculo en tiempo real del total de aforos vinculados a este grupo específico
                         const totalLinkedAforos = aforos.filter(
                           (a) => Number(a.id_grupo_aforos) === Number(group.id_grupo_aforos)
                         ).length;

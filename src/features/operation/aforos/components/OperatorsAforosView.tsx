@@ -446,6 +446,7 @@ export const OperatorsAforosView = () => {
         editingItem={editingAforo}
         groups={groups}
         routes={routes}
+        aforos={aforos}
         onSave={handleSaveAforo}
       />
 
