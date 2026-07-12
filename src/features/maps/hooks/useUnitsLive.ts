@@ -34,6 +34,7 @@ export const useUnitsLive = (options: UseUnitsLiveOptions = {}) => {
   const [counts, setCounts] = useState<UnitsLiveCounts>(EMPTY_COUNTS);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const isLoadingRef = useRef(false);
 
   // Estado persistente desde el store (suscripciones granulares).
   const selectedIds = useUnitsDrawerStore((state) => state.selectedIds);
@@ -51,6 +52,9 @@ export const useUnitsLive = (options: UseUnitsLiveOptions = {}) => {
   }, [search]);
 
   const loadUnits = useCallback(async (searchValue = "") => {
+    if (isLoadingRef.current) return;
+
+    isLoadingRef.current = true;
     setIsLoading(true);
     setError("");
 
@@ -67,6 +71,7 @@ export const useUnitsLive = (options: UseUnitsLiveOptions = {}) => {
       setUnits([]);
       setCounts(EMPTY_COUNTS);
     } finally {
+      isLoadingRef.current = false;
       setIsLoading(false);
     }
   }, [idEmpresa]);

@@ -134,11 +134,11 @@ const UnitCard = memo(({
       onClick={() => onSelect(unit)}
     >
       {/* stopPropagation para marcar sin enfocar la unidad en el mapa */}
-      <div onClick={(e) => { e.stopPropagation(); onToggle(unit); }}>
+      <div onClick={(e) => e.stopPropagation()}>
         <input
           type="checkbox"
           checked={isChecked}
-          onChange={() => { }}
+          onChange={() => onToggle(unit)}
           className="h-4 w-4 cursor-pointer accent-emerald-500"
         />
       </div>
@@ -270,9 +270,16 @@ export const UnitsDrawer = ({
   // Refleja la selección en los markers del mapa. Cerrar el panel no toca
   // selectedUnits, por eso los markers sobreviven al cierre.
   useEffect(() => {
-    selectedUnits.length === 0
-      ? onUnitsHidden()
-      : onUnitsSelectionChange(selectedUnits);
+    const timeoutId = window.setTimeout(() => {
+      if (selectedUnits.length === 0) {
+        onUnitsHidden();
+        return;
+      }
+
+      onUnitsSelectionChange(selectedUnits);
+    }, 120);
+
+    return () => window.clearTimeout(timeoutId);
   }, [selectedUnits, onUnitsSelectionChange, onUnitsHidden]);
 
   const handleClose = useCallback(() => {
