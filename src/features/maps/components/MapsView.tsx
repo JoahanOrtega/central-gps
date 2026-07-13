@@ -136,8 +136,8 @@ export const MapsView = () => {
   return (
     <main className="h-full overflow-hidden bg-[#f5f6f8] p-3 md:p-6">
       <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <div className="flex flex-col gap-3 border-b border-slate-200 px-3 py-3 md:flex-row md:items-center md:justify-between md:px-6 md:py-4">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-row items-center justify-between gap-3 border-b border-slate-200 px-3 py-2 md:px-6 md:py-4">
+          <div className="hidden items-center gap-3 md:flex">
             <MapPinned className="h-5 w-5 text-slate-500" />
             <h1 className="text-xl font-semibold text-slate-800 md:text-2xl">Mapa</h1>
           </div>
