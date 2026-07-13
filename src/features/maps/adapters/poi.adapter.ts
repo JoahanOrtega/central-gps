@@ -15,4 +15,11 @@ export const toMapPoiItem = (poi: PoiItem): MapPoiItem => ({
   polygon_path: poi.polygon_path ?? "",
   radio_color: poi.radio_color ?? "#5e6383",
   polygon_color: poi.polygon_color ?? "#5e6383",
+  tipo_marker: poi.tipo_marker ?? null,
+  url_marker: poi.url_marker ?? null,
+  marker_path: poi.marker_path ?? null,
+  marker_color: poi.marker_color ?? null,
+  icon: poi.icon ?? null,
+  icon_color: poi.icon_color ?? null,
+  observaciones: poi.observaciones ?? null,
 });

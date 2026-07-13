@@ -2,7 +2,6 @@ import type { MapPoiItem, MapUnitItem, RoutePoint } from "../types/map.types";
 import {
   getTelemetryStatusLabel,
   getTelemetryStatusMeta,
-  UNIT_COLORS,
 } from "./telemetry-status";
 import {
   formatAppDateTimeShort,
@@ -543,7 +542,7 @@ export interface RouteArrowMarkerData {
  * se usan los umbrales históricos 80/60 como respaldo.
  */
 export const buildRouteArrowInfoWindowContent = (
-  unitLabel: string | null,
+  _unitLabel: string | null,
   data: RouteArrowMarkerData,
   velMax = 0,
 ): string => {

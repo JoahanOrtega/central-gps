@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   BarChart3, Building2, FolderOpen,
-  LayoutDashboard, Map, MapPinned, Menu,
+  LayoutDashboard, Map, MapPinned,
   Truck, Users, X,
 } from "lucide-react";
 import { usePermiso } from "@/hooks/usePermiso";

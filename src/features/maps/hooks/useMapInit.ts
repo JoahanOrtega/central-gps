@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { loadGoogleMaps, GOOGLE_MAPS_MAP_ID } from "@/lib/loadGoogleMaps";
 import { buildSearchMarkerContent } from "../lib/map-markers";
-
-// Centro por defecto: ciudad de Aguascalientes, donde opera la flota.
-const DEFAULT_CENTER = { lat: 21.8853, lng: -102.2916 };
-const DEFAULT_ZOOM = 12;
-const USER_LOCATION_ZOOM = 16;
+import { geocodeAddressCached } from "@/lib/geocode-cache";
+import {
+    getOrCreateMapSingleton,
+    setCachedLocation,
+    DEFAULT_CENTER,
+    DEFAULT_ZOOM,
+    USER_LOCATION_ZOOM,
+    type MapSingleton,
+} from "../lib/map-singleton";
 
 export interface UseMapInitReturn {
     containerRef: React.RefObject<HTMLDivElement | null>;
@@ -19,169 +22,40 @@ export interface UseMapInitReturn {
     toggleFullscreen: () => void;
 }
 
-// Última ubicación conocida en localStorage. Firefox no persiste el permiso de
-// geolocalización en localhost (HTTP), así que sin esto el mapa pediría permiso
-// y saltaría visualmente en cada recarga.
-const GEO_CACHE_KEY = "cgps_last_location";
-
-interface CachedLocation {
-    lat: number;
-    lng: number;
-    ts: number;
-}
-
-const getCachedLocation = (): CachedLocation | null => {
-    try {
-        const raw = localStorage.getItem(GEO_CACHE_KEY);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw) as CachedLocation;
-        if (Date.now() - parsed.ts > 24 * 60 * 60 * 1000) {
-            localStorage.removeItem(GEO_CACHE_KEY);
-            return null;
-        }
-        return parsed;
-    } catch {
-        return null;
-    }
-};
-
-const setCachedLocation = (lat: number, lng: number) => {
-    try {
-        const payload: CachedLocation = { lat, lng, ts: Date.now() };
-        localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(payload));
-    } catch {
-        // localStorage bloqueado en modo privado.
-    }
-};
-
+// Hook que inicializa el mapa y devuelve referencias a él y a su contenedor, así como funciones para interactuar con el mapa.
 export const useMapInit = (): UseMapInitReturn => {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const mapRef = useRef<google.maps.Map | null>(null);
-    const geocoderRef = useRef<google.maps.Geocoder | null>(null);
-    const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null);
     const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
-    const searchMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
-    const userHasInteractedRef = useRef(false);
-    const mapInteractionCleanupRef = useRef<(() => void) | null>(null);
+    const singletonRef = useRef<MapSingleton | null>(null);
 
     const [isTrafficVisible, setIsTrafficVisible] = useState(false);
 
     useEffect(() => {
         let isMounted = true;
 
-        const initializeMap = async () => {
-            await loadGoogleMaps();
+        const attachMap = async () => {
+            const s = await getOrCreateMapSingleton();
+            if (!isMounted || !containerRef.current) return;
 
-            if (!containerRef.current || !window.google?.maps || !isMounted) return;
+            singletonRef.current = s;
+            mapRef.current = s.map;
+            infoWindowRef.current = s.infoWindow;
 
-            // Arrancar en la ubicación cacheada (si existe) evita el salto visual
-            // mientras el navegador resuelve la geolocalización.
-            const cached = getCachedLocation();
-            const initialCenter = cached
-                ? { lat: cached.lat, lng: cached.lng }
-                : DEFAULT_CENTER;
-            const initialZoom = cached ? USER_LOCATION_ZOOM : DEFAULT_ZOOM;
+            //  Adjuntar el div anfitrión del mapa al contenedor de la página y disparar el evento "resize" para que Google Maps sepa que cambió de tamaño.
+            containerRef.current.appendChild(s.host);
+            window.google.maps.event.trigger(s.map, "resize");
 
-            const map = new window.google.maps.Map(containerRef.current, {
-                center: initialCenter,
-                zoom: initialZoom,
-                gestureHandling: "greedy",
-                zoomControl: true,
-                fullscreenControl: false,
-                streetViewControl: false,
-                mapTypeControl: true,
-                mapTypeControlOptions: {
-                    style: window.google.maps.MapTypeControlStyle.DROPDOWN_MENU,
-                },
-                mapTypeId: "roadmap",
-                mapId: GOOGLE_MAPS_MAP_ID,
-            });
-
-            mapRef.current = map;
-
-            // Marcar la primera interacción manual para no reposicionar el mapa
-            // por debajo del usuario.
-            const markUserInteraction = () => {
-                userHasInteractedRef.current = true;
-            };
-            const dragListener = map.addListener("dragend", markUserInteraction);
-            const zoomListener = map.addListener("zoom_changed", markUserInteraction);
-
-            // Los listeners de Google Maps no se limpian solos al destruir el mapa.
-            const cleanupInteractionListeners = () => {
-                window.google?.maps?.event?.removeListener(dragListener);
-                window.google?.maps?.event?.removeListener(zoomListener);
-            };
-            mapInteractionCleanupRef.current = cleanupInteractionListeners;
-
-            geocoderRef.current = new window.google.maps.Geocoder();
-            trafficLayerRef.current = new window.google.maps.TrafficLayer();
-            infoWindowRef.current = new window.google.maps.InfoWindow({
-                maxWidth: 320,
-                pixelOffset: new window.google.maps.Size(0, -8),
-            });
-
-            let userMarker: google.maps.marker.AdvancedMarkerElement | null = null;
-
-            const createOrMoveUserMarker = (position: { lat: number; lng: number }) => {
-                if (!mapRef.current) return;
-
-                if (!userMarker) {
-                    const dot = document.createElement("div");
-                    dot.style.width = "18px";
-                    dot.style.height = "18px";
-                    dot.style.borderRadius = "9999px";
-                    dot.style.background = "#2563eb";
-                    dot.style.border = "3px solid white";
-                    dot.style.boxShadow = "0 2px 8px rgba(0,0,0,0.25)";
-
-                    userMarker = new window.google.maps.marker.AdvancedMarkerElement({
-                        map: mapRef.current,
-                        position,
-                        title: "Mi ubicación",
-                        content: dot,
-                    });
-                } else {
-                    userMarker.position = position;
-                }
-            };
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        if (!isMounted || !mapRef.current) return;
-
-                        const location = {
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude,
-                        };
-
-                        setCachedLocation(location.lat, location.lng);
-
-                        // No reposicionar si el usuario ya movió el mapa o si ya
-                        // arrancó en la ubicación cacheada.
-                        if (!userHasInteractedRef.current && !cached) {
-                            mapRef.current.panTo(location);
-                            mapRef.current.setZoom(USER_LOCATION_ZOOM);
-                        }
-
-                        createOrMoveUserMarker(location);
-                    },
-                    () => {
-                        // Permiso denegado o timeout: el mapa ya está centrado por
-                        // defecto, no hay nada que hacer.
-                    },
-                    { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 },
-                );
-            }
+            // Si el usuario ya había activado la capa de tráfico, reactivarla al volver.
+            setIsTrafficVisible(s.trafficLayer.getMap() != null);
         };
 
-        void initializeMap();
+        void attachMap();
 
         return () => {
             isMounted = false;
-            mapInteractionCleanupRef.current?.();
-            mapInteractionCleanupRef.current = null;
+            // Desprender el div anfitrión del mapa para que no quede huérfano en el DOM.
+            singletonRef.current?.host.remove();
         };
     }, []);
 
@@ -215,53 +89,42 @@ export const useMapInit = (): UseMapInitReturn => {
     };
 
     const toggleTraffic = () => {
-        const map = mapRef.current;
-        const trafficLayer = trafficLayerRef.current;
-        if (!map || !trafficLayer) return;
+        const s = singletonRef.current;
+        if (!s) return;
 
         if (isTrafficVisible) {
-            trafficLayer.setMap(null);
+            s.trafficLayer.setMap(null);
             setIsTrafficVisible(false);
             return;
         }
-
-        trafficLayer.setMap(map);
+        s.trafficLayer.setMap(s.map);
         setIsTrafficVisible(true);
     };
 
     const searchAddress = async (address: string): Promise<void> => {
-        const map = mapRef.current;
-        const geocoder = geocoderRef.current;
-        if (!map || !geocoder || !address.trim()) return;
+        const s = singletonRef.current;
+        if (!s || !address.trim()) return;
 
-        const result = await new Promise<google.maps.GeocoderResult | null>((resolve) => {
-            geocoder.geocode({ address }, (results, status) => {
-                if (status === "OK" && results && results.length > 0) {
-                    resolve(results[0]);
-                    return;
-                }
-                resolve(null);
-            });
-        });
+        // Con caché: repetir la misma búsqueda no vuelve a pagar a Google.
+        const result = await geocodeAddressCached(s.geocoder, address);
+        if (!result) return;
 
-        if (!result?.geometry.location) return;
+        const location = { lat: result.lat, lng: result.lng };
+        s.map.panTo(location);
+        s.map.setZoom(16);
 
-        const location = result.geometry.location;
-        map.panTo(location);
-        map.setZoom(16);
-
-        if (!searchMarkerRef.current) {
-            searchMarkerRef.current = new window.google.maps.marker.AdvancedMarkerElement({
-                map,
+        // Si no hay marcador de búsqueda, crearlo; si ya existe, moverlo y re-adjuntarlo al mapa.
+        if (!s.searchMarker) {
+            s.searchMarker = new window.google.maps.marker.AdvancedMarkerElement({
+                map: s.map,
                 position: location,
-                title: result.formatted_address,
+                title: result.formattedAddress,
                 content: buildSearchMarkerContent(),
             });
             return;
         }
-
-        searchMarkerRef.current.position = location;
-        searchMarkerRef.current.map = map;
+        s.searchMarker.position = location;
+        s.searchMarker.map = s.map;
     };
 
     const toggleFullscreen = () => {

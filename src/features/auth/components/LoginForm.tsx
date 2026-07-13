@@ -55,7 +55,7 @@ export const LoginForm = ({
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex w-full flex-col items-center gap-5"
+      className="flex w-full flex-col gap-5"
     >
       {/* ── Campo de usuario ── */}
       <div className="flex w-full flex-col gap-2">
@@ -66,7 +66,7 @@ export const LoginForm = ({
           type="text"
           value={form.username}
           onChange={handleChange}
-          className="h-12 rounded-full bg-white/80"
+          className="h-11 rounded-lg bg-white/85 border-slate-200 shadow-sm focus:bg-white"
           placeholder="Ingresa tu usuario"
           disabled={isLoading}
           autoComplete="username"
@@ -83,7 +83,7 @@ export const LoginForm = ({
             type={showPassword ? "text" : "password"}
             value={form.password}
             onChange={handleChange}
-            className="h-12 rounded-full bg-white/80 pr-12"
+            className="h-11 rounded-lg bg-white/85 border-slate-200 shadow-sm focus:bg-white pr-12"
             placeholder="Ingresa tu contraseña"
             disabled={isLoading}
             autoComplete="current-password"
@@ -135,7 +135,7 @@ export const LoginForm = ({
       <Button
         type="submit"
         disabled={isLoading}
-        className="h-11 w-44 rounded-lg bg-sky-600 hover:bg-sky-700"
+        className="h-11 w-full rounded-lg bg-sky-600 hover:bg-sky-700"
       >
         {isLoading ? "Ingresando..." : "Ingresar"}
       </Button>

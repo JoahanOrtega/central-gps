@@ -1,6 +1,6 @@
 import { UserRound, Phone, Truck, Pencil, Trash2 } from "lucide-react";
 import { KebabMenu } from "@/components/shared";
-import type { OperatorItem } from "../services/operator.types";
+import type { OperatorItem } from "../types/operator.types";
 
 interface OperatorCardProps {
     operator: OperatorItem;
