@@ -142,11 +142,15 @@ export const unitService = {
   regenerateToken(
     idUnidad: number,
     idEmpresa?: number | null,
+    payload?: { minutos_expiracion: number | null }
   ): Promise<RegenerateUnitTokenResponse> {
     const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
     return apiFetch<RegenerateUnitTokenResponse>(
       `/units/${idUnidad}/token/regenerar${query}`,
-      { method: "POST" },
+      { 
+          method: "POST",
+          body: payload 
+      },
     );
   },
 
