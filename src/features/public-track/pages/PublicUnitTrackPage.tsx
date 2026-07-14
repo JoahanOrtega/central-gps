@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { AlertCircle, Navigation } from "lucide-react";
-import maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
+import { loadGoogleMaps, GOOGLE_MAPS_MAP_ID } from "@/lib/loadGoogleMaps";
 import { useAutoRefresh } from "@/features/maps/hooks/useAutoRefresh";
 import { PublicTrackCard } from "../components/PublicTrackCard";
 import { useSmoothMarker } from "../hooks/useSmoothMarker";
@@ -17,14 +16,14 @@ import {
 // igual al intervalo del worker de geocercas del backend.
 const REFRESH_MS = 15000;
 
-// Centro por defecto (Aguascalientes) mientras no hay posición.
+// Centro por defecto (Aguascalientes)
 const DEFAULT_CENTER = { lat: 21.8853, lng: -102.2916 };
 
 export const PublicUnitTrackPage = () => {
     const { token } = useParams<{ token: string }>();
 
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const mapRef = useRef<maplibregl.Map | null>(null);
+    const mapRef = useRef<google.maps.Map | null>(null);
     const yaCentroRef = useRef(false);
 
     const { moverA } = useSmoothMarker();
@@ -35,78 +34,73 @@ export const PublicUnitTrackPage = () => {
     const [errorKind, setErrorKind] = useState<"invalid" | "error" | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // Inicializar el mapa y el marcador (solo una vez, al montar el componente).
+    // Inicializar Google Maps
     useEffect(() => {
-        if (!mapContainerRef.current) return;
+        let cancelado = false;
 
-        const map = new maplibregl.Map({
-            container: mapContainerRef.current,
-            style: {
-                version: 8,
-                sources: {
-                    osm: {
-                        type: "raster",
-                        tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-                        tileSize: 256,
-                        attribution: "© OpenStreetMap contributors",
-                    },
-                },
-                layers: [{ id: "osm", type: "raster", source: "osm" }],
-            },
-            // OJO: MapLibre usa orden [lng, lat] — al revés que Google Maps.
-            center: [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat],
-            zoom: 13,
-        });
-        map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
+        loadGoogleMaps()
+            .then(() => {
+                if (cancelado || !mapContainerRef.current) return;
 
-        map.on("load", () => {
-            // El mapa ya está listo, pero el contenedor puede haber cambiado de tamaño
-            map.resize();
-            setMapReady(true);
-        });
-        map.on("error", () => setErrorKind("error"));
-        mapRef.current = map;
+                const map = new google.maps.Map(mapContainerRef.current, {
+                    center: DEFAULT_CENTER,
+                    zoom: 13,
+                    disableDefaultUI: true,
+                    zoomControl: true,
+                    mapId: GOOGLE_MAPS_MAP_ID,
+                });
 
-        // Cinturón contra el timing del CSS lazy: al estar el estilo listo, 
-        // re-medimos por si el contenedor creció después de crear el mapa (canvas atorado en el fallback de 300px).
-        requestAnimationFrame(() => map.resize());
+                mapRef.current = map;
+                google.maps.event.addListenerOnce(map, "tilesloaded", () => {
+                    if (!cancelado) setMapReady(true);
+                });
 
-        // Y un ResizeObserver para que el mapa se redibuje si cambia el tamaño del contenedor.
-        const resizeObserver = new ResizeObserver(() => map.resize());
-        resizeObserver.observe(mapContainerRef.current);
+                // ResizeObserver
+                const resizeObserver = new ResizeObserver(() => {
+                    google.maps.event.trigger(map, "resize");
+                });
+                resizeObserver.observe(mapContainerRef.current);
+
+                // Limpiar al desmontar
+                const container = mapContainerRef.current;
+                return () => {
+                    resizeObserver.disconnect();
+                    // Google Maps no tiene un .remove() como MapLibre; al
+                    // desmontar el contenedor React ya lo limpia del DOM.
+                };
+            })
+            .catch(() => {
+                if (!cancelado) setErrorKind("error");
+            });
 
         return () => {
-            resizeObserver.disconnect();
-            map.remove();
-            mapRef.current = null;
+            cancelado = true;
         };
     }, []);
 
-    // ── Pintar / animar el marcador (el hook se encarga del movimiento) ─────
+    //  animar el marcador
     const actualizarMapa = useCallback(
         (resp: PublicTrackResponse) => {
             const map = mapRef.current;
             if (!map) return;
 
-            // Reusamos buildUnitMarkerContent (vía el hook) para que la unidad se
-            // vea idéntica al mapa interno, y el hook la desliza suave entre
-            // reportes en vez de saltar.
             const unit = toMapUnitItem(resp);
             if (!unit || !unit.telemetry) return;
 
             moverA(map, unit);
 
-            // Centrar solo la primera vez, para no pelear con el usuario si está
-            // explorando el mapa.
             if (!yaCentroRef.current) {
-                map.setCenter([unit.telemetry.longitud!, unit.telemetry.latitud!]);
+                map.setCenter({
+                    lat: unit.telemetry.latitud!,
+                    lng: unit.telemetry.longitud!,
+                });
                 yaCentroRef.current = true;
             }
         },
         [moverA],
     );
 
-    // ── Polling de la posición (reusa useAutoRefresh) ───────────────────────
+    // Polling de la posición (reusa useAutoRefresh)
     const cargar = useCallback(async () => {
         if (!token) return;
         try {
@@ -134,7 +128,7 @@ export const PublicUnitTrackPage = () => {
         immediate: true,
     });
 
-    // ── Render: token inválido (pantalla de error a página completa) ────────
+    // Render: token inválido (pantalla de error a página completa)
     if (errorKind === "invalid") {
         return (
             <div className="flex h-screen w-screen flex-col items-center justify-center gap-3 bg-slate-50 px-6 text-center">
@@ -158,10 +152,14 @@ export const PublicUnitTrackPage = () => {
     return (
         <div className="relative h-screen w-screen overflow-hidden">
             {/* Mapa de fondo */}
-            <div ref={mapContainerRef} className="absolute inset-0" style={{ height: "100dvh", width: "100vw" }} />
+            <div
+                ref={mapContainerRef}
+                className="absolute inset-0"
+                style={{ height: "100dvh", width: "100vw" }}
+            />
 
             {/* Marca discreta arriba a la izquierda */}
-            <div className="absolute left-4 top-4 flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
+            <div className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
                 <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600">
                     <Navigation className="h-3 w-3 text-white" />
                 </div>
@@ -172,7 +170,7 @@ export const PublicUnitTrackPage = () => {
 
             {/* Indicador "en vivo" arriba a la derecha */}
             {!loading && !errorKind && !sinSenal && (
-                <div className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
+                <div className="absolute right-4 top-4 z-10 flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
                     <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
                     <span className="text-xs font-medium text-slate-600">
                         en vivo
