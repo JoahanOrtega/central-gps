@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { AlertCircle, Navigation } from "lucide-react";
+import { AlertCircle, Navigation, RefreshCw } from "lucide-react";
 import { loadGoogleMaps, GOOGLE_MAPS_MAP_ID } from "@/lib/loadGoogleMaps";
 import { useAutoRefresh } from "@/features/maps/hooks/useAutoRefresh";
 import { PublicTrackCard } from "../components/PublicTrackCard";
@@ -30,17 +30,52 @@ export const PublicUnitTrackPage = () => {
 
     const [data, setData] = useState<PublicTrackResponse | null>(null);
     const [mapReady, setMapReady] = useState(false);
-    // null = cargando; "invalid" = token no válido; "error" = fallo de red.
+    // null = sin error; "invalid" = token no válido; "error" = fallo de red.
     const [errorKind, setErrorKind] = useState<"invalid" | "error" | null>(null);
     const [loading, setLoading] = useState(true);
+    // El mapa NO se crea hasta confirmar que el token existe y está vigente.
+    // Así un enlace expirado o inventado no consume cargas de Google Maps.
+    const [tokenValido, setTokenValido] = useState(false);
 
-    // Inicializar Google Maps
+    // Validación previa: una sola llamada al API ANTES de tocar Google Maps.
+    const validar = useCallback(async () => {
+        if (!token) {
+            setErrorKind("invalid");
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        setErrorKind(null);
+        try {
+            const resp = await fetchPublicTrack(token);
+            setData(resp);
+            setTokenValido(true);
+        } catch (e) {
+            // notFound cubre token inexistente, revocado o expirado (404 del API).
+            setErrorKind(
+                e instanceof PublicTrackError && e.notFound
+                    ? "invalid"
+                    : "error",
+            );
+        } finally {
+            setLoading(false);
+        }
+    }, [token]);
+
     useEffect(() => {
+        void validar();
+    }, [validar]);
+
+    // Inicializar Google Maps — SOLO cuando el token ya fue validado.
+    useEffect(() => {
+        if (!tokenValido) return;
         let cancelado = false;
+        let resizeObserver: ResizeObserver | null = null;
 
         loadGoogleMaps()
             .then(() => {
-                if (cancelado || !mapContainerRef.current) return;
+                if (cancelado || !mapContainerRef.current || mapRef.current)
+                    return;
 
                 const map = new google.maps.Map(mapContainerRef.current, {
                     center: DEFAULT_CENTER,
@@ -55,19 +90,10 @@ export const PublicUnitTrackPage = () => {
                     if (!cancelado) setMapReady(true);
                 });
 
-                // ResizeObserver
-                const resizeObserver = new ResizeObserver(() => {
+                resizeObserver = new ResizeObserver(() => {
                     google.maps.event.trigger(map, "resize");
                 });
                 resizeObserver.observe(mapContainerRef.current);
-
-                // Limpiar al desmontar
-                const container = mapContainerRef.current;
-                return () => {
-                    resizeObserver.disconnect();
-                    // Google Maps no tiene un .remove() como MapLibre; al
-                    // desmontar el contenedor React ya lo limpia del DOM.
-                };
             })
             .catch(() => {
                 if (!cancelado) setErrorKind("error");
@@ -75,10 +101,11 @@ export const PublicUnitTrackPage = () => {
 
         return () => {
             cancelado = true;
+            resizeObserver?.disconnect();
         };
-    }, []);
+    }, [tokenValido]);
 
-    //  animar el marcador
+    // Animar el marcador con la posición más reciente
     const actualizarMapa = useCallback(
         (resp: PublicTrackResponse) => {
             const map = mapRef.current;
@@ -109,7 +136,7 @@ export const PublicUnitTrackPage = () => {
             setErrorKind(null);
             actualizarMapa(resp);
         } catch (e) {
-            // Token inválido: error permanente.
+            // Token inválido (revocado/expirado a mitad de sesión): error permanente.
             if (e instanceof PublicTrackError && e.notFound) {
                 setErrorKind("invalid");
                 return;
@@ -122,13 +149,14 @@ export const PublicUnitTrackPage = () => {
 
     useAutoRefresh({
         callback: cargar,
+        // El primer disparo inmediato también pinta el marcador con la
+        // posición que ya validamos, sin esperar los 15s.
         intervalMs: REFRESH_MS,
-        // Pausa mientras el mapa no está listo o si el token ya resultó inválido.
-        enabled: mapReady && errorKind !== "invalid",
+        enabled: tokenValido && mapReady && errorKind !== "invalid",
         immediate: true,
     });
 
-    // Render: token inválido (pantalla de error a página completa)
+    // Render: token inválido (pantalla de error a página completa, sin mapa)
     if (errorKind === "invalid") {
         return (
             <div className="flex h-screen w-screen flex-col items-center justify-center gap-3 bg-slate-50 px-6 text-center">
@@ -139,9 +167,44 @@ export const PublicUnitTrackPage = () => {
                     Enlace no disponible
                 </h1>
                 <p className="max-w-sm text-sm text-slate-500">
-                    Este enlace de rastreo no es válido o fue desactivado.
-                    Solicita uno nuevo a quien te lo compartió.
+                    Este enlace de rastreo expiró o fue desactivado. Solicita
+                    uno nuevo a quien te lo compartió.
                 </p>
+            </div>
+        );
+    }
+
+    // Render: fallo de red ANTES de validar (sin mapa, con acción de reintento)
+    if (errorKind === "error" && !tokenValido) {
+        return (
+            <div className="flex h-screen w-screen flex-col items-center justify-center gap-3 bg-slate-50 px-6 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                    <AlertCircle className="h-7 w-7" />
+                </div>
+                <h1 className="text-lg font-semibold text-slate-800">
+                    No se pudo cargar el rastreo
+                </h1>
+                <p className="max-w-sm text-sm text-slate-500">
+                    Revisa tu conexión a internet e intenta de nuevo.
+                </p>
+                <button
+                    type="button"
+                    onClick={() => void validar()}
+                    className="mt-1 flex items-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600"
+                >
+                    <RefreshCw className="h-4 w-4" />
+                    Reintentar
+                </button>
+            </div>
+        );
+    }
+
+    // Render: validando el token
+    if (!tokenValido) {
+        return (
+            <div className="flex h-screen w-screen flex-col items-center justify-center gap-3 bg-slate-50">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-sky-500" />
+                <p className="text-sm text-slate-500">Cargando rastreo…</p>
             </div>
         );
     }
