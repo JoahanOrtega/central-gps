@@ -1,16 +1,3 @@
-// Dashboard de monitoreo de flota con datos reales.
-//
-// Principios aplicados (referencia: Stripe / Linear / Amplitude):
-//   - Un solo filtro de periodo gobierna TODO el dashboard (un modelo mental).
-//   - Cada tarjeta muestra primero el número protagonista y luego el desglose.
-//   - Cada número es un punto de entrada: click → detalle (mapa o reportes).
-//   - Skeletons por bloque mientras carga; error accionable con Reintentar.
-//   - Las tarjetas se ocultan según los permisos granulares del usuario.
-//
-// Datos:
-//   /monitor/units-live    → conteos de unidades (encendidas/apagadas/sin señal)
-//   /dashboard/summary     → km, uso, excesos, serie temporal y top unidades
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -37,16 +24,17 @@ import type { DashboardPeriodo } from "../types/dashboard.types";
 import { PeriodSelector } from "./PeriodSelector";
 import { KpiCard } from "./KpiCard";
 import { KmActivityChart } from "./KmActivityChart";
+import { TopUnitsTable } from "./TopUnitsTable";
 
-// Claves de permisos como constante estable — usePermisos memoiza por
-// referencia y un array literal en el render forzaría recálculos.
+// Permisos requeridos para mostrar el dashboard completo (KPI + gráfica + top unidades).
 const PERMISOS_DASHBOARD = [
   "dashboard.kilometros",
   "dashboard.utilizacion",
   "dashboard.excesos_velocidad",
+  "dashboard.widgets_resumen",
 ];
 
-// ── Helpers de formato ────────────────────────────────────────────────────────
+// Helpers de formato
 
 const fechaHoy = (): string =>
   new Intl.DateTimeFormat("es-MX", {
@@ -57,8 +45,7 @@ const fechaHoy = (): string =>
     year: "numeric",
   }).format(new Date());
 
-// 702 minutos no le dicen nada a nadie; "11 h 42 m" sí
-// (correspondencia con el mundo real — Nielsen #2).
+// Formato de minutos para celdas ("4 h 50 m", "47 m").
 const formatMinutos = (minutos: number): string => {
   const h = Math.floor(minutos / 60);
   const m = minutos % 60;
@@ -66,7 +53,7 @@ const formatMinutos = (minutos: number): string => {
   return `${h} h ${m.toString().padStart(2, "0")} m`;
 };
 
-// ── Componente principal ──────────────────────────────────────────────────────
+// Componente principal
 
 export const DashboardView = () => {
   const navigate = useNavigate();
@@ -75,7 +62,7 @@ export const DashboardView = () => {
 
   const [periodo, setPeriodo] = useState<DashboardPeriodo>("hoy");
 
-  // Conteos de unidades en vivo — endpoint existente del monitor.
+  // Métricas en tiempo real (unidades encendidas, apagadas y sin señal).
   const { data: live, isLoading: loadingLive } = useQuery({
     queryKey: queryKeys.monitor.unitsLive(idEmpresa, ""),
     queryFn: () => monitorService.getUnitsLive("", idEmpresa),
@@ -84,7 +71,7 @@ export const DashboardView = () => {
     refetchInterval: 60 * 1000,
   });
 
-  // Métricas agregadas del periodo (telemetría).
+  // Métricas del periodo seleccionado (km, uso, excesos, top unidades).
   const {
     data: resumen,
     isLoading: loadingResumen,
@@ -108,7 +95,7 @@ export const DashboardView = () => {
     <main className="h-full overflow-auto bg-[#f5f6f8] p-3 md:p-6">
       <section className="flex min-h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
 
-        {/* ── Header con selector de periodo ─────────────────────────── */}
+        {/* Header con selector de periodo */}
         <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-6">
           <div className="flex items-center gap-3">
             <Bus className="h-5 w-5 text-slate-500" />
@@ -127,7 +114,7 @@ export const DashboardView = () => {
           </div>
         </div>
 
-        {/* ── Error accionable ───────────────────────────────────────── */}
+        {/* Error accionable */}
         {errorResumen && (
           <div className="flex flex-col items-center gap-2 border-b border-slate-200 bg-rose-50/50 px-6 py-4 text-center">
             <p className="text-sm text-rose-600">
@@ -144,8 +131,7 @@ export const DashboardView = () => {
           </div>
         )}
 
-        {/* ── Tarjetas KPI ───────────────────────────────────────────── */}
-        {/* 2×2 en móvil (compacto tipo iOS Health), 4 columnas en desktop */}
+        {/* Tarjetas KPI */}
         <div className="grid grid-cols-2 divide-x divide-y divide-slate-200 border-b border-slate-200 xl:grid-cols-4 xl:divide-y-0">
           <KpiCard
             icono={<Car className="h-4 w-4" />}
@@ -203,7 +189,7 @@ export const DashboardView = () => {
           )}
         </div>
 
-        {/* ── Gráfica de actividad ───────────────────────────────────── */}
+        {/* Gráfica de actividad */}
         {permisos["dashboard.kilometros"] && !errorResumen && (
           <div className="border-b border-slate-200 p-4 md:p-6">
             <KmActivityChart
@@ -214,9 +200,19 @@ export const DashboardView = () => {
           </div>
         )}
 
-        {/* ── Accesos rápidos ────────────────────────────────────────── */}
-        {/* Patrón Notion: empty state útil — CTAs que llevan al usuario
-            a generar los datos, en lugar de decir "no hay datos". */}
+        {/* Unidades destacadas */}
+        {permisos["dashboard.widgets_resumen"] && !errorResumen && (
+          <div className="border-b border-slate-200 p-4 md:p-6">
+            <TopUnitsTable
+              unidades={resumen?.top_unidades ?? []}
+              loading={loadingResumen}
+              mostrarExcesos={permisos["dashboard.excesos_velocidad"]}
+              onUnidadClick={() => navigate("/home/maps")}
+            />
+          </div>
+        )}
+
+        {/* Accesos rápidos */}
         <div className="flex-1 p-4 md:p-6">
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">
             Accesos rápidos
@@ -249,9 +245,7 @@ export const DashboardView = () => {
   );
 };
 
-// ── Card de acceso rápido ─────────────────────────────────────────────────────
-// Patrón Stripe Dashboard: cada card es una puerta de entrada a más detalle.
-// Contexto real en la descripción — no texto genérico.
+// Componente de tarjeta de acceso rápido
 interface QuickAccessCardProps {
   icon: React.ReactNode;
   titulo: string;
