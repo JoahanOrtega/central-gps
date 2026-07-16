@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { CircleHelp } from "lucide-react";
 import {
     UNIT_COLORS,
-    APAGADO_PROLONGADO_SEGS,
+    SIN_REPORTE_PROLONGADO_SEGS,
 } from "../lib/telemetry-status";
 
 //  Estilo del botón
 const toolbarButtonClass =
     "flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700";
 
-const HORAS_APAGADO_PROLONGADO = Math.round(APAGADO_PROLONGADO_SEGS / 3600);
+const HORAS_SIN_REPORTE = Math.round(SIN_REPORTE_PROLONGADO_SEGS / 3600);
 
 // Swatch: círculo que imita el marcador real (fill + stroke) 
 interface SwatchProps {
@@ -121,7 +121,7 @@ export const MapLegend = () => {
                                 fill={UNIT_COLORS.ROJO}
                                 stroke={UNIT_COLORS.BLANCO}
                                 label="Apagada — prolongado"
-                                detail={`Más de ${HORAS_APAGADO_PROLONGADO} horas sin encender`}
+                                detail={`Más de ${HORAS_SIN_REPORTE} horas sin recibir datos`}
                             />
                             <LegendRow
                                 fill={UNIT_COLORS.GRIS}
