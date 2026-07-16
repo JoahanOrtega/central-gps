@@ -85,7 +85,20 @@ const hasExpired = (exp: number): boolean => {
 // La verificación real la hace el backend en cada petición.
 const parseToken = (token: string): JwtPayload | null => {
     try {
-        return JSON.parse(atob(token.split(".")[1])) as JwtPayload;
+        const seg = token.split(".")[1];
+        // JWT usa base64url (RFC 7515): '-' en vez de '+', '_' en vez de '/'
+        // y sin padding. atob() solo entiende base64 ESTÁNDAR — sin esta
+        // conversión, cualquier payload cuyo base64url contenga '-' o '_'
+        // lanza excepción y tumba la sesión completa. Funcionó hasta hoy
+        // por pura suerte de alineación de bytes (bug Sanmer, 2026-07-15).
+        const b64 = seg.replace(/-/g, "+").replace(/_/g, "/");
+        const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+        // atob devuelve un binary string (1 char = 1 byte). Decodificar los
+        // bytes como UTF-8 real para soportar acentos en nombres de empresa
+        // o de usuario sin producir mojibake.
+        const bytes = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+        const json = new TextDecoder("utf-8").decode(bytes);
+        return JSON.parse(json) as JwtPayload;
     } catch {
         return null;
     }
