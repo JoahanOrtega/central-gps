@@ -6,14 +6,11 @@ export type TelemetryMapState =
   | "movimiento"
   | "detenido"
   | "apagado"
-  | "apagado-prolongado"
+  | "sin-reporte"
   | "sin-telemetria";
 
-// Una unidad puede estar apagada por pernocta normal; más de 4h sin encender
-// suele indicar un problema (vehículo en taller, batería desconectada), así que
-// a partir de aquí el marcador se pinta en rojo. Subir el umbral si la flota
-// tiene jornadas más largas.
-export const APAGADO_PROLONGADO_SEGS = 4 * 60 * 60;
+// Umbral para considerar una unidad como "sin reporte prolongado"
+export const SIN_REPORTE_PROLONGADO_SEGS = 4 * 60 * 60;
 
 export const UNIT_COLORS = {
   VERDE: "#26C281",
@@ -36,10 +33,9 @@ export interface TelemetryStatusMeta {
 export const getTelemetryStatusMeta = (
   engineState: EngineState | null | undefined,
   velocidad?: number | null,
-  _segundos?: number | null,
+  segundosSinReporte?: number | null,
   _segundosSistema?: number | null,
   _velMax?: number | null,
-  segundosEnEstado?: number | null,
 ): TelemetryStatusMeta => {
   const effectiveEngineState: EngineState = engineState ?? "unknown";
   const speed = velocidad ?? 0;
@@ -55,23 +51,24 @@ export const getTelemetryStatusMeta = (
     };
   }
 
-  const fillColor =
-    effectiveEngineState === "off" ? UNIT_COLORS.GRIS_OSCURO : UNIT_COLORS.VERDE;
   const strokeColor = UNIT_COLORS.BLANCO;
 
-  if (effectiveEngineState === "off") {
-    const offSecs = segundosEnEstado ?? 0;
-    if (offSecs > APAGADO_PROLONGADO_SEGS) {
-      return {
-        fillColor: UNIT_COLORS.ROJO,
-        strokeColor,
-        mapState: "apagado-prolongado",
-        label: "Apagada (prolongado)",
-        shortLabel: "OFF!",
-        engineState: "off",
-      };
-    }
+  // Si la unidad lleva más de 4 horas sin reportar, se considera "sin reporte prolongado"
+  if ((segundosSinReporte ?? 0) > SIN_REPORTE_PROLONGADO_SEGS) {
+    return {
+      fillColor: UNIT_COLORS.ROJO,
+      strokeColor,
+      mapState: "sin-reporte",
+      label: "Sin reportar (+4 h)",
+      shortLabel: "S/R",
+      engineState: effectiveEngineState,
+    };
+  }
 
+  const fillColor =
+    effectiveEngineState === "off" ? UNIT_COLORS.GRIS_OSCURO : UNIT_COLORS.VERDE;
+
+  if (effectiveEngineState === "off") {
     return {
       fillColor,
       strokeColor,
