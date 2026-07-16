@@ -1,4 +1,5 @@
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
+import { lazyConRecarga } from "@/lib/lazy-retry";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import { LoginPage } from "@/features/auth/pages/LoginPage";
@@ -11,26 +12,26 @@ import { HomeLayout } from "@/layout/HomeLayout";
 // para no inflar el bundle inicial. LoginPage y HomeLayout van en carga directa
 // porque son el primer render y el shell siempre presente tras el login.
 
-const DashboardPage = lazy(() => import("@/features/dashboard/pages/DashboardPage").then(m => ({ default: m.DashboardPage })));
-const MapsPage = lazy(() => import("@/features/maps/pages/MapsPage").then(m => ({ default: m.MapsPage })));
-const ReportsPage = lazy(() => import("@/features/reports/pages/ReportsPage").then(m => ({ default: m.ReportsPage })));
-const UnitsPage = lazy(() => import("@/features/catalogs/units/pages/UnitsPage").then(m => ({ default: m.UnitsPage })));
-const MonitorPage = lazy(() => import("@/features/operation/pages/MonitorPage").then(m => ({ default: m.MonitorPage })));
-const FuelPage = lazy(() => import("@/features/fuel/pages/FuelPage").then(m => ({ default: m.FuelPage })));
-const PointsOfInterestPage = lazy(() => import("@/features/catalogs/pois/pages/PointsOfInterestPage").then(m => ({ default: m.PointsOfInterestPage })));
-const PoiGroupsPage = lazy(() => import("@/features/catalogs/pois/pages/PoiGroupsPage").then(m => ({ default: m.PoiGroupsPage })));
-const ClientsPage = lazy(() => import("@/features/catalogs/clients/pages/ClientsPage").then(m => ({ default: m.ClientsPage })));
-const OperatorsPage = lazy(() => import("@/features/catalogs/operators/pages/OperatorsPage").then(m => ({ default: m.OperatorsPage })));
-const RoutesPage = lazy(() => import("@/features/operation/routes/pages/RoutesPage").then(m => ({ default: m.RoutesPage })));
-const ItinerariesPage = lazy(() => import("@/features/operation/itineraries/pages/ItinerariesPage").then(m => ({ default: m.ItinerariesPage })));
-const AforosPage = lazy(() => import("@/features/operation/aforos/pages/AforosPage").then(m => ({ default: m.AforosPage })));
-const UsersPage = lazy(() => import("@/features/catalogs/users/pages/UsersPage").then(m => ({ default: m.UsersPage })));
-const PublicUnitTrackPage = lazy(() => import("@/features/public-track/pages/PublicUnitTrackPage").then(m => ({ default: m.PublicUnitTrackPage })));
+const DashboardPage = lazyConRecarga(() => import("@/features/dashboard/pages/DashboardPage").then(m => ({ default: m.DashboardPage })));
+const MapsPage = lazyConRecarga(() => import("@/features/maps/pages/MapsPage").then(m => ({ default: m.MapsPage })));
+const ReportsPage = lazyConRecarga(() => import("@/features/reports/pages/ReportsPage").then(m => ({ default: m.ReportsPage })));
+const UnitsPage = lazyConRecarga(() => import("@/features/catalogs/units/pages/UnitsPage").then(m => ({ default: m.UnitsPage })));
+const MonitorPage = lazyConRecarga(() => import("@/features/operation/pages/MonitorPage").then(m => ({ default: m.MonitorPage })));
+const FuelPage = lazyConRecarga(() => import("@/features/fuel/pages/FuelPage").then(m => ({ default: m.FuelPage })));
+const PointsOfInterestPage = lazyConRecarga(() => import("@/features/catalogs/pois/pages/PointsOfInterestPage").then(m => ({ default: m.PointsOfInterestPage })));
+const PoiGroupsPage = lazyConRecarga(() => import("@/features/catalogs/pois/pages/PoiGroupsPage").then(m => ({ default: m.PoiGroupsPage })));
+const ClientsPage = lazyConRecarga(() => import("@/features/catalogs/clients/pages/ClientsPage").then(m => ({ default: m.ClientsPage })));
+const OperatorsPage = lazyConRecarga(() => import("@/features/catalogs/operators/pages/OperatorsPage").then(m => ({ default: m.OperatorsPage })));
+const RoutesPage = lazyConRecarga(() => import("@/features/operation/routes/pages/RoutesPage").then(m => ({ default: m.RoutesPage })));
+const ItinerariesPage = lazyConRecarga(() => import("@/features/operation/itineraries/pages/ItinerariesPage").then(m => ({ default: m.ItinerariesPage })));
+const AforosPage = lazyConRecarga(() => import("@/features/operation/aforos/pages/AforosPage").then(m => ({ default: m.AforosPage })));
+const UsersPage = lazyConRecarga(() => import("@/features/catalogs/users/pages/UsersPage").then(m => ({ default: m.UsersPage })));
+const PublicUnitTrackPage = lazyConRecarga(() => import("@/features/public-track/pages/PublicUnitTrackPage").then(m => ({ default: m.PublicUnitTrackPage })));
 
 // El panel ERP solo lo descarga sudo_erp.
-const EmpresasPage = lazy(() => import("@/features/erp/pages/EmpresasPage").then(m => ({ default: m.EmpresasPage })));
-const PermisosPage = lazy(() => import("@/features/erp/pages/PermisosPage").then(m => ({ default: m.PermisosPage })));
-const AuditoriaPage = lazy(() => import("@/features/erp/pages/AuditoriaPage").then(m => ({ default: m.AuditoriaPage })));
+const EmpresasPage = lazyConRecarga(() => import("@/features/erp/pages/EmpresasPage").then(m => ({ default: m.EmpresasPage })));
+const PermisosPage = lazyConRecarga(() => import("@/features/erp/pages/PermisosPage").then(m => ({ default: m.PermisosPage })));
+const AuditoriaPage = lazyConRecarga(() => import("@/features/erp/pages/AuditoriaPage").then(m => ({ default: m.AuditoriaPage })));
 
 const PageLoader = ({ name }: { name: string }) => (
   <div className="flex h-full flex-col items-center justify-center gap-3">
