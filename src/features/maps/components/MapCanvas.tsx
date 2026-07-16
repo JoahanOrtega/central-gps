@@ -9,6 +9,7 @@ import { useMapUnits } from "../hooks/useMapUnits";
 import { useMapRoute } from "../hooks/useMapRoute";
 import { useMapCatalogRoutes } from "../hooks/useMapCatalogRoutes";
 import { RoutePlayback } from "./RoutePlayback";
+import { UnitBottomSheet } from "./UnitBottomSheet";
 
 // API imperativa que MapsView usa para controlar el mapa sin tocar su estado
 // interno (patrón forwardRef + useImperativeHandle).
@@ -71,9 +72,14 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
     infoWindowRef,
   });
 
+  // Unidad mostrada en el bottom sheet móvil (null = cerrado). En desktop
+  // el detalle sigue siendo el InfoWindow anclado al marcador.
+  const [unidadSheet, setUnidadSheet] = useState<MapUnitItem | null>(null);
+
   const { focusUnit, showUnits, hideUnits, updateUnit } = useMapUnits({
     mapRef,
     infoWindowRef,
+    onSelectUnitMobile: setUnidadSheet,
   });
 
   const {
@@ -186,6 +192,13 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
           onClose={() => setPlaybackActive(false)}
         />
       )}
+
+      {/* Detalle de unidad en móvil — el propio componente se oculta en
+          md+ (className md:hidden), donde manda el InfoWindow clásico. */}
+      <UnitBottomSheet
+        unit={unidadSheet}
+        onClose={() => setUnidadSheet(null)}
+      />
     </div>
   );
 });

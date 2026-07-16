@@ -16,12 +16,18 @@ export interface UseMapUnitsReturn {
 interface UseMapUnitsParams {
     mapRef: React.RefObject<google.maps.Map | null>;
     infoWindowRef: React.RefObject<google.maps.InfoWindow | null>;
+    // Callback para abrir el bottom sheet en móvil al hacer click en un marcador de unidad.
+    onSelectUnitMobile?: (unit: MapUnitItem) => void;
 }
+
+const esViewportMovil = (): boolean =>
+    window.matchMedia("(max-width: 767px)").matches;
 
 // ── Hook principal ────────────────────────────────────────────────────────────
 export const useMapUnits = ({
     mapRef,
     infoWindowRef,
+    onSelectUnitMobile,
 }: UseMapUnitsParams): UseMapUnitsReturn => {
 
     // Map<id_unidad, AdvancedMarkerElement> — permite actualizar sin recrear
@@ -48,6 +54,10 @@ export const useMapUnits = ({
         const infoWindow = infoWindowRef.current!;
 
         marker.addListener("gmp-click", () => {
+            if (onSelectUnitMobile && esViewportMovil()) {
+                onSelectUnitMobile(unit);
+                return;
+            }
             infoWindow.setContent(buildUnitInfoWindowContent(unit));
             infoWindow.open({ map, anchor: marker });
             const t = unit.telemetry;
@@ -73,6 +83,12 @@ export const useMapUnits = ({
 
         map.panTo(position);
         map.setZoom(17);
+
+        // Si estamos en móvil y hay un callback para abrir el bottom sheet, lo llamamos y no abrimos el InfoWindow.
+        if (onSelectUnitMobile && esViewportMovil()) {
+            onSelectUnitMobile(unit);
+            return;
+        }
 
         const existing = unitMarkersRef.current.get(unit.id);
         if (existing) {
