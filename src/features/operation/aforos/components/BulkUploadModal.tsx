@@ -10,7 +10,7 @@ import {
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"; 
 import type { GroupItem, AforoItem, RouteItem } from "../types/aforo.types"; 
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva"; 
-import ExcelJS from "exceljs";
+import { cargarExcelJS } from "@/lib/excel-lazy";
 
 interface BulkUploadModalProps {
   open: boolean;
@@ -121,6 +121,8 @@ export const BulkUploadModal = ({
             reader.readAsArrayBuffer(file);
           });
 
+          // Carga perezosa — ver src/lib/excel-lazy.ts
+          const ExcelJS = await cargarExcelJS();
           const workbook = new ExcelJS.Workbook();
           await workbook.xlsx.load(buffer);
           const worksheet = workbook.worksheets[0];
