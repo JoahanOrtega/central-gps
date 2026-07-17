@@ -4,6 +4,7 @@ import { Clock, ExternalLink, MapPin, Power, Gauge, X } from "lucide-react";
 import { formatElapsedTimeFromApiDate, parseApiDate } from "@/lib/date-time";
 import { reverseGeocodeCached } from "@/lib/geocode-cache";
 import {
+    getEngineStateLabel,
     getTelemetryStatusMeta,
     getSpeedTextColor,
 } from "../lib/telemetry-status";
@@ -62,18 +63,9 @@ const FilaDato = ({
 
 /**
  * Bottom sheet con el detalle de una unidad — SOLO móvil.
- *
- * Patrón de Google Maps / Uber / Apple Maps: panel que sube desde abajo a
- * ancho completo con asa de arrastre; se cierra deslizando hacia abajo,
- * tocando el fondo o con la X. El header hace ECO del marcador del mapa
- * (mismo círculo con número y color de estado) para que el usuario conecte
- * visualmente "esto que subió" con "eso que toqué" (consistencia, Nielsen
- * #4). En desktop se conserva el InfoWindow clásico anclado.
  */
 export const UnitBottomSheet = ({ unit, onClose }: UnitBottomSheetProps) => {
     const [direccion, setDireccion] = useState<string | null>(null);
-    // Animación de entrada: montado → un frame después sube (transition).
-    const [visible, setVisible] = useState(false);
     // Arrastre del asa: translateY en vivo mientras el dedo baja.
     const [dragY, setDragY] = useState(0);
     const touchStartY = useRef<number | null>(null);
@@ -101,19 +93,15 @@ export const UnitBottomSheet = ({ unit, onClose }: UnitBottomSheetProps) => {
         };
     }, [t?.latitud, t?.longitud]);
 
-    // Entrada animada + bloquear el scroll del fondo mientras está abierto
+    // Evita que el body haga scroll mientras el sheet está abierto. El
+    // portal a document.body lo hace independiente de la jerarquía del layout
+    // (overflow:hidden en un ancestro no recorta el sheet), pero el body
+    // sigue pudiendo scrollearse.
     useEffect(() => {
-        if (!unit) {
-            setVisible(false);
-            return;
-        }
-        // requestAnimationFrame: dejar que el DOM pinte el estado inicial
-        // (abajo) antes de transicionar hacia arriba.
-        const raf = requestAnimationFrame(() => setVisible(true));
+        if (!unit) return;
         const previo = document.body.style.overflow;
         document.body.style.overflow = "hidden";
         return () => {
-            cancelAnimationFrame(raf);
             document.body.style.overflow = previo;
         };
     }, [unit]);
@@ -129,6 +117,12 @@ export const UnitBottomSheet = ({ unit, onClose }: UnitBottomSheetProps) => {
         unit.vel_max,
     );
     const desdeHace = formatSegundos(t?.segundos_en_estado_actual);
+    const esSinReporte = meta.mapState === "sin-reporte";
+    // Muda: el tiempo del chip es el del silencio (último dato), no el del
+    // estado motor — cada número junto a su pregunta.
+    const tiempoChip = esSinReporte
+        ? formatSegundos(t?.segundos)
+        : desdeHace;
     const nombre = [unit.marca, unit.modelo].filter(Boolean).join(" ");
     const enMovimiento =
         meta.engineState === "on" && Math.round(t?.velocidad ?? 0) >= 1;
@@ -164,20 +158,14 @@ export const UnitBottomSheet = ({ unit, onClose }: UnitBottomSheetProps) => {
                 type="button"
                 aria-label="Cerrar detalle"
                 onClick={onClose}
-                className={`absolute inset-0 bg-black/25 transition-opacity duration-200 ${
-                    visible ? "opacity-100" : "opacity-0"
-                }`}
+                className="absolute inset-0 bg-black/25"
             />
 
             <div
                 role="dialog"
                 aria-label={`Detalle de la unidad ${unit.numero ?? ""}`}
                 className="absolute inset-x-0 bottom-0 rounded-t-3xl bg-white pb-[max(env(safe-area-inset-bottom),14px)] shadow-[0_-12px_40px_rgba(15,23,42,0.18)] transition-transform duration-200 ease-out"
-                style={{
-                    transform: visible
-                        ? `translateY(${dragY}px)`
-                        : "translateY(100%)",
-                }}
+                style={{ transform: `translateY(${dragY}px)` }}
             >
                 {/* Asa de arrastre */}
                 <div
@@ -214,9 +202,9 @@ export const UnitBottomSheet = ({ unit, onClose }: UnitBottomSheetProps) => {
                                 style={{ backgroundColor: meta.fillColor }}
                             />
                             {meta.label}
-                            {desdeHace && (
+                            {tiempoChip && (
                                 <span className="opacity-70">
-                                    · {desdeHace}
+                                    · {tiempoChip}
                                 </span>
                             )}
                         </span>
@@ -253,9 +241,13 @@ export const UnitBottomSheet = ({ unit, onClose }: UnitBottomSheetProps) => {
 
                     <FilaDato
                         icono={<Power className="h-4 w-4" />}
-                        etiqueta="Estado"
+                        etiqueta={esSinReporte ? "Motor" : "Estado"}
                     >
-                        <span className="font-medium">{meta.label}</span>
+                        <span className="font-medium">
+                            {esSinReporte
+                                ? getEngineStateLabel(meta.engineState)
+                                : meta.label}
+                        </span>
                         {desdeHace && (
                             <span className="block text-xs text-slate-400">
                                 desde hace {desdeHace}

@@ -72,11 +72,13 @@ const UnitStatusIcon = memo(({ unit }: { unit: MapUnitItem }) => {
         {enMov ? '⮝' : '●'}
       </span>
       <span className="text-[9px] font-semibold leading-none" style={{ color: speedC }}>
-        {engineState === "on"
-          ? (speed >= 1 ? `${Math.round(speed)} km/h` : 'Relentí')
-          : engineState === "off"
-            ? 'Apagada'
-            : 'Sin datos'}
+        {meta.mapState === "sin-reporte"
+          ? 'Sin reporte'
+          : engineState === "on"
+            ? (speed >= 1 ? `${Math.round(speed)} km/h` : 'Relentí')
+            : engineState === "off"
+              ? 'Apagada'
+              : 'Sin datos'}
       </span>
       {(t?.door === 1 || t?.inmovilizador === 1 || ((t?.voltaje ?? 11) < 10)) && (
         <div className="flex gap-0.5 text-[9px]">
