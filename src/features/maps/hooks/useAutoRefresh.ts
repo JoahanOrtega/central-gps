@@ -50,9 +50,9 @@ export const useAutoRefresh = ({
       return;
     }
 
-    // Wrapper que protege contra solapamiento antes de cada ejecución
+    // Función que ejecuta el callback de forma segura, evitando solapamiento
     const runSafe = async () => {
-      if (isRunning.current) return;
+      if (isRunning.current || document.hidden) return;
 
       isRunning.current = true;
       try {
