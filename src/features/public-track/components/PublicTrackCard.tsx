@@ -1,3 +1,4 @@
+import { parseApiDate } from "@/lib/date-time";
 import { Clock, Gauge, Navigation } from "lucide-react";
 import {
     getTelemetryStatusLabel,
@@ -30,8 +31,15 @@ export const PublicTrackCard = ({
     const pos = data?.posicion;
     const sinSenal = !pos || pos.latitud == null || pos.longitud == null;
     const engineState = (pos?.engine_state ?? "unknown") as EngineState;
-    const estadoLabel = getTelemetryStatusLabel(engineState, pos?.velocidad);
-    const mapState = getTelemetryMapState(engineState, pos?.velocidad);
+    // Si no hay reporte, calcular tiempo desde el último dato para mostrarlo en la tarjeta.
+    const fechaUltimoDato = parseApiDate(pos?.fecha_hora_gps);
+    const segundosSinReporte = fechaUltimoDato
+        ? Math.max(0, (Date.now() - fechaUltimoDato.getTime()) / 1000)
+        : null;
+    const estadoLabel = getTelemetryStatusLabel(
+        engineState, pos?.velocidad, segundosSinReporte);
+    const mapState = getTelemetryMapState(
+        engineState, pos?.velocidad, segundosSinReporte);
 
     return (
         <div className="absolute inset-x-4 bottom-4 mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-lg">

@@ -1,6 +1,6 @@
 import type { MapPoiItem, MapUnitItem, RoutePoint } from "../types/map.types";
 import {
-  getTelemetryStatusLabel,
+  getEngineStateLabel,
   getTelemetryStatusMeta,
 } from "./telemetry-status";
 import {
@@ -128,7 +128,10 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
     telemetry?.segundos_sistema,
     unit.vel_max,
   );
-  const statusLabel = getTelemetryStatusLabel(engineState, velocidad);
+  // meta.label conoce la regla de silencio ("Sin reportar +4h") — el
+  // helper viejo etiquetaba por el último paquete y contradecía al color.
+  const statusLabel = meta.label;
+  const esSinReporte = meta.mapState === "sin-reporte";
   const dotColor = meta.fillColor;
 
   // ── Último reporte: fecha absoluta + tiempo relativo ─────────────────
@@ -209,6 +212,18 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
 
   // Si hay ubicación, velocidad o viaje, mostrar fila de Ubicación; si no, ocultar.
   const hasUbicacion = typeof lat === "number" && typeof lng === "number";
+
+  // Si no hay reporte, mostrar fila de Motor con tiempo en estado; si hay reporte, ocultar.
+  const rowMotor = esSinReporte
+    ? `
+    <div style="${rowStyle}">
+      <span style="${labelStyle}">Motor</span>
+      <span style="${valueStyle}">
+        <span style="font-weight:600;">${escapeHtml(getEngineStateLabel(engineState))}</span>
+        ${tiempoEnEstado ? `<span style="${valueSecondary}">desde hace ${escapeHtml(tiempoEnEstado)}</span>` : ""}
+      </span>
+    </div>`
+    : "";
 
   const rowReporte = `
     <div style="${hasUbicacion || mostrarVelocidad || mostrarViaje ? rowStyle : rowStyleLast}">
@@ -325,13 +340,14 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
             line-height:1.4;
           ">
             <span style="width:6px; height:6px; border-radius:999px; background:${dotColor};"></span>
-            ${escapeHtml(statusLabel)}${tiempoEnEstado ? ` <span style="opacity:0.7;">· ${escapeHtml(tiempoEnEstado)}</span>` : ""}
+            ${escapeHtml(statusLabel)}${esSinReporte ? ` <span style="opacity:0.7;">· hace ${escapeHtml(tiempoRelativoReporte)}</span>` : tiempoEnEstado ? ` <span style="opacity:0.7;">· ${escapeHtml(tiempoEnEstado)}</span>` : ""}
           </span>
         </span>
       </div>
  
       <!-- Datos clave (Ley de Proximidad + Similitud) -->
       <div style="border-top:1px solid #e2e8f0;">
+        ${rowMotor}
         ${rowReporte}
         ${rowUbicacion}
         ${rowVelocidad}

@@ -110,30 +110,43 @@ export const getTelemetryStatusColor = (
   getTelemetryStatusMeta(engineState, velocidad, segundos, segundosSistema, velMax)
     .fillColor;
 
+/**
+ * Etiqueta legible del estado del MOTOR (sin regla de silencio).
+ * Úsala solo para describir el motor en sí — para el estado general de la
+ * unidad (que incluye "Sin reportar") usa getTelemetryStatusMeta().label.
+ */
+export const getEngineStateLabel = (
+  engineState: EngineState | null | undefined,
+): string => {
+  if (engineState === "on") return "Encendida";
+  if (engineState === "off") return "Apagada";
+  return "Sin datos";
+};
+
+/**
+ * @deprecated Delegación a getTelemetryStatusMeta().label. Pasa `segundos`
+ * (tiempo desde el último dato) para que la regla "sin reportar +4h"
+ * aplique — sin él, una unidad muda se etiqueta por su último paquete.
+ */
 export const getTelemetryStatusLabel = (
   engineState: EngineState | null | undefined,
   velocidad?: number | null,
-): string => getTelemetryStatusMeta(engineState, velocidad).label;
-
-export const getTelemetryStatusShortLabel = (
-  engineState: EngineState | null | undefined,
-  velocidad?: number | null,
-): string => getTelemetryStatusMeta(engineState, velocidad).shortLabel;
-
+  segundos?: number | null,
+): string => getTelemetryStatusMeta(engineState, velocidad, segundos).label;
+/**
+ * @deprecated Delegación a getTelemetryStatusMeta().mapState — pasa
+ * `segundos` (tiempo desde el último dato) para que la regla de silencio
+ * "sin reportar +4h" aplique; sin él, clasifica por el último paquete.
+ */
 export const getTelemetryMapState = (
   engineState: EngineState | null | undefined,
   velocidad?: number | null,
-): TelemetryMapState => getTelemetryStatusMeta(engineState, velocidad).mapState;
+  segundos?: number | null,
+): TelemetryMapState =>
+  getTelemetryStatusMeta(engineState, velocidad, segundos).mapState;
 
-export const isEngineOff = (
-  engineState: EngineState | null | undefined,
-): boolean => engineState === "off";
-
-export const isEngineOn = (
-  engineState: EngineState | null | undefined,
-): boolean => engineState === "on";
-
-// Verde normal, amarillo dentro de 5 km/h del límite, rojo en exceso
+// Color del texto de velocidad según cercanía al límite de la unidad:
+// verde normal, ámbar a 5 km/h del límite, rojo en exceso.
 export const getSpeedTextColor = (velocidad: number, velMax: number): string => {
   if (velMax <= 0) return "#26C281";
   if (Math.round(velocidad) >= velMax) return "#ed6b75";
