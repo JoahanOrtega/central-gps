@@ -2,21 +2,14 @@ import { useAuthStore } from "@/stores/authStore";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
-// Tipos de respuesta de error que aceptamos 
-// El backend puede devolver el error en varias formas:
-//   { error: "Mensaje plano" }
-//   { error: { campo: ["msg1", "msg2"] } }    ← Marshmallow validate
-//   { message: "..." }
-//   "Mensaje suelto"
+// Tipos de respuesta de error de la API
 
 interface ApiErrorResponse {
   error?: string | Record<string, string[] | string>;
   message?: string;
 }
 
-// Clase de error tipada 
-// Reemplaza al `new Error(...)` plano. La vista puede inspeccionar .status
-// para decidir qué banner mostrar (ver clasificarError en ErrorBanner.tsx).
+// Clase de error personalizada para manejar errores de la API
 
 export class ApiError extends Error {
   readonly status: number;
@@ -230,6 +223,7 @@ export const apiUpload = async <T>(
   endpoint: string,
   file: File,
   fieldName = "file",
+  _esReintento = false,
 ): Promise<T> => {
   const token = useAuthStore.getState().token;
 
@@ -245,6 +239,16 @@ export const apiUpload = async <T>(
     credentials: "include",
     body: formData,
   });
+
+  // Si la respuesta es 401 y no es un reintento, intentamos refrescar el token y reintentar la subida
+  if (response.status === 401 && !_esReintento) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      return apiUpload<T>(endpoint, file, fieldName, true);
+    }
+    await useAuthStore.getState().logout();
+    throw new ApiError("Sesión expirada. Por favor inicia sesión nuevamente.", 401);
+  }
 
   const data = await response.json().catch(() => null);
 
