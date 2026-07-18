@@ -11,6 +11,7 @@ import { useTripDrawerStore } from "../stores/tripDrawerStore";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { usePermiso } from "@/hooks/usePermiso";
 import { notify } from "@/stores/notificationStore";
+import { useMapsDeepLink } from "../hooks/useMapsDeepLink";
 
 import type { MapUnitItem, RoutePoint, RouteDisplayOptions } from "../types/map.types";
 import { useUnitsLive } from "../hooks/useUnitsLive";
@@ -41,6 +42,15 @@ export const MapsView = () => {
   }, [idEmpresa]);
 
   const closeAllDrawers = useCallback(() => setActiveDrawer(null), []);
+  // Deep-link: si la URL contiene ?unidad=<id>, centra el mapa en esa unidad
+  // y abre el drawer. Viene de un click en la campanita o desde el dashboard.
+  // El hook limpia el parámetro de la URL tras procesar (replace) para que el
+  // botón "atrás" no repita el foco al volver a esta ruta.
+  useMapsDeepLink({
+    units: unitsLive.units,
+    mapCanvasRef,
+    onOpenUnitsDrawer: () => setActiveDrawer("units"),
+  });
 
   const toggleDrawer = useCallback((drawer: Exclude<ActiveDrawer, null>) => {
     setActiveDrawer((current) => (current === drawer ? null : drawer));

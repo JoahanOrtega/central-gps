@@ -3,6 +3,7 @@ import { unitService } from "../services/unitService";
 import { resolveUnitImageSrc } from "../lib/unit-image";
 import type { AvlModelOption, OperatorOption, UnitGroupOption } from "../services/catalogServices";
 import { inputClass } from "./new-unit-form.constants";
+import { TIPOS_UNIDAD } from "../constants/unitTypes";
 import type { FieldProps, NewUnitStepProps } from "../types/new-unit-form.types";
 
 interface NewUnitGeneralStepProps extends NewUnitStepProps {
@@ -94,20 +95,10 @@ export const NewUnitGeneralStep = ({
           <Field label="Tipo *" error={errors.tipo} touched={touched.tipo}>
             <select name="tipo" value={form.tipo} onChange={onChange} onBlur={onBlur} className={inputClass}>
               <option value="">- - -</option>
-              <option value="1">Camión</option>
-              <option value="2">Camioneta / Van</option>
-              <option value="3">Tracto Camión</option>
-              <option value="4">Tractor</option>
-              <option value="5">Camión de carga</option>
-              <option value="6">Grúa</option>
-              <option value="7">Automóvil</option>
-              <option value="8">Motocicleta</option>
-              <option value="10">Revolvedora</option>
-              <option value="12">Auto de carga</option>
-              <option value="14">Pick Up</option>
-              <option value="15">Montacargas</option>
-              <option value="16">Excavadora</option>
-              <option value="17">Camión de Volteo</option>
+              {/* Catálogo centralizado en unitTypes.ts */}
+              {TIPOS_UNIDAD.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
             </select>
           </Field>
           <Field label="Odómetro *" error={errors.odometro_inicial} touched={touched.odometro_inicial}>

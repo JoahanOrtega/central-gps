@@ -39,9 +39,12 @@ export const NotificationBell = () => {
 
     const onClickNotificacion = (n: NotificacionItem) => {
         if (!n.leida) marcar.mutate([n.id]);
-        // Deep-link a la unidad específica (?unidad=) está en el backlog;
-        // por ahora el mapa es el destino natural de toda alerta de unidad.
-        if (n.id_unidad) navigate("/home/maps");
+
+        if (n.id_unidad) {
+            // ?unidad= activa el deep-link en useMapsDeepLink:
+            // el mapa centra la unidad y abre el drawer automáticamente.
+            navigate(`/home/maps?unidad=${n.id_unidad}`);
+        }
     };
 
     return (
