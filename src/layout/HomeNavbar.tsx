@@ -103,10 +103,11 @@ const NAV_ITEMS: NavItem[] = [
 
   // Combustible
   {
-    id: "fuel-general", label: "General",
-    path: "/home/fuel/general", grupo: "fuel",
-    permiso: "cargas.ver", disponible: false,
+    id: "cargas", label: "Carga de Combustible",
+    path: "/home/fuel/cargas", grupo: "fuel",
+    permiso: "cargas.ver", disponible: true,
     icon: <Fuel className="h-4 w-4 shrink-0" />,
+    badge: "Nuevo",
   },
 ];
 
