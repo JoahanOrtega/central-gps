@@ -207,7 +207,7 @@ export const DashboardView = () => {
               unidades={resumen?.top_unidades ?? []}
               loading={loadingResumen}
               mostrarExcesos={permisos["dashboard.excesos_velocidad"]}
-              onUnidadClick={() => navigate("/home/maps")}
+              onUnidadClick={(u) => navigate(`/home/maps?unidad=${u.id}`)}
             />
           </div>
         )}
