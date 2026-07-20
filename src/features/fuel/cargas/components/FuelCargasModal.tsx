@@ -322,7 +322,7 @@ export const FuelCargasModal = ({ open, onClose, editingItem, onSave }: FuelCarg
                       value={formData.kms_odo ?? ""} 
                       onChange={(e) => handleChangeNum(e, 'kms_odo')} 
                       className="w-full h-10 rounded-lg border px-3 text-xs outline-none focus:border-blue-500 border-slate-200" 
-                      placeholder={`Ej: 45210 (Mín: ${limiteInferior}`}
+                      placeholder={`Ej: 45210 (Mín: ${limiteInferior})`}
                     />
                   </div>
                   <div>

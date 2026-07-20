@@ -357,8 +357,6 @@ export const FuelCargasView = () => {
     </div>
   );
 
-  if (loading) return <div className="p-8 text-center text-slate-500 animate-pulse font-medium">Cargando combustible...</div>;
-
   return (
     <CatalogLayout>
       <CatalogHeader
@@ -372,7 +370,11 @@ export const FuelCargasView = () => {
       />
 
       <div className="w-full flex flex-col min-h-0 h-[calc(100vh-255px)] max-h-[calc(100vh-255px)] px-4 py-2 md:px-6 md:py-3 overflow-hidden">
-        {cargas.length === 0 ? (
+        {loading ? (
+          <div className="p-8 text-center text-slate-500 animate-pulse font-medium">
+            Cargando combustible...
+          </div>
+        ) : cargas.length === 0 ? (
           <FuelCargasEmptyState search={search} onClearSearch={() => setSearch("")} puedeCrear={puedeCrear} onAddClick={handleOpenAdd} />
         ) : (
           <FuelCargasTable items={paginatedItems} canEdit={puedeEditar} canDelete={puedeEliminar} onEdit={(id) => { const item = cargas.find((c) => c.id_combustible === id); if (item) { setEditingItem(item); setIsModalOpen(true); } }} onDelete={setItemToDelete} />

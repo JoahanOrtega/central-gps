@@ -131,6 +131,11 @@ export const FuelCargasBulkUploadModal = ({
                     if (col === 2) {
                       return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
                     }
+                    const hh = String(d.getHours()).padStart(2, '0');
+                    const mm = String(d.getMinutes()).padStart(2, '0');
+                    if (hh !== "00" || mm !== "00") {
+                      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${hh}:${mm}`;
+                    }
                     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                   }
 
@@ -183,7 +188,7 @@ export const FuelCargasBulkUploadModal = ({
             continue; 
           }
 
-          const ultimoOdoRegistrado = Number(matchedUnit.odometro_fisico) || 0;
+          const ultimoOdoRegistrado = Number(matchedUnit.odometro_physico) || 0;
           if (kms_odo < ultimoOdoRegistrado) {
             localIgnoredCount++;
             continue;
@@ -232,7 +237,7 @@ export const FuelCargasBulkUploadModal = ({
             continue;  
           }
 
-          const combinedFechaCarga = hora_carga ? `${soloFechaParte} ${hora_carga}` : soloFechaParte;
+          const combinedFechaCarga = hora_carga ? `${soloFechaParte} ${hora_carga}` : fecha_carga;
 
           const nuevoItem: PrevisualizacionCarga = {
             unidad: codigoEconomicoLimpio, 
@@ -257,7 +262,7 @@ export const FuelCargasBulkUploadModal = ({
         newItemsThisEvent = [...newItemsThisEvent, ...fileItems]; 
         newLoadedFiles.push(file.name); 
       } catch (err) {
-        console.error("Error procesando el archivo:", err); 
+        console.error(err); 
       }
     }
 
@@ -304,7 +309,7 @@ export const FuelCargasBulkUploadModal = ({
       handleClearAll(); 
       onClose(); 
     } catch (error) {
-      console.error("Error al guardar:", error); 
+      console.error(error); 
     } finally {
       setIsSubmitting(false); 
     }
