@@ -17,7 +17,7 @@ const MapsPage = lazyConRecarga(() => import("@/features/maps/pages/MapsPage").t
 const ReportsPage = lazyConRecarga(() => import("@/features/reports/pages/ReportsPage").then(m => ({ default: m.ReportsPage })));
 const UnitsPage = lazyConRecarga(() => import("@/features/catalogs/units/pages/UnitsPage").then(m => ({ default: m.UnitsPage })));
 const MonitorPage = lazyConRecarga(() => import("@/features/operation/pages/MonitorPage").then(m => ({ default: m.MonitorPage })));
-const FuelPage = lazyConRecarga(() => import("@/features/fuel/pages/FuelPage").then(m => ({ default: m.FuelPage })));
+const CargasPage = lazyConRecarga(() => import("@/features/fuel/cargas/pages/CargasPage").then(m => ({ default: m.CargasPage })));
 const PointsOfInterestPage = lazyConRecarga(() => import("@/features/catalogs/pois/pages/PointsOfInterestPage").then(m => ({ default: m.PointsOfInterestPage })));
 const PoiGroupsPage = lazyConRecarga(() => import("@/features/catalogs/pois/pages/PoiGroupsPage").then(m => ({ default: m.PoiGroupsPage })));
 const ClientsPage = lazyConRecarga(() => import("@/features/catalogs/clients/pages/ClientsPage").then(m => ({ default: m.ClientsPage })));
@@ -143,8 +143,8 @@ export const appRouter = createBrowserRouter([
         element: <PermisoRoute permiso="rutas.ver"><LazyPage name="Rutas"><RoutesPage /></LazyPage></PermisoRoute>,
       },
       {
-        path: "fuel/general",
-        element: <PermisoRoute permiso="cargas.ver"><LazyPage name="Combustible"><FuelPage /></LazyPage></PermisoRoute>,
+        path: "fuel/cargas",
+        element: <PermisoRoute permiso="cargas.ver"><LazyPage name="Combustible"><CargasPage /></LazyPage></PermisoRoute>,
       },
 
       // ErpRoute verifica el rol sudo_erp antes de dar acceso.
