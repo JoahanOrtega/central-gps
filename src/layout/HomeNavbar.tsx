@@ -3,6 +3,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useCompanyStore } from "@/stores/companyStore";
 import { usePermisos } from "@/hooks/usePermiso";
 import {
+  History,
   Building2, CalendarClock, ChevronDown,
   Fuel, MapPinned, Menu, Route, ShieldCheck,
   Tag, Truck, Users, Map, FolderOpen, ClipboardList,
@@ -107,7 +108,6 @@ const NAV_ITEMS: NavItem[] = [
     path: "/home/fuel/cargas", grupo: "fuel",
     permiso: "cargas.ver", disponible: true,
     icon: <Fuel className="h-4 w-4 shrink-0" />,
-    badge: "Nuevo",
   },
 ];
 
@@ -165,18 +165,7 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
 
   return (
     <header className="border-b border-slate-200 bg-white">
-      {/* Banda indicadora de modo administrador */}
-      {esSudoErp && (
-        <div className="flex items-center justify-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-1">
-          <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-          <span className="text-center text-[11px] font-medium text-amber-700 sm:text-xs">
-            Modo Administrador ERP — tienes acceso total al sistema
-          </span>
-        </div>
-      )}
-
-      <div className="flex min-h-[72px] items-center justify-between gap-3 px-3 md:h-[88px] md:px-6">
-
+      <div className="flex min-h-[60px] items-center justify-between gap-3 px-3 md:h-[72px] md:px-6">
         {/* Navegación izquierda */}
         <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
           {/* Botón menú móvil */}
@@ -308,6 +297,15 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
         <div className="flex shrink-0 items-center gap-2 md:gap-3">
           {esSudoErp ? (
             <>
+              {/* Badge de modo administrador: reemplaza a la banda ámbar
+                  de ancho completo. */}
+              <span
+                title="Modo Administrador ERP — tienes acceso total al sistema"
+                className="flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700"
+              >
+                <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                <span className="hidden lg:inline">ERP</span>
+              </span>
               <button
                 onClick={() => setSwitchModalOpen(true)}
                 aria-label={

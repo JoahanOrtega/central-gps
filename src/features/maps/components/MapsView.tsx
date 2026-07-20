@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MapPinned } from "lucide-react";
 
 import { MapToolbar } from "./MapToolbar";
 import { MapCanvas, type MapCanvasHandle } from "./MapCanvas";
@@ -16,6 +15,7 @@ import { useMapsDeepLink } from "../hooks/useMapsDeepLink";
 import type { MapUnitItem, RoutePoint, RouteDisplayOptions } from "../types/map.types";
 import { useUnitsLive } from "../hooks/useUnitsLive";
 import { RoutesDrawer } from "./drawers/RoutesDrawer";
+import { MapPinned } from "lucide-react";
 
 type ActiveDrawer = "units" | "trips" | "routes" | null;
 
@@ -144,12 +144,13 @@ export const MapsView = () => {
   }, []);
 
   return (
-    <main className="h-full overflow-hidden bg-[#f5f6f8] p-3 md:p-6">
-      <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <div className="flex flex-row items-center justify-between gap-3 border-b border-slate-200 px-3 py-2 md:px-6 md:py-4">
-          <div className="hidden items-center gap-3 md:flex">
-            <MapPinned className="h-5 w-5 text-slate-500" />
-            <h1 className="text-xl font-semibold text-slate-800 md:text-2xl">Mapa</h1>
+    <main className="h-full overflow-hidden">
+      <section className="flex h-full min-h-0 flex-col overflow-hidden">
+        {/* Franja compacta: título a la izquierda, botones a la derecha. */}
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-3 py-1.5">
+          <div className="hidden items-center gap-2 md:flex">
+            <MapPinned className="h-4 w-4 text-slate-500" />
+            <h1 className="text-base font-semibold text-slate-800">Mapa</h1>
           </div>
           <MapToolbar
             onToggleTraffic={() => mapCanvasRef.current?.toggleTraffic()}

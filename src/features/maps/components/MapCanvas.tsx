@@ -171,14 +171,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle>((_, ref) => {
             <Play className="h-4 w-4" />
           </button>
         )}
-        <button
-          type="button"
-          className="flex h-10 w-10 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
-          title="Pantalla completa"
-          onClick={toggleFullscreen}
-        >
-          ⛶
-        </button>
+        {/* El botón de pantalla completa se retiró con el layout full-bleed */}
       </div>
 
       <div ref={containerRef} className="h-full w-full" />
