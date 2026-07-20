@@ -17,17 +17,9 @@ import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import type { UpdateUnitPayload } from "../types/unit-edit.types";
 import type { FieldErrors } from "../lib/edit-unit-validation";
 
-// TODO: este catálogo no coincide con el del alta ni con el legacy (1=Camión...).
-// Hardcodeado por falta de endpoint. Corregir junto con el selector de tipo.
-const TIPOS_UNIDAD: { value: number; label: string }[] = [
-    { value: 1, label: "Automóvil" },
-    { value: 2, label: "Camioneta" },
-    { value: 3, label: "Camión" },
-    { value: 4, label: "Motocicleta" },
-    { value: 5, label: "Autobús" },
-    { value: 6, label: "Maquinaria" },
-    { value: 7, label: "Otro" },
-];
+// Vista de la pestaña "General" del editor de unidad. Contiene los campos de identidad, 
+// asignación y equipo instalado (este último solo para administradores).
+import { TIPOS_UNIDAD } from "../constants/unitTypes";
 
 interface EditUnitGeneralTabProps {
     form: UpdateUnitPayload;

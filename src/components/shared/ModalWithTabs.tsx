@@ -43,6 +43,9 @@ interface ModalWithTabsProps {
 
   // Texto del ConfirmDialog que aparece al intentar cerrar con datos sin guardar.
   confirmCloseDescription?: string;
+
+  // Indica si hay cambios sin guardar para mostrar confirmación al cerrar. Si no se pasa, se asume que sí hay cambios.
+  hasUnsavedChanges?: boolean;
 }
 
 export const ModalWithTabs = ({
@@ -59,12 +62,13 @@ export const ModalWithTabs = ({
   saveLabel = "Guardar",
   error,
   confirmCloseDescription,
+  hasUnsavedChanges,
 }: ModalWithTabsProps) => {
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
 
-  const activeIndex  = tabs.findIndex((t) => t.id === activeTab);
-  const isFirstTab   = activeIndex === 0;
-  const isLastTab    = activeIndex === tabs.length - 1;
+  const activeIndex = tabs.findIndex((t) => t.id === activeTab);
+  const isFirstTab = activeIndex === 0;
+  const isLastTab = activeIndex === tabs.length - 1;
 
   const goToPrev = () => {
     if (!isFirstTab) onTabChange(tabs[activeIndex - 1].id);
@@ -76,7 +80,8 @@ export const ModalWithTabs = ({
 
   // Si hay texto de confirmación, pide confirmar antes de cerrar.
   const handleRequestClose = () => {
-    if (confirmCloseDescription) {
+    // Si hay confirmación de cierre y hay cambios sin guardar, abrir el confirm.
+    if (confirmCloseDescription && (hasUnsavedChanges ?? true)) {
       setIsCloseConfirmOpen(true);
     } else {
       onOpenChange(false);
@@ -143,11 +148,10 @@ export const ModalWithTabs = ({
                     key={tab.id}
                     type="button"
                     onClick={() => onTabChange(tab.id)}
-                    className={`rounded-t-lg px-4 py-3 text-sm font-medium ${
-                      activeTab === tab.id
-                        ? "border border-b-white border-slate-200 bg-white text-slate-700"
-                        : "text-slate-500 hover:text-slate-700"
-                    }`}
+                    className={`rounded-t-lg px-4 py-3 text-sm font-medium ${activeTab === tab.id
+                      ? "border border-b-white border-slate-200 bg-white text-slate-700"
+                      : "text-slate-500 hover:text-slate-700"
+                      }`}
                   >
                     {tab.label}
                   </button>

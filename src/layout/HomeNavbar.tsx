@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/shared/UserMenu";
 import { SwitchCompanyModal } from "@/components/shared/SwitchCompanyModal";
 import { EmpresaLabel } from "@/components/shared/EmpresaLabel";
-import { PoiNotificationBell } from "@/features/maps/components/PoiNotifications/PoiNotificationBell";
+import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -336,7 +336,7 @@ export const HomeNavbar = ({ onOpenMobileMenu }: HomeNavbarProps) => {
           ) : (
             <EmpresaLabel nombre={user?.nombre_empresa} />
           )}
-          <PoiNotificationBell />
+          <NotificationBell />
           <UserMenu />
         </div>
       </div>

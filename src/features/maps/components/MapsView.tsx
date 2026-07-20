@@ -6,14 +6,18 @@ import { MapCanvas, type MapCanvasHandle } from "./MapCanvas";
 import { UnitsDrawer } from "./drawers/UnitsDrawer";
 import { TripDrawer } from "./drawers/TripDrawer";
 import { UnitTokenModal } from "@/features/catalogs/units/components/UnitTokenModal";
+import { routeService } from "@/features/operation/routes/services/routeService";
 import { useTripDrawerStore } from "../stores/tripDrawerStore";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { usePermiso } from "@/hooks/usePermiso";
+import { notify } from "@/stores/notificationStore";
+import { useMapsDeepLink } from "../hooks/useMapsDeepLink";
 
 import type { MapUnitItem, RoutePoint, RouteDisplayOptions } from "../types/map.types";
 import { useUnitsLive } from "../hooks/useUnitsLive";
+import { RoutesDrawer } from "./drawers/RoutesDrawer";
 
-type ActiveDrawer = "units" | "trips" | null;
+type ActiveDrawer = "units" | "trips" | "routes" | null;
 
 // Contenedor del módulo de mapas: coordina toolbar, canvas y drawers. Mantiene
 // un solo drawer abierto a la vez y delega las acciones del mapa al canvas vía ref.
@@ -27,15 +31,26 @@ export const MapsView = () => {
   const puedeEditarUnidad = usePermiso("unidades.editar");
   const unitsLive = useUnitsLive();
   const [focusedUnitId, setFocusedUnitId] = useState<number | null>(null);
+  const [selectedRouteIds, setSelectedRouteIds] = useState<number[]>([]);
 
   // Al cambiar de empresa, cerrar drawers y limpiar el mapa. Cada drawer
   // recarga sus datos al reabrirse.
   useEffect(() => {
     setActiveDrawer(null);
+    setSelectedRouteIds([]);
     mapCanvasRef.current?.clearMap();
   }, [idEmpresa]);
 
   const closeAllDrawers = useCallback(() => setActiveDrawer(null), []);
+  // Deep-link: si la URL contiene ?unidad=<id>, centra el mapa en esa unidad
+  // y abre el drawer. Viene de un click en la campanita o desde el dashboard.
+  // El hook limpia el parámetro de la URL tras procesar (replace) para que el
+  // botón "atrás" no repita el foco al volver a esta ruta.
+  useMapsDeepLink({
+    units: unitsLive.units,
+    mapCanvasRef,
+    onOpenUnitsDrawer: () => setActiveDrawer("units"),
+  });
 
   const toggleDrawer = useCallback((drawer: Exclude<ActiveDrawer, null>) => {
     setActiveDrawer((current) => (current === drawer ? null : drawer));
@@ -100,19 +115,48 @@ export const MapsView = () => {
     [],
   );
 
+  const handleCatalogRouteToggle = useCallback(
+    async (idRuta: number, checked: boolean) => {
+      if (!checked) {
+        mapCanvasRef.current?.hideCatalogRoute(idRuta);
+        setSelectedRouteIds((current) =>
+          current.filter((selectedId) => selectedId !== idRuta),
+        );
+        return;
+      }
+
+      try {
+        const route = await routeService.getById(idRuta, idEmpresa);
+        mapCanvasRef.current?.showCatalogRoute(route);
+        setSelectedRouteIds((current) =>
+          current.includes(idRuta) ? current : [...current, idRuta],
+        );
+      } catch {
+        notify.error("No fue posible mostrar la ruta en el mapa");
+      }
+    },
+    [idEmpresa],
+  );
+
+  const handleClearMap = useCallback(() => {
+    setSelectedRouteIds([]);
+    mapCanvasRef.current?.clearMap();
+  }, []);
+
   return (
     <main className="h-full overflow-hidden bg-[#f5f6f8] p-3 md:p-6">
       <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <div className="flex flex-col gap-3 border-b border-slate-200 px-3 py-3 md:flex-row md:items-center md:justify-between md:px-6 md:py-4">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-row items-center justify-between gap-3 border-b border-slate-200 px-3 py-2 md:px-6 md:py-4">
+          <div className="hidden items-center gap-3 md:flex">
             <MapPinned className="h-5 w-5 text-slate-500" />
             <h1 className="text-xl font-semibold text-slate-800 md:text-2xl">Mapa</h1>
           </div>
           <MapToolbar
             onToggleTraffic={() => mapCanvasRef.current?.toggleTraffic()}
-            onClearMap={() => mapCanvasRef.current?.clearMap()}
+            onClearMap={handleClearMap}
             onToggleUnitsDrawer={() => toggleDrawer("units")}
             onToggleTripsDrawer={() => toggleDrawer("trips")}
+            onToggleRoutesDrawer={() => toggleDrawer("routes")}
           />
         </div>
 
@@ -142,6 +186,15 @@ export const MapsView = () => {
               onLayerChange={handleLayerVisibilityChange}
             />
           )}
+
+          {activeDrawer === "routes" && (
+            <RoutesDrawer
+              onClose={closeAllDrawers}
+              selectedRouteIds={selectedRouteIds}
+              onRouteToggle={handleCatalogRouteToggle}
+            />
+          )}
+
         </div>
       </section>
 

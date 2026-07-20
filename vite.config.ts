@@ -85,6 +85,13 @@ export default defineConfig(({ mode }) => {
               id.includes("loadGoogleMaps")) {
               return "vendor-maps";
             }
+            // Recharts + su árbol de d3 — solo lo carga el Dashboard,
+            // regla del proyecto: cada librería pesada a su propio chunk
+            if (id.includes("node_modules/recharts") ||
+              id.includes("node_modules/victory-vendor") ||
+              id.includes("node_modules/d3-")) {
+              return "vendor-recharts";
+            }
             // Zustand + Zod — pequeños pero vale separar
             if (id.includes("node_modules/zustand") ||
               id.includes("node_modules/zod")) {

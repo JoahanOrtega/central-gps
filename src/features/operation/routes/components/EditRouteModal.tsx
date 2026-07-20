@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Route as RouteIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { routeService } from "../services/routeService";
@@ -74,6 +74,12 @@ export const EditRouteModal = ({ idRuta, onClose, onSuccess }: EditRouteModalPro
         enabled: idRuta !== null && !!idEmpresa,
     });
 
+    // Detectar si hay cambios sin guardar para mostrar confirmación al cerrar
+    const hasUnsavedChanges = useMemo(() => {
+        if (!form || !route) return false;
+        return JSON.stringify(form) !== JSON.stringify(routeToForm(route));
+    }, [form, route]);
+
     // Sincronizar el formulario cuando llega la ruta
     useEffect(() => {
         if (route) {
@@ -104,7 +110,7 @@ export const EditRouteModal = ({ idRuta, onClose, onSuccess }: EditRouteModalPro
             return;
         }
         if (form.logisticaAB.path.length === 0) {
-            setError("La logística de ida (A-B) necesita un trazo. Súbelo desde un KML o dibújalo en el mapa.");
+            setError("La logística de entrada necesita un trazo. Súbelo desde un KML o dibújalo en el mapa.");
             setActiveTab("logistica-ab");
             return;
         }
@@ -158,7 +164,7 @@ export const EditRouteModal = ({ idRuta, onClose, onSuccess }: EditRouteModalPro
             },
             {
                 id: "logistica-ab",
-                label: "Logística A-B (Entrada)",
+                label: "Logística de entrada",
                 content: (
                     <RouteLogisticaTab
                         logistica={form.logisticaAB}
@@ -169,7 +175,7 @@ export const EditRouteModal = ({ idRuta, onClose, onSuccess }: EditRouteModalPro
             ...(form.tieneVuelta
                 ? [{
                     id: "logistica-ba",
-                    label: "Logística B-A (Salida)",
+                    label: "Logística de salida",
                     content: (
                         <RouteLogisticaTab
                             logistica={form.logisticaBA}
@@ -207,6 +213,7 @@ export const EditRouteModal = ({ idRuta, onClose, onSuccess }: EditRouteModalPro
             saveLabel="Guardar cambios"
             error={error}
             confirmCloseDescription="Si cierras, perderás los cambios sin guardar. ¿Deseas cerrar?"
+            hasUnsavedChanges={hasUnsavedChanges}
         />
     );
 };

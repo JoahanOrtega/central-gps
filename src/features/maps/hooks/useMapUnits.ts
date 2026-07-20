@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { MapUnitItem } from "../types/map.types";
 import { buildUnitMarkerContent } from "../lib/map-markers";
 import { buildUnitInfoWindowContent } from "../lib/map-html-builders";
@@ -16,12 +16,18 @@ export interface UseMapUnitsReturn {
 interface UseMapUnitsParams {
     mapRef: React.RefObject<google.maps.Map | null>;
     infoWindowRef: React.RefObject<google.maps.InfoWindow | null>;
+    // Callback para abrir el bottom sheet en móvil al hacer click en un marcador de unidad.
+    onSelectUnitMobile?: (unit: MapUnitItem) => void;
 }
+
+const esViewportMovil = (): boolean =>
+    window.matchMedia("(max-width: 767px)").matches;
 
 // ── Hook principal ────────────────────────────────────────────────────────────
 export const useMapUnits = ({
     mapRef,
     infoWindowRef,
+    onSelectUnitMobile,
 }: UseMapUnitsParams): UseMapUnitsReturn => {
 
     // Map<id_unidad, AdvancedMarkerElement> — permite actualizar sin recrear
@@ -36,17 +42,10 @@ export const useMapUnits = ({
         unitMarkersRef.current.clear();
     };
 
-    /**
-     * Registra los listeners de hover/click en un marker de unidad.
-     *
-     * Fiel al draw.js legacy (_handleMouseInMarker + _getContentUnidad):
-     *   - mouseover/mousedown → abrir InfoWindow con contenido rico
-     *   - mouseout → cerrar InfoWindow
-     *
-     * En AdvancedMarkerElement se usa "click" porque no existe "mouseover"
-     * en la API de marcadores avanzados — es la aproximación más cercana
-     * al comportamiento original para pantallas táctiles y desktop.
-     */
+    // Efecto de limpieza al desmontar el hook, para que no queden markers huérfanos en el mapa.
+    useEffect(() => () => clearUnitMarkers(), []);
+
+    // Asocia listeners comunes a un marker de unidad.
     const attachUnitMarkerListeners = (
         marker: google.maps.marker.AdvancedMarkerElement,
         unit: MapUnitItem,
@@ -55,6 +54,10 @@ export const useMapUnits = ({
         const infoWindow = infoWindowRef.current!;
 
         marker.addListener("gmp-click", () => {
+            if (onSelectUnitMobile && esViewportMovil()) {
+                onSelectUnitMobile(unit);
+                return;
+            }
             infoWindow.setContent(buildUnitInfoWindowContent(unit));
             infoWindow.open({ map, anchor: marker });
             const t = unit.telemetry;
@@ -65,12 +68,8 @@ export const useMapUnits = ({
         });
     };
 
-    // ── Acciones públicas ─────────────────────────────────────────────────────
 
-    /**
-     * Centra el mapa en una unidad y abre su InfoWindow.
-     * Si el marker ya existe lo reutiliza; si no, lo crea.
-     */
+    // Función para centrar el mapa en una unidad y abrir su InfoWindow. Si la unidad no tiene telemetría, no hace nada.
     const focusUnit = (unit: MapUnitItem) => {
         const map = mapRef.current;
         const infoWindow = infoWindowRef.current;
@@ -84,6 +83,12 @@ export const useMapUnits = ({
 
         map.panTo(position);
         map.setZoom(17);
+
+        // Si estamos en móvil y hay un callback para abrir el bottom sheet, lo llamamos y no abrimos el InfoWindow.
+        if (onSelectUnitMobile && esViewportMovil()) {
+            onSelectUnitMobile(unit);
+            return;
+        }
 
         const existing = unitMarkersRef.current.get(unit.id);
         if (existing) {
@@ -117,17 +122,7 @@ export const useMapUnits = ({
 
     };
 
-    /**
-     * Muestra una lista de unidades en el mapa.
-     *
-     * Fiel al draw.js legacy (_drawUnidad):
-     *   - SVG con forma de flecha (en movimiento) o círculo (detenida/apagada)
-     *   - Rotación según el campo `grados` del dato GPS
-     *   - Color de relleno por tiempo de transmisión (verde/amarillo/rojo)
-     *   - Número de unidad como etiqueta en el marcador
-     *   - zIndex mayor para unidades encendidas (quedan encima de apagadas)
-     *   - fitBounds al conjunto de unidades, máximo zoom 17
-     */
+    // Muestra un conjunto de unidades en el mapa, centrando y ajustando zoom a sus posiciones.
     const showUnits = (units: MapUnitItem[]) => {
         const map = mapRef.current;
         const infoWindow = infoWindowRef.current;
@@ -146,9 +141,7 @@ export const useMapUnits = ({
                 lng: unit.telemetry.longitud,
             };
 
-            // Unidades encendidas aparecen encima de las apagadas (igual que legacy).
-            // Consumimos engine_state pre-resuelto por el backend, en vez de
-            // reinterpretar bit 1 del status crudo.
+            // Marcar la primera interacción manual para no reposicionar el mapa
             const isOn = unit.engine_state === "on";
 
             const marker = new window.google.maps.marker.AdvancedMarkerElement({
@@ -174,13 +167,7 @@ export const useMapUnits = ({
         }
     };
 
-    /**
-     * Actualiza el contenido visual de un marker ya existente sin recrearlo.
-     *
-     * Se usa cuando llegan nuevos datos de telemetría (polling).
-     * Fiel al legacy: marker.setOptions(opt) actualiza posición, icono y
-     * estado sin crear un nuevo marker — mantiene el infoWindow abierto.
-     */
+    // Actualiza la posición y contenido de un marker existente sin recrearlo.
     const updateUnit = (unit: MapUnitItem) => {
         const map = mapRef.current;
         const marker = unitMarkersRef.current.get(unit.id);

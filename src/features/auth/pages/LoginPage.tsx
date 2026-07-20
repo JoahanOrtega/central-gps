@@ -9,8 +9,7 @@ import { authService } from "../services/authService";
 import type { LoginLocationState } from "@/router/PrivateRoute";
 import { markSessionStarted } from "@/router/PrivateRoute";
 
-// Imagen de fondo del login — se referencia desde /public para evitar
-// que Vite la incluya en el bundle principal (mejora el tiempo de carga inicial).
+// Imagen de fondo del login
 const BG_IMAGE_URL = "/images/app/bg-1.jpg";
 
 interface LoginPageProps extends React.ComponentProps<"div"> { }
@@ -23,10 +22,7 @@ export const LoginPage = ({ className }: LoginPageProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const hasRedirected = useRef(false);
 
-  // Leer el motivo del redireccionamiento desde el state de navegación.
-  // PrivateRoute pasa reason: "expired" cuando el token venció —
-  // así el usuario sabe por qué fue enviado al login en lugar de
-  // llegar a la pantalla sin ninguna explicación.
+  // Si la página se abrió porque la sesión expiró, mostrar un aviso
   const locationState = location.state as LoginLocationState | null;
   const sessionExpired = locationState?.reason === "expired";
 
@@ -47,7 +43,7 @@ export const LoginPage = ({ className }: LoginPageProps) => {
         password: values.password,
       });
       setToken(response.token);
-      markSessionStarted();   // Activa la marca para mostrar "sesión expirada" al vencer
+      markSessionStarted();   // Habilita el aviso de "sesión expirada" al vencer
       navigate("/home", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al iniciar sesión");
@@ -59,32 +55,33 @@ export const LoginPage = ({ className }: LoginPageProps) => {
   return (
     <div
       className={cn(
-        "fixed inset-0 flex items-center justify-center bg-cover bg-center",
+        "flex min-h-dvh w-full flex-col items-center justify-start bg-slate-100 bg-cover bg-center px-4 pb-10 pt-20 sm:justify-center sm:pt-10",
         className
       )}
       style={{ backgroundImage: `url(${BG_IMAGE_URL})` }}
     >
-      <div className="absolute inset-0 bg-white/35 backdrop-blur-[1px]" />
+      <div className="absolute inset-0 bg-white/45 backdrop-blur-[2px]" />
 
-      <div className="relative z-10 flex w-full max-w-md flex-col items-center px-6">
-        <div className="mb-8 flex flex-col items-center">
-          <div className="w-64 md:w-80">
+      <div className="relative z-10 flex w-full max-w-sm flex-col items-center">
+        {/* Logo + títulos */}
+        <div className="mb-8 flex flex-col items-center text-center">
+          <div className="w-60">
             <CustomLogo />
           </div>
-          <h2 className="mt-4 text-lg font-medium text-gray-700">
+          <h1 className="mt-6 text-xl font-semibold text-slate-800">
             Acceder al sistema
-          </h2>
+          </h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Ingresa tus credenciales para continuar
+          </p>
         </div>
 
-        {/* ── Aviso de sesión expirada ────────────────────────────────────
-            Solo visible cuando PrivateRoute redirigió con reason: "expired".
-            role="status" anuncia el mensaje a lectores de pantalla sin
-            interrumpir — es informativo, no un error crítico. */}
+        {/* Aviso de sesión expirada */}
         {sessionExpired && (
           <div
             role="status"
             aria-live="polite"
-            className="mb-5 w-full rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-700"
+            className="mb-5 w-full rounded-lg border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-center text-sm text-amber-700 shadow-sm"
           >
             Tu sesión expiró. Inicia sesión nuevamente para continuar.
           </div>
