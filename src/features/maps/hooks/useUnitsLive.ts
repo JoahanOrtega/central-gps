@@ -33,8 +33,14 @@ export const useUnitsLive = (options: UseUnitsLiveOptions = {}) => {
   const [units, setUnits] = useState<MapUnitItem[]>([]);
   const [counts, setCounts] = useState<UnitsLiveCounts>(EMPTY_COUNTS);
   const [isLoading, setIsLoading] = useState(false);
+  // Revalidación en segundo plano (polling): datos previos visibles.
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  // El último refresco falló pero HAY datos previos que seguimos mostrando.
+  const [refreshError, setRefreshError] = useState(false);
   const [error, setError] = useState("");
   const isLoadingRef = useRef(false);
+  // ¿Ya hubo al menos una carga exitosa? Decide skeleton vs revalidación.
+  const hasLoadedRef = useRef(false);
 
   // Estado persistente desde el store (suscripciones granulares).
   const selectedIds = useUnitsDrawerStore((state) => state.selectedIds);
@@ -55,8 +61,13 @@ export const useUnitsLive = (options: UseUnitsLiveOptions = {}) => {
     if (isLoadingRef.current) return;
 
     isLoadingRef.current = true;
-    setIsLoading(true);
-    setError("");
+    // Si no hay datos previos, mostramos skeleton. Si ya había datos, solo indicamos que se está refrescando.
+    if (!hasLoadedRef.current) {
+      setIsLoading(true);
+      setError("");
+    } else {
+      setIsRefreshing(true);
+    }
 
     try {
       const { units: freshUnits, counts: freshCounts } =
@@ -64,15 +75,24 @@ export const useUnitsLive = (options: UseUnitsLiveOptions = {}) => {
 
       setUnits(freshUnits);
       setCounts(freshCounts);
+      hasLoadedRef.current = true;
+      setError("");
+      setRefreshError(false);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "No fue posible cargar las unidades";
-      setError(message);
-      setUnits([]);
-      setCounts(EMPTY_COUNTS);
+      if (hasLoadedRef.current) {
+        // Si ya había datos previos, no los borramos solo indicamos que el refresco falló.
+        setRefreshError(true);
+      } else {
+        setError(message);
+        setUnits([]);
+        setCounts(EMPTY_COUNTS);
+      }
     } finally {
       isLoadingRef.current = false;
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, [idEmpresa]);
 
@@ -94,6 +114,7 @@ export const useUnitsLive = (options: UseUnitsLiveOptions = {}) => {
       setLastEmpresaId(currentEmpresaId);
       setUnits([]);
       setCounts(EMPTY_COUNTS);
+      hasLoadedRef.current = false;
     }
 
     // Guard: si no hay empresa activa, no hacemos nada más.
@@ -132,6 +153,8 @@ export const useUnitsLive = (options: UseUnitsLiveOptions = {}) => {
     setUnits([]);
     setCounts(EMPTY_COUNTS);
     setError("");
+    setRefreshError(false);
+    hasLoadedRef.current = false;
     useUnitsDrawerStore.getState().reset();
   }, []);
 
@@ -148,6 +171,10 @@ export const useUnitsLive = (options: UseUnitsLiveOptions = {}) => {
     search,
     isLoading,
     error,
+    // Revalidación silenciosa en curso
+    isRefreshing,
+    // El último refresco falló pero se conservan los datos previos.
+    refreshError,
     // esperandoEmpresa indica si el hook está a la espera de que se resuelva la empresa activa.
     esperandoEmpresa: idEmpresa === null || idEmpresa === undefined,
     setSearch,
