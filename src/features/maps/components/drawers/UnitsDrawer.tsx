@@ -255,7 +255,7 @@ export const UnitsDrawer = ({
 }: UnitsDrawerProps) => {
   const {
     units, counts, selectedIds, selectedUnits, search,
-    isLoading, error, esperandoEmpresa, setSearch, loadUnits, toggleUnit, clearSelection,
+    isLoading, isRefreshing, refreshError, error, esperandoEmpresa, setSearch, loadUnits, toggleUnit, clearSelection,
   } = unitsLive;
 
   const stateFilter = useUnitsDrawerStore((s) => s.stateFilter);
@@ -308,6 +308,13 @@ export const UnitsDrawer = ({
         <div className="mb-2 flex items-center justify-between">
           <div>
             <h2 className="text-sm font-semibold text-slate-800">Unidades</h2>
+            {isRefreshing && (
+              <span
+                className="ml-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400 align-middle"
+                title="Actualizando…"
+                aria-label="Actualizando unidades"
+              />
+            )}
             {!isLoading && units.length > 0 && (
               <p className="text-[10px]">
                 <span className="font-semibold" style={{ color: UNIT_COLORS.VERDE }}>
@@ -371,11 +378,6 @@ export const UnitsDrawer = ({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
-        {/* Empresa aún no resuelta: en vez de un skeleton que nunca
-            terminaría (sin empresa no se piden unidades), mostramos un
-            estado claro y accionable. Reintentar recarga la lista de
-            empresas, la causa suele ser un fetchCompanies que murió
-            en una red lenta. */}
         {esperandoEmpresa && (
           <div className="px-3 py-8 text-center">
             <p className="text-sm text-slate-500">
@@ -388,6 +390,21 @@ export const UnitsDrawer = ({
               type="button"
               onClick={() => window.location.reload()}
               className="mt-4 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
+        {/* Refresco fallido CON datos previos */}
+        {!esperandoEmpresa && refreshError && units.length > 0 && (
+          <div className="mx-3 mb-2 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5">
+            <p className="text-[11px] text-amber-700">
+              Sin conexión — mostrando últimos datos
+            </p>
+            <button
+              type="button"
+              onClick={() => void loadUnits(search)}
+              className="text-[11px] font-medium text-amber-700 underline hover:text-amber-800"
             >
               Reintentar
             </button>
