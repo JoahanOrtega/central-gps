@@ -89,27 +89,64 @@ const DEFAULT_TIMEOUT_MS = 30000;
 
 let _refreshPromise: Promise<boolean> | null = null;
 
+// BroadcastChannel para compartir tokens entre pestañas y evitar múltiples refreshes simultáneos
+const AUTH_CHANNEL = "cgps-auth";
+const REFRESH_LOCK = "cgps-refresh";
+
+const authChannel: BroadcastChannel | null =
+  typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(AUTH_CHANNEL) : null;
+
+// Adoptar tokens difundidos por otras pestañas.
+authChannel?.addEventListener("message", (event: MessageEvent) => {
+  const msg = event.data as { type?: string; token?: string };
+  if (msg?.type === "token-refreshed" && msg.token) {
+    useAuthStore.getState().setToken(msg.token);
+  }
+});
+
+const _doRefresh = async (): Promise<boolean> => {
+  try {
+    const response = await fetch(`${API_URL}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      await useAuthStore.getState().logout();
+      return false;
+    }
+
+    const data = (await response.json()) as { token: string };
+    useAuthStore.getState().setToken(data.token);
+    // Compartir con las demás pestañas: su cookie ya rotó, este token es
+    // ahora el único válido para todas.
+    authChannel?.postMessage({ type: "token-refreshed", token: data.token });
+    return true;
+  } catch {
+    await useAuthStore.getState().logout();
+    return false;
+  }
+};
+
 const refreshAccessToken = async (): Promise<boolean> => {
   if (_refreshPromise) return _refreshPromise;
 
+  const tokenAlSolicitar = useAuthStore.getState().token;
+
   _refreshPromise = (async () => {
     try {
-      const response = await fetch(`${API_URL}/auth/refresh`, {
-        method: "POST",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        await useAuthStore.getState().logout();
-        return false;
+      // Si el navegador soporta locks, pedimos uno para que solo una pestaña haga el refresh.
+      if (typeof navigator !== "undefined" && "locks" in navigator) {
+        return await navigator.locks.request(REFRESH_LOCK, async () => {
+          // Si otra pestaña ya hizo el refresh mientras esperábamos el lock, no hacemos nada.
+          const tokenActual = useAuthStore.getState().token;
+          if (tokenActual && tokenActual !== tokenAlSolicitar) {
+            return true;
+          }
+          return _doRefresh();
+        });
       }
-
-      const data = (await response.json()) as { token: string };
-      useAuthStore.getState().setToken(data.token);
-      return true;
-    } catch {
-      await useAuthStore.getState().logout();
-      return false;
+      return await _doRefresh();
     } finally {
       _refreshPromise = null;
     }
