@@ -35,6 +35,12 @@ export const useMapUnits = ({
         Map<number, google.maps.marker.AdvancedMarkerElement>
     >(new Map());
 
+    // Unidad cuyo InfoWindow está abierto.
+    const openInfoUnitIdRef = useRef<number | null>(null);
+
+    // Firma de ids ordenados de las unidades mostradas en el mapa, para decidir si hacer fitBounds o no.
+    const lastShownIdsRef = useRef<string>("");
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     const clearUnitMarkers = () => {
@@ -58,6 +64,7 @@ export const useMapUnits = ({
                 onSelectUnitMobile(unit);
                 return;
             }
+            openInfoUnitIdRef.current = unit.id;
             infoWindow.setContent(buildUnitInfoWindowContent(unit));
             infoWindow.open({ map, anchor: marker });
             const t = unit.telemetry;
@@ -92,6 +99,7 @@ export const useMapUnits = ({
 
         const existing = unitMarkersRef.current.get(unit.id);
         if (existing) {
+            openInfoUnitIdRef.current = unit.id;
             infoWindow.setContent(buildUnitInfoWindowContent(unit));
             infoWindow.open({ map, anchor: existing });
             const t = unit.telemetry;
@@ -114,6 +122,7 @@ export const useMapUnits = ({
         unitMarkersRef.current.set(unit.id, marker);
 
         infoWindow.setContent(buildUnitInfoWindowContent(unit));
+        openInfoUnitIdRef.current = unit.id;
         infoWindow.open({ map, anchor: marker });
         const t = unit.telemetry;
         if (typeof t?.latitud === "number" && typeof t?.longitud === "number") {
@@ -122,28 +131,45 @@ export const useMapUnits = ({
 
     };
 
-    // Muestra un conjunto de unidades en el mapa, centrando y ajustando zoom a sus posiciones.
+    // Función para mostrar un conjunto de unidades en el mapa. Actualiza los markers existentes, crea los nuevos y elimina los que ya no están en la selección. 
+    // FitBounds solo ocurre si CAMBIA la selección.
     const showUnits = (units: MapUnitItem[]) => {
         const map = mapRef.current;
         const infoWindow = infoWindowRef.current;
         if (!map || !infoWindow) return;
 
-        clearUnitMarkers();
+        const validas = units.filter(
+            (u) => u.telemetry?.latitud != null && u.telemetry?.longitud != null,
+        );
+        const idsNuevos = new Set(validas.map((u) => u.id));
 
+        // 1) Quitar los markers que ya no están en la selección.
+        unitMarkersRef.current.forEach((marker, id) => {
+            if (!idsNuevos.has(id)) {
+                marker.map = null;
+                unitMarkersRef.current.delete(id);
+                if (openInfoUnitIdRef.current === id) {
+                    infoWindow.close();
+                    openInfoUnitIdRef.current = null;
+                }
+            }
+        });
+
+        // 2) Actualizar los existentes en su lugar; crear solo los nuevos.
         const bounds = new window.google.maps.LatLngBounds();
-        let hasValidPoints = false;
-
-        units.forEach((unit) => {
-            if (unit.telemetry?.latitud == null || unit.telemetry?.longitud == null) return;
-
+        validas.forEach((unit) => {
             const position = {
-                lat: unit.telemetry.latitud,
-                lng: unit.telemetry.longitud,
+                lat: unit.telemetry!.latitud as number,
+                lng: unit.telemetry!.longitud as number,
             };
+            bounds.extend(position);
 
-            // Marcar la primera interacción manual para no reposicionar el mapa
+            if (unitMarkersRef.current.has(unit.id)) {
+                updateUnit(unit);
+                return;
+            }
+
             const isOn = unit.engine_state === "on";
-
             const marker = new window.google.maps.marker.AdvancedMarkerElement({
                 map,
                 position,
@@ -151,19 +177,21 @@ export const useMapUnits = ({
                 content: buildUnitMarkerContent(unit),
                 zIndex: isOn ? 100 : 50,
             });
-
             attachUnitMarkerListeners(marker, unit);
             unitMarkersRef.current.set(unit.id, marker);
-
-            bounds.extend(position);
-            hasValidPoints = true;
         });
 
-        if (hasValidPoints) {
-            map.fitBounds(bounds);
-            // Limitar zoom igual que el legacy (evitar zoom excesivo en pocas unidades)
-            const zoom = map.getZoom();
-            if (typeof zoom === "number" && zoom > 17) map.setZoom(17);
+        // 3) FitBounds solo si CAMBIA la selección (no en cada poll, que antes
+        // re-centraba el mapa y le arrebataba el control al usuario).
+        const firma = [...idsNuevos].sort((a, b) => a - b).join(",");
+        if (firma !== lastShownIdsRef.current) {
+            lastShownIdsRef.current = firma;
+            if (validas.length > 0) {
+                map.fitBounds(bounds);
+                // Limitar zoom igual que el legacy (evitar zoom excesivo en pocas unidades)
+                const zoom = map.getZoom();
+                if (typeof zoom === "number" && zoom > 17) map.setZoom(17);
+            }
         }
     };
 
@@ -186,9 +214,9 @@ export const useMapUnits = ({
         const isOn = unit.engine_state === "on";
         marker.zIndex = isOn ? 100 : 50;
 
-        // Si el infoWindow está abierto en esta unidad, actualizar su contenido
+        // Si el InfoWindow de esta unidad está abierto, actualizar su contenido y geocodificación.
         const infoWindow = infoWindowRef.current;
-        if (infoWindow) {
+        if (infoWindow && openInfoUnitIdRef.current === unit.id) {
             infoWindow.setContent(buildUnitInfoWindowContent(unit));
             const t = unit.telemetry;
             if (typeof t?.latitud === "number" && typeof t?.longitud === "number") {
@@ -200,6 +228,8 @@ export const useMapUnits = ({
     const hideUnits = () => {
         clearUnitMarkers();
         infoWindowRef.current?.close();
+        openInfoUnitIdRef.current = null;
+        lastShownIdsRef.current = "";
     };
 
     return { focusUnit, showUnits, hideUnits, updateUnit };
