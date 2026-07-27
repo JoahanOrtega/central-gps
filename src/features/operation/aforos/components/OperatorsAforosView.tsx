@@ -349,10 +349,6 @@ export const OperatorsAforosView = () => {
     </div>
   );
 
-  if (loading) {
-    return <div className="p-8 text-center text-slate-500 animate-pulse font-medium">Cargando catálogo primario...</div>;
-  }
-
   return (
     <CatalogLayout>
       <CatalogHeader
@@ -415,7 +411,11 @@ export const OperatorsAforosView = () => {
       </div>
 
       <div className="p-4 md:p-6">
-        {filteredAforos.length === 0 ? (
+        {loading ? (
+          <div className="p-8 text-center text-slate-500 animate-pulse font-medium">
+            Cargando catálogo primario...
+          </div>
+        ) : filteredAforos.length === 0 ? (
           <AforosEmptyState
             search={search}
             onClearSearch={() => setSearch("")}

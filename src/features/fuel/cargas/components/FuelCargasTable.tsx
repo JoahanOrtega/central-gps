@@ -95,7 +95,7 @@ export const FuelCargasTable = ({ items, canEdit = false, canDelete = false, onE
             <th title="Número consecutivo del registro" className="px-4 py-3 font-semibold text-center w-12 min-w-[48px] sticky top-0 bg-slate-50 z-20">#</th>
             <th title="Fecha y hora en la que se realizó la carga de combustible" className="px-4 py-3 font-semibold text-center w-[120px] min-w-[120px] sticky top-0 bg-slate-50 z-20">Fecha Carga</th>
             <th title="Nombre o establecimiento de la gasolinera" className="px-4 py-3 font-semibold text-center w-[140px] min-w-[140px] max-w-[140px] sticky top-0 bg-slate-50 z-20">Gasolinera</th>
-            <th title="Grupo logístico u operacional al que pertenece la unidad" className="px-4 py-3 font-semibold text-center w-[130px] min-w-[130px] max-w-[130px] sticky top-0 bg-slate-50 z-20">Grupo de unidad</th>
+            <th title="Grupos logísticos u operacionales al que pertenece la unidad" className="px-4 py-3 font-semibold text-center w-[140px] min-w-[140px] max-w-[140px] sticky top-0 bg-slate-50 z-20">Grupos de unidad</th>
             <th title="Folio único del ticket de carga" className="px-4 py-3 font-semibold text-center w-[110px] min-w-[110px] sticky top-0 bg-slate-50 z-20">Folio</th>
             <th title="Número económico o identificación del vehículo" className="px-4 py-3 font-semibold text-center w-[130px] min-w-[130px] max-w-[130px] sticky top-0 bg-slate-50 z-20">Unidad</th>
             <th title="Cantidad total de litros cargados" className="px-4 py-3 font-semibold text-center w-[100px] min-w-[100px] sticky top-0 bg-slate-50 z-20">Litros</th>
@@ -132,7 +132,7 @@ export const FuelCargasTable = ({ items, canEdit = false, canDelete = false, onE
                 <td title={`Gasolinera: ${item.gasolinera || "---"}`} className="px-4 py-3 text-center font-medium w-[140px] min-w-[140px] max-w-[140px]">
                   <div className="w-full break-words whitespace-normal leading-tight mx-auto text-center">{item.gasolinera || "---"}</div>
                 </td>
-                <td title={`Grupo de unidad: ${item.grupo_unidades || "---"}`} className="px-4 py-3 text-center text-slate-600 w-[130px] min-w-[130px] max-w-[130px]">
+                <td title={`Grupos de unidad: ${item.grupo_unidades || "---"}`} className="px-4 py-3 text-center text-slate-600 w-[130px] min-w-[130px] max-w-[130px]">
                   <div className="w-full break-words whitespace-normal leading-tight mx-auto text-center">{item.grupo_unidades || "---"}</div>
                 </td>
                 <td title={`Folio: ${item.folio}`} className="px-4 py-3 text-center whitespace-nowrap">

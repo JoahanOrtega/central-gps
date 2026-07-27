@@ -164,4 +164,43 @@ export const unitService = {
       method: "DELETE",
     });
   },
+
+  listGroups(search = "", idEmpresa?: number | null): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (search.trim()) params.set("search", search.trim());
+    if (idEmpresa) params.set("id_empresa", String(idEmpresa));
+    return apiFetch<any[]>(`/units/groups?${params.toString()}`);
+  },
+
+  createGroup(payload: any): Promise<any> {
+    return apiFetch<any>("/units/groups", {
+      method: "POST",
+      body: payload,
+    });
+  },
+
+  updateGroup(idGrupoUnidades: number, payload: any, idEmpresa?: number | null): Promise<any> {
+    const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
+    return apiFetch<any>(`/units/groups/${idGrupoUnidades}${query}`, {
+      method: "PATCH",
+      body: payload,
+    });
+  },
+
+  deleteGroup(idGrupoUnidades: number, idEmpresa?: number | null): Promise<any> {
+    const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
+    return apiFetch<any>(`/units/groups/${idGrupoUnidades}${query}`, {
+      method: "DELETE",
+    });
+  },
+
+  listClients(idEmpresa?: number | null): Promise<any[]> {
+    const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
+    return apiFetch<any[]>(`/units/clients${query}`);
+  },
+
+  listPois(idEmpresa?: number | null): Promise<any[]> {
+    const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
+    return apiFetch<any[]>(`/units/pois${query}`);
+  }
 };

@@ -11,6 +11,7 @@ export interface UnitItem {
   chip: string
   id_operador: number | null
   status: number
+  id_grupo_unidades?: number[]
 }
 
 export interface CreateUnitPayload {
