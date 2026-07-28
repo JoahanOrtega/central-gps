@@ -6,6 +6,8 @@ import { CustomLogo } from "@/components/shared/CustomLogo";
 import { LoginForm } from "../components/LoginForm";
 import type { LoginFormValues } from "../types/auth.types";
 import { authService } from "../services/authService";
+import { ApiError } from "@/lib/api";
+import { ShieldAlert } from "lucide-react";
 import type { LoginLocationState } from "@/router/PrivateRoute";
 import { markSessionStarted } from "@/router/PrivateRoute";
 
@@ -19,6 +21,8 @@ export const LoginPage = ({ className }: LoginPageProps) => {
   const location = useLocation();
   const { token, setToken, user } = useAuthStore();
   const [error, setError] = useState("");
+  // Aviso de suspensión de cuenta
+  const [avisoSuspension, setAvisoSuspension] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const hasRedirected = useRef(false);
 
@@ -46,7 +50,14 @@ export const LoginPage = ({ className }: LoginPageProps) => {
       markSessionStarted();   // Habilita el aviso de "sesión expirada" al vencer
       navigate("/home", { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al iniciar sesión");
+      // Si la empresa del usuario está suspendida, mostrar un aviso
+      if (err instanceof ApiError && err.status === 403) {
+        setAvisoSuspension(err.message);
+        setError("");
+      } else {
+        setAvisoSuspension("");
+        setError(err instanceof Error ? err.message : "Error al iniciar sesión");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -87,6 +98,21 @@ export const LoginPage = ({ className }: LoginPageProps) => {
           </div>
         )}
 
+        {/* Cuenta suspendida */}
+        {avisoSuspension && (
+          <div
+            role="status"
+            className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
+          >
+            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800">
+                Cuenta suspendida
+              </p>
+              <p className="mt-1 text-sm text-amber-700">{avisoSuspension}</p>
+            </div>
+          </div>
+        )}
         <LoginForm onSubmit={handleLogin} isLoading={isLoading} error={error} />
       </div>
     </div>
