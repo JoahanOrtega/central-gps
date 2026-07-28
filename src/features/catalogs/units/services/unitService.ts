@@ -197,7 +197,7 @@ export const unitService = {
   listPois(idEmpresa?: number | null): Promise<any[]> {
     const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
     return apiFetch<any[]>(`/units/pois${query}`);
-  }
+  },
   // Genera el token TEMPORAL con expiración.
   regenerateTemporalToken(
     idUnidad: number,
