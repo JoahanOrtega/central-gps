@@ -49,6 +49,7 @@ export interface UnidadCatalogo {
   nombre: string;
   rendimiento_establecido: number;
   odometro_fisico: number;
+  grupo_unidades?: string | null;
 }
 
 export interface FuelCargaFormValues {

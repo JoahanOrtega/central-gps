@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BusFront, Download, TriangleAlert, X } from "lucide-react";
+import { BusFront, Download, TriangleAlert, X, FolderKanban } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { unitService } from "../services/unitService";
 import type { UnitItem } from "../types/unit.types";
@@ -7,6 +7,8 @@ import { UnitCard } from "./UnitCard";
 import { NewUnitModal } from "./NewUnitModal";
 import { EditUnitModal } from "./EditUnitModal";
 import { UnitTokenModal } from "./UnitTokenModal";
+import { UnitGroupsModal } from "./UnitGroupsModal"; 
+import { UnitDetailsModal } from "./UnitDetailsModal";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { usePermiso } from "@/hooks/usePermiso";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
@@ -28,6 +30,10 @@ export const UnitsCatalogView = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingUnitId, setEditingUnitId] = useState<number | null>(null);
   const [tokenUnit, setTokenUnit] = useState<UnitItem | null>(null);
+  const [detailsUnit, setDetailsUnit] = useState<UnitItem | null>(null);
+
+  const [isGroupsOpen, setIsGroupsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("TODOS");
 
   const debouncedSearch = useDebounce(search);
 
@@ -38,6 +44,12 @@ export const UnitsCatalogView = () => {
   const { data: units = [], isLoading, error, refetch } = useQuery<UnitItem[]>({
     queryKey: queryKeys.units.list(idEmpresa, debouncedSearch),
     queryFn: () => unitService.getUnits(debouncedSearch, idEmpresa),
+    enabled: !!idEmpresa,
+  });
+
+  const { data: groups = [] } = useQuery<any[]>({
+    queryKey: ["unitGroups", idEmpresa],
+    queryFn: () => unitService.listGroups("", idEmpresa).catch(() => []),
     enabled: !!idEmpresa,
   });
 
@@ -53,7 +65,12 @@ export const UnitsCatalogView = () => {
       successMessage: (unit) => `Unidad ${unit.numero} eliminada correctamente`,
     });
 
-  // Botones extra del toolbar de unidades (funcionalidades pendientes)
+  const filteredUnits = units.filter((unit) => {
+    if (activeTab === "TODOS") return true;
+    if (activeTab === "SIN_GRUPO") return !unit.id_grupo_unidades || unit.id_grupo_unidades.length === 0;
+    return unit.id_grupo_unidades?.includes(Number(activeTab));
+  });
+
   const toolbarExtra = (
     <div className="flex items-center justify-end gap-2 sm:justify-start">
       <button type="button" disabled className="cursor-not-allowed rounded-lg p-2 text-slate-300" title="Descargar (próximamente)">
@@ -79,23 +96,70 @@ export const UnitsCatalogView = () => {
         toolbarExtra={toolbarExtra}
       />
 
-      {/* Barra de pestañas de grupos */}
-      <div className="border-b border-slate-200 px-4 py-4 md:px-6">
+      <div className="border-b border-slate-200 px-4 py-4 md:px-6 flex items-center justify-between flex-wrap gap-3">
         <div className="flex flex-wrap items-center gap-3 text-sm">
-          <button type="button" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-700">
-            Todas <span className="ml-1 text-slate-400">{units.length}</span>
+          <button
+            type="button"
+            onClick={() => setActiveTab("TODOS")}
+            className={`rounded-lg border px-4 py-2 text-xs font-semibold transition-colors uppercase ${
+              activeTab === "TODOS"
+                ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            Todas <span className={`ml-1 ${activeTab === "TODOS" ? "text-blue-400" : "text-slate-400"}`}>{units.length}</span>
           </button>
-          <button type="button" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-700">
-            Sin Grupo <span className="ml-1 text-slate-400">{units.length}</span>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("SIN_GRUPO")}
+            className={`rounded-lg border px-4 py-2 text-xs font-semibold transition-colors uppercase ${
+              activeTab === "SIN_GRUPO"
+                ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            Sin Grupo <span className={`ml-1 ${activeTab === "SIN_GRUPO" ? "text-blue-400" : "text-slate-400"}`}>
+              {units.filter(u => !u.id_grupo_unidades || u.id_grupo_unidades.length === 0).length}
+            </span>
           </button>
+
+          {groups.map((g) => {
+            const count = units.filter(u => u.id_grupo_unidades?.includes(Number(g.id_grupo_unidades))).length;
+            return (
+              <button
+                key={g.id_grupo_unidades}
+                type="button"
+                onClick={() => setActiveTab(String(g.id_grupo_unidades))}
+                className={`rounded-lg border px-4 py-2 text-xs font-semibold transition-colors uppercase inline-flex items-center gap-2 ${
+                  activeTab === String(g.id_grupo_unidades)
+                    ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                {g.nombre}
+                <span className={`ml-0.5 text-[10px] ${activeTab === String(g.id_grupo_unidades) ? "text-blue-400" : "text-slate-400"}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
+
+        <button
+          onClick={() => setIsGroupsOpen(true)}
+          className="h-9 rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-1.5 shadow-sm uppercase"
+        >
+          <FolderKanban className="h-4 w-4 text-slate-500" />
+          Gestionar Grupos
+        </button>
       </div>
 
       <div className="p-4 md:p-6">
         <CatalogGrid
           isLoading={showSkeleton}
           errorMessage={errorMessage}
-          items={units}
+          items={filteredUnits} 
           activeSearch={debouncedSearch}
           renderItem={(unit) => (
             <UnitCard
@@ -105,6 +169,7 @@ export const UnitsCatalogView = () => {
               onEdit={(id) => setEditingUnitId(id)}
               onDelete={askDelete}
               onShowToken={(u) => setTokenUnit(u)}
+              onShowDetails={(u) => setDetailsUnit(u)}
             />
           )}
           keyExtractor={(unit) => unit.id}
@@ -120,12 +185,14 @@ export const UnitsCatalogView = () => {
       </div>
 
       <NewUnitModal
+        key={`new-${groups.length}`} 
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
         onCreated={() => refetch()}
       />
 
       <EditUnitModal
+        key={`edit-${groups.length}-${editingUnitId}`}
         idUnidad={editingUnitId}
         onClose={() => setEditingUnitId(null)}
       />
@@ -138,6 +205,26 @@ export const UnitsCatalogView = () => {
         idEmpresa={idEmpresa}
         canEdit={puedeEditarUnidad}
         onClose={() => setTokenUnit(null)}
+      />
+
+      <UnitDetailsModal
+        unit={detailsUnit}
+        groups={groups}
+        onClose={() => setDetailsUnit(null)}
+      />
+
+      <UnitGroupsModal
+        open={isGroupsOpen}
+        onClose={() => setIsGroupsOpen(false)}
+        units={units}
+        groups={groups}
+        onUpdateGroups={(updatedGroups) => {
+          if (updatedGroups) {
+            queryClient.setQueryData(["unitGroups", idEmpresa], updatedGroups);
+          }
+          queryClient.invalidateQueries(); 
+        }}
+        onUpdateUnits={() => refetch()}
       />
 
       <ConfirmDialog
