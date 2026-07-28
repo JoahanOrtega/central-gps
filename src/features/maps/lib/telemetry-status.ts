@@ -6,14 +6,11 @@ export type TelemetryMapState =
   | "movimiento"
   | "detenido"
   | "apagado"
-  | "apagado-prolongado"
+  | "sin-reporte"
   | "sin-telemetria";
 
-// Una unidad puede estar apagada por pernocta normal; más de 4h sin encender
-// suele indicar un problema (vehículo en taller, batería desconectada), así que
-// a partir de aquí el marcador se pinta en rojo. Subir el umbral si la flota
-// tiene jornadas más largas.
-export const APAGADO_PROLONGADO_SEGS = 4 * 60 * 60;
+// Umbral para considerar una unidad como "sin reporte prolongado"
+export const SIN_REPORTE_PROLONGADO_SEGS = 4 * 60 * 60;
 
 export const UNIT_COLORS = {
   VERDE: "#26C281",
@@ -36,10 +33,9 @@ export interface TelemetryStatusMeta {
 export const getTelemetryStatusMeta = (
   engineState: EngineState | null | undefined,
   velocidad?: number | null,
-  _segundos?: number | null,
+  segundosSinReporte?: number | null,
   _segundosSistema?: number | null,
   _velMax?: number | null,
-  segundosEnEstado?: number | null,
 ): TelemetryStatusMeta => {
   const effectiveEngineState: EngineState = engineState ?? "unknown";
   const speed = velocidad ?? 0;
@@ -55,23 +51,24 @@ export const getTelemetryStatusMeta = (
     };
   }
 
-  const fillColor =
-    effectiveEngineState === "off" ? UNIT_COLORS.GRIS_OSCURO : UNIT_COLORS.VERDE;
   const strokeColor = UNIT_COLORS.BLANCO;
 
-  if (effectiveEngineState === "off") {
-    const offSecs = segundosEnEstado ?? 0;
-    if (offSecs > APAGADO_PROLONGADO_SEGS) {
-      return {
-        fillColor: UNIT_COLORS.ROJO,
-        strokeColor,
-        mapState: "apagado-prolongado",
-        label: "Apagada (prolongado)",
-        shortLabel: "OFF!",
-        engineState: "off",
-      };
-    }
+  // Si la unidad lleva más de 4 horas sin reportar, se considera "sin reporte prolongado"
+  if ((segundosSinReporte ?? 0) > SIN_REPORTE_PROLONGADO_SEGS) {
+    return {
+      fillColor: UNIT_COLORS.ROJO,
+      strokeColor,
+      mapState: "sin-reporte",
+      label: "Sin reportar (+4 h)",
+      shortLabel: "S/R",
+      engineState: effectiveEngineState,
+    };
+  }
 
+  const fillColor =
+    effectiveEngineState === "off" ? UNIT_COLORS.GRIS_OSCURO : UNIT_COLORS.VERDE;
+
+  if (effectiveEngineState === "off") {
     return {
       fillColor,
       strokeColor,
@@ -113,30 +110,43 @@ export const getTelemetryStatusColor = (
   getTelemetryStatusMeta(engineState, velocidad, segundos, segundosSistema, velMax)
     .fillColor;
 
+/**
+ * Etiqueta legible del estado del MOTOR (sin regla de silencio).
+ * Úsala solo para describir el motor en sí — para el estado general de la
+ * unidad (que incluye "Sin reportar") usa getTelemetryStatusMeta().label.
+ */
+export const getEngineStateLabel = (
+  engineState: EngineState | null | undefined,
+): string => {
+  if (engineState === "on") return "Encendida";
+  if (engineState === "off") return "Apagada";
+  return "Sin datos";
+};
+
+/**
+ * @deprecated Delegación a getTelemetryStatusMeta().label. Pasa `segundos`
+ * (tiempo desde el último dato) para que la regla "sin reportar +4h"
+ * aplique — sin él, una unidad muda se etiqueta por su último paquete.
+ */
 export const getTelemetryStatusLabel = (
   engineState: EngineState | null | undefined,
   velocidad?: number | null,
-): string => getTelemetryStatusMeta(engineState, velocidad).label;
-
-export const getTelemetryStatusShortLabel = (
-  engineState: EngineState | null | undefined,
-  velocidad?: number | null,
-): string => getTelemetryStatusMeta(engineState, velocidad).shortLabel;
-
+  segundos?: number | null,
+): string => getTelemetryStatusMeta(engineState, velocidad, segundos).label;
+/**
+ * @deprecated Delegación a getTelemetryStatusMeta().mapState — pasa
+ * `segundos` (tiempo desde el último dato) para que la regla de silencio
+ * "sin reportar +4h" aplique; sin él, clasifica por el último paquete.
+ */
 export const getTelemetryMapState = (
   engineState: EngineState | null | undefined,
   velocidad?: number | null,
-): TelemetryMapState => getTelemetryStatusMeta(engineState, velocidad).mapState;
+  segundos?: number | null,
+): TelemetryMapState =>
+  getTelemetryStatusMeta(engineState, velocidad, segundos).mapState;
 
-export const isEngineOff = (
-  engineState: EngineState | null | undefined,
-): boolean => engineState === "off";
-
-export const isEngineOn = (
-  engineState: EngineState | null | undefined,
-): boolean => engineState === "on";
-
-// Verde normal, amarillo dentro de 5 km/h del límite, rojo en exceso
+// Color del texto de velocidad según cercanía al límite de la unidad:
+// verde normal, ámbar a 5 km/h del límite, rojo en exceso.
 export const getSpeedTextColor = (velocidad: number, velMax: number): string => {
   if (velMax <= 0) return "#26C281";
   if (Math.round(velocidad) >= velMax) return "#ed6b75";

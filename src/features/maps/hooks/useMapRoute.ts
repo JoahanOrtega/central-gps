@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { RoutePoint, RouteDisplayOptions } from "../types/map.types";
 import {
     createRouteFlagMarker,
@@ -13,7 +13,6 @@ import {
     buildEndFlagContent,
     buildStopEventContent,
     buildEngineEventContent,
-    buildDoorEventContent,
     buildSpeedEventContent,
     buildRfidEventContent,
 } from "../lib/map-html-builders";
@@ -331,13 +330,7 @@ export const useMapRoute = ({
         }
     };
 
-    // ── Eventos del recorrido ─────────────────────────────────────────────────
-    // Detección por status + velocidad (igual que draw.js legacy).
-    // `door` se detecta por el bit 2 del campo status: SUBSTR(status,2,1)='1'
-    // cuando input1=3 (sensor de puerta). Como RoutePoint no incluye la config
-    // de la unidad, usamos movement_state="stop" para paradas y el status bit
-    // para apagado/encendido. La puerta requeriría datos del input que no vienen
-    // en el recorrido — se omite sin error de tipo.
+    // Evaluar bounds de todos los puntos y centrar el mapa en ellos
     const drawEvents = (points: RoutePoint[], velMax: number) => {
         const map = mapRef.current!;
         const infoWindow = infoWindowRef.current!;
@@ -365,7 +358,7 @@ export const useMapRoute = ({
             });
             m.addListener("gmp-click", () => {
                 openInfoWindowWithGeocode(infoWindow, map, m, html, lat, lng);
-            }); 
+            });
             return m;
         };
 
@@ -454,17 +447,9 @@ export const useMapRoute = ({
         if (state !== "none") closeState(points.length - 1);
     };
 
-    // ── Lecturas RFID ─────────────────────────────────────────────────────────
-    // Fiel al draw.js legacy (evento tipo 6): cada punto del recorrido puede
-    // traer una lectura RFID (campo `rfid` extraído por la oreja del payload
-    // RS232 o de un slot ASSIGN renombrado).
-    //
-    // Agrupamiento: lecturas a menos de RFID_GROUP_DIST_KM una de otra se
-    // consolidan en UN solo marker con la lista completa en su InfoWindow.
-    // Sin esto, una unidad detenida frente al lector generaría decenas de
-    // íconos encimados en el mismo punto (ruido visual — heurística de
-    // diseño minimalista, Nielsen #8).
-    const RFID_GROUP_DIST_KM = 0.05; // 50 metros, igual que el legacy
+    // Lecturas RFID: se agrupan las lecturas cercanas (<= 50 m) en un solo marcador, 
+    // con un infoWindow que lista todas las lecturas del grupo.
+    const RFID_GROUP_DIST_KM = 0.05; // 50 metros
 
     const drawRfidEvents = (points: RoutePoint[]) => {
         const map = mapRef.current!;
@@ -553,6 +538,9 @@ export const useMapRoute = ({
         points.forEach((p) => bounds.extend({ lat: p.latitud, lng: p.longitud }));
         map.fitBounds(bounds);
     };
+
+    // Ejecutar limpieza al desmontar el hook, para que no queden capas huérfanas en el mapa.
+    useEffect(() => () => clearAllRoute(), []);
 
     const hideUnitRoute = () => clearAllRoute();
 

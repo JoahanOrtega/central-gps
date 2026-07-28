@@ -17,7 +17,7 @@ import { notify } from "@/stores/notificationStore";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { queryKeys } from "@/lib/query-keys";
 import { SaveButton } from "@/components/shared/SaveButton";
-import type { AlertaPoi, UpsertAlertaPoiPayload } from "./poi.alertas.types";
+import type { AlertaPoi, UpsertAlertaPoiPayload } from "../types/poi-alertas.types";
 import type { PoiItem } from "../types/poi.types";
 
 // ── Props ─────────────────────────────────────────────────────────────────────

@@ -1,11 +1,12 @@
 import React, { useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
-  BarChart3, Building2, FolderOpen,
-  LayoutDashboard, Map, MapPinned, Menu,
-  Truck, Users, X,
+  BarChart3, Building2, ClipboardList, FolderOpen, Fuel,
+  LayoutDashboard, Map, MapPinned, Route, ScanBarcode,
+  ShieldCheck, Tag, Truck, Users, X,
 } from "lucide-react";
 import { usePermiso } from "@/hooks/usePermiso";
+import { useAuthStore } from "@/stores/authStore";
 import logo from "@/assets/images/logo_full.png";
 import { cn } from "@/lib/utils";
 
@@ -41,12 +42,21 @@ const DrawerLink = ({ to, label, icon, onClose }: DrawerLinkProps) => (
   </NavLink>
 );
 
+// Encabezado de sección
+const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+  <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+    {children}
+  </p>
+);
+
 export const MobileSidebarDrawer = ({
   isOpen,
   onClose,
 }: MobileSidebarDrawerProps) => {
   const location = useLocation();
   const prevPathRef = React.useRef(location.pathname);
+  const user = useAuthStore((s) => s.user);
+  const esSudoErp = user?.rol === "sudo_erp";
 
   // Cerrar al cambiar de ruta — pero NO al montar (compara con el valor anterior)
   useEffect(() => {
@@ -66,6 +76,7 @@ export const MobileSidebarDrawer = ({
     return () => { document.body.style.overflow = ""; };
   }, [isOpen]);
 
+  //  Permisos 
   const puedeMapa = usePermiso("mapa.ver");
   const puedeReportes = usePermiso("reportes.ver");
   const puedeUnidades = usePermiso("unidades.ver");
@@ -73,6 +84,10 @@ export const MobileSidebarDrawer = ({
   const puedePois = usePermiso("pois.ver");
   const puedeUsuarios = usePermiso("usuarios.ver");
   const puedeOperadores = usePermiso("operadores.ver");
+  const puedeRutas = usePermiso("rutas.ver");
+  const puedeItinerarios = usePermiso("itinerarios.ver");
+  const puedeAforos = usePermiso("aforos.ver");
+  const puedeCombustible = usePermiso("cargas.ver");
 
   return (
     <>
@@ -108,11 +123,15 @@ export const MobileSidebarDrawer = ({
           </button>
         </div>
 
-        {/* Contenido */}
         <nav className="px-3 py-4 space-y-6">
 
           {/* Principal */}
           <div>
+            <DrawerLink
+              to="/home/dashboard" label="Dashboard"
+              icon={<LayoutDashboard className="h-4 w-4" />}
+              onClose={onClose}
+            />
             {puedeMapa && (
               <DrawerLink
                 to="/home/maps" label="Mapa"
@@ -120,11 +139,6 @@ export const MobileSidebarDrawer = ({
                 onClose={onClose}
               />
             )}
-            <DrawerLink
-              to="/home/dashboard" label="Dashboard"
-              icon={<LayoutDashboard className="h-4 w-4" />}
-              onClose={onClose}
-            />
             {puedeReportes && (
               <DrawerLink
                 to="/home/reports" label="Reportes"
@@ -137,9 +151,7 @@ export const MobileSidebarDrawer = ({
           {/* Catálogos */}
           {(puedeUnidades || puedeClientes || puedePois || puedeUsuarios || puedeOperadores) && (
             <div>
-              <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                Catálogos
-              </p>
+              <SectionTitle>Catálogos</SectionTitle>
               {puedeUnidades && (
                 <DrawerLink to="/home/catalogs/units" label="Unidades"
                   icon={<Truck className="h-4 w-4" />} onClose={onClose} />
@@ -162,19 +174,53 @@ export const MobileSidebarDrawer = ({
               )}
               {puedeUsuarios && (
                 <DrawerLink to="/home/catalogs/users" label="Usuarios"
-                  icon={<Users className="h-4 w-4" />} onClose={onClose} />
+                  icon={<ClipboardList className="h-4 w-4" />} onClose={onClose} />
               )}
             </div>
           )}
 
           {/* Operación */}
-          {puedeMapa && (
+          {(puedeMapa || puedeRutas || puedeItinerarios || puedeAforos) && (
             <div>
-              <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                Operación
-              </p>
-              <DrawerLink to="/home/operation/monitor" label="Monitor de Flota"
-                icon={<Map className="h-4 w-4" />} onClose={onClose} />
+              <SectionTitle>Operación</SectionTitle>
+              {puedeMapa && (
+                <DrawerLink to="/home/operation/monitor" label="Monitor de Flota"
+                  icon={<Map className="h-4 w-4" />} onClose={onClose} />
+              )}
+              {puedeItinerarios && (
+                <DrawerLink to="/home/operation/itineraries" label="Itinerarios"
+                  icon={<ClipboardList className="h-4 w-4" />} onClose={onClose} />
+              )}
+              {puedeRutas && (
+                <DrawerLink to="/home/operation/routes" label="Rutas"
+                  icon={<Route className="h-4 w-4" />} onClose={onClose} />
+              )}
+              {puedeAforos && (
+                <DrawerLink to="/home/operation/aforos" label="Aforos"
+                  icon={<ScanBarcode className="h-4 w-4" />} onClose={onClose} />
+              )}
+            </div>
+          )}
+
+          {/* Combustible  */}
+          {puedeCombustible && (
+            <div>
+              <SectionTitle>Combustible</SectionTitle>
+              <DrawerLink to="/home/fuel/general" label="General"
+                icon={<Fuel className="h-4 w-4" />} onClose={onClose} />
+            </div>
+          )}
+
+          {/* Panel ERP (solo sudo_erp) */}
+          {esSudoErp && (
+            <div>
+              <SectionTitle>Panel ERP</SectionTitle>
+              <DrawerLink to="/home/admin-erp/empresas" label="Empresas"
+                icon={<Building2 className="h-4 w-4" />} onClose={onClose} />
+              <DrawerLink to="/home/admin-erp/permisos" label="Permisos"
+                icon={<ShieldCheck className="h-4 w-4" />} onClose={onClose} />
+              <DrawerLink to="/home/admin-erp/auditoria" label="Auditoría"
+                icon={<Tag className="h-4 w-4" />} onClose={onClose} />
             </div>
           )}
         </nav>

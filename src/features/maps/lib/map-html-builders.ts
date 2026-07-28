@@ -1,8 +1,7 @@
 import type { MapPoiItem, MapUnitItem, RoutePoint } from "../types/map.types";
 import {
-  getTelemetryStatusLabel,
+  getEngineStateLabel,
   getTelemetryStatusMeta,
-  UNIT_COLORS,
 } from "./telemetry-status";
 import {
   formatAppDateTimeShort,
@@ -129,7 +128,10 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
     telemetry?.segundos_sistema,
     unit.vel_max,
   );
-  const statusLabel = getTelemetryStatusLabel(engineState, velocidad);
+  // meta.label conoce la regla de silencio ("Sin reportar +4h") — el
+  // helper viejo etiquetaba por el último paquete y contradecía al color.
+  const statusLabel = meta.label;
+  const esSinReporte = meta.mapState === "sin-reporte";
   const dotColor = meta.fillColor;
 
   // ── Último reporte: fecha absoluta + tiempo relativo ─────────────────
@@ -208,21 +210,20 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
     "display:block; font-size:10px; color:#94a3b8; margin-top:1px; " +
     "font-variant-numeric:tabular-nums;";
 
-  // Construcción progresiva de las filas (orden semántico)
-  const rowEstado = `
+  // Si hay ubicación, velocidad o viaje, mostrar fila de Ubicación; si no, ocultar.
+  const hasUbicacion = typeof lat === "number" && typeof lng === "number";
+
+  // Si no hay reporte, mostrar fila de Motor con tiempo en estado; si hay reporte, ocultar.
+  const rowMotor = esSinReporte
+    ? `
     <div style="${rowStyle}">
-      <span style="${labelStyle}">Estado</span>
+      <span style="${labelStyle}">Motor</span>
       <span style="${valueStyle}">
-        <span style="font-weight:600; color:${dotColor};">${escapeHtml(statusLabel)}</span>
+        <span style="font-weight:600;">${escapeHtml(getEngineStateLabel(engineState))}</span>
         ${tiempoEnEstado ? `<span style="${valueSecondary}">desde hace ${escapeHtml(tiempoEnEstado)}</span>` : ""}
       </span>
-    </div>`;
-
-  // ── Ubicación con geocoding perezoso ─────────────────────────────────
-  // Solo si hay coordenadas. El GEOCODE_PLACEHOLDER lo reemplaza
-  // hydrateInfoWindowGeocode() cuando el Geocoder resuelve la dirección
-  // (mismo patrón que las cartas de eventos del recorrido).
-  const hasUbicacion = typeof lat === "number" && typeof lng === "number";
+    </div>`
+    : "";
 
   const rowReporte = `
     <div style="${hasUbicacion || mostrarVelocidad || mostrarViaje ? rowStyle : rowStyleLast}">
@@ -269,16 +270,16 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
       style="
         display:flex; align-items:center; justify-content:center; gap:6px;
         margin-top:10px; padding:10px 12px;
-        background:#eff6ff;
-        border:1px solid #bfdbfe;
-        border-radius:6px;
-        font-size:12px; font-weight:500;
-        color:#1d4ed8; text-decoration:none;
+        background:#0ea5e9;
+        border-radius:999px;
+        font-size:12px; font-weight:600;
+        color:#ffffff; text-decoration:none;
+        box-shadow:0 1px 3px rgba(14,165,233,0.4);
         transition:background 0.15s ease;
         cursor:pointer;
       "
-      onmouseover="this.style.background='#dbeafe'"
-      onmouseout="this.style.background='#eff6ff'"
+      onmouseover="this.style.background='#0284c7'"
+      onmouseout="this.style.background='#0ea5e9'"
       aria-label="Abrir ubicación en Google Maps"
     >
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -299,48 +300,54 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
       margin:0;
       font-family:'Poppins', system-ui, -apple-system, sans-serif;
     ">
-      <!-- Encabezado: dot de estado + número + marca/modelo en línea -->
-      <div style="display:flex; align-items:center; gap:8px; margin-bottom:${marcaModelo ? "2" : "10"}px;">
+      <!-- Encabezado: círculo-eco del marcador (mismo número y color que
+           el pin del mapa — Ley de Consistencia con el bottom sheet móvil)
+           + chip de estado con tinte del color semántico -->
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
         <span
           aria-hidden="true"
           style="
-            display:inline-block;
-            width:10px; height:10px;
+            display:flex; align-items:center; justify-content:center;
+            width:34px; height:34px;
             border-radius:999px;
             background:${dotColor};
-            box-shadow:0 0 0 2px ${dotColor}30;
+            color:#ffffff;
+            font-size:12px; font-weight:700;
+            box-shadow:0 0 0 2px #ffffff, 0 1px 4px ${dotColor}55;
             flex-shrink:0;
           "
-        ></span>
-        <span style="
-          font-size:15px;
-          font-weight:600;
-          color:#0f172a;
-          line-height:1.2;
-          letter-spacing:-0.01em;
-          flex:1;
-          min-width:0;
-          overflow:hidden;
-          text-overflow:ellipsis;
-          white-space:nowrap;
-        ">${escapeHtml(unit.numero || "Sin nombre")}</span>
-      </div>
- 
-      ${marcaModelo
-      ? `<div style="
-            font-size:11.5px;
-            color:#64748b;
-            margin:0 0 8px 18px;
-            line-height:1.3;
+        >${escapeHtml(unit.numero || "?")}</span>
+        <span style="min-width:0; flex:1;">
+          <span style="
+            display:block;
+            font-size:14px;
+            font-weight:600;
+            color:#0f172a;
+            line-height:1.25;
+            letter-spacing:-0.01em;
             overflow:hidden;
             text-overflow:ellipsis;
             white-space:nowrap;
-          ">${escapeHtml(marcaModelo)}</div>`
-      : ""}
+            text-transform:capitalize;
+          ">${escapeHtml(marcaModelo || `Unidad ${unit.numero || ""}`)}</span>
+          <span style="
+            display:inline-flex; align-items:center; gap:5px;
+            margin-top:3px; padding:2px 8px;
+            border-radius:999px;
+            background:${dotColor}1A;
+            color:${dotColor};
+            font-size:10.5px; font-weight:600;
+            line-height:1.4;
+          ">
+            <span style="width:6px; height:6px; border-radius:999px; background:${dotColor};"></span>
+            ${escapeHtml(statusLabel)}${esSinReporte ? ` <span style="opacity:0.7;">· hace ${escapeHtml(tiempoRelativoReporte)}</span>` : tiempoEnEstado ? ` <span style="opacity:0.7;">· ${escapeHtml(tiempoEnEstado)}</span>` : ""}
+          </span>
+        </span>
+      </div>
  
       <!-- Datos clave (Ley de Proximidad + Similitud) -->
       <div style="border-top:1px solid #e2e8f0;">
-        ${rowEstado}
+        ${rowMotor}
         ${rowReporte}
         ${rowUbicacion}
         ${rowVelocidad}
@@ -352,34 +359,10 @@ export const buildUnitInfoWindowContent = (unit: MapUnitItem): string => {
   `;
 };
 
-// ══════════════════════════════════════════════════════════════════════════════
-// Cartas de eventos del recorrido — sistema de diseño compartido
-// ══════════════════════════════════════════════════════════════════════════════
-//
-// Principios aplicados (Laws of UX):
-//   - Ley de Consistencia/Similitud: todas las cartas comparten el mismo
-//     esqueleto (encabezado con ícono + filas LABEL↔VALUE + pie con el
-//     periodo), idéntico al patrón del InfoWindow de unidades de arriba.
-//   - Ley de Jakob + Reconocimiento > Recuerdo: los glifos SVG son los
-//     MISMOS de los marcadores del mapa (paleta de map-icon-svgs.ts), así
-//     el usuario conecta marcador ↔ carta sin esfuerzo cognitivo.
-//   - Estética-Usabilidad: cero emojis. Los emojis se renderizan distinto
-//     en cada sistema operativo (Windows ≠ Android ≠ macOS); los SVG
-//     inline garantizan exactamente el mismo pixel en todos.
-//   - Números tabulares (font-variant-numeric) para que horas y cifras
-//     no "bailen" horizontalmente entre cartas.
-
-// ── Tipografía base (misma que la carta de unidades) ──────────────────────────
+// Fuente base para las cartas
 const CARD_FONT = "'Poppins', system-ui, -apple-system, sans-serif";
 
-// ── Fábrica de íconos SVG inline ──────────────────────────────────────────────
-// Genera un <svg> de trazo (estilo Lucide) listo para incrustar en el
-// encabezado de una carta. El color llega de ROUTE_ICON_PALETTE para
-// mantener identidad visual con los marcadores del mapa.
-// Google Maps sanitiza el HTML del InfoWindow y descarta atributos SVG de
-// presentación (stroke-width, stroke-linecap, stroke-linejoin) cuando vienen
-// como atributos directos. Moverlos a `style=""` inline los preserva porque
-// el InfoWindow sí permite propiedades CSS en el atributo style.
+// Función para crear íconos SVG inline
 const svgIcon = (inner: string, color: string, size = 14): string =>
   `<svg width="${size}" height="${size}" viewBox="0 0 24 24" ` +
   `aria-hidden="true" ` +
@@ -408,9 +391,7 @@ const GLYPH_PIN = (c: string) =>
 const GLYPH_CLOCK = (c: string) =>
   svgIcon(`<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>`, c, 12);
 
-// ── Esqueleto compartido de carta ─────────────────────────────────────────────
-// Mismos estilos de fila que buildUnitInfoWindowContent para que TODOS
-// los popups del sistema se sientan parte de la misma familia.
+// Glifos de eventos de recorrido (mismo color que el marcador en el mapa)
 const EVENT_ROW_STYLE =
   "display:flex; justify-content:space-between; align-items:center; " +
   "padding:5px 0; border-bottom:1px solid #f1f5f9; gap:12px;";
@@ -543,7 +524,7 @@ export interface RouteArrowMarkerData {
  * se usan los umbrales históricos 80/60 como respaldo.
  */
 export const buildRouteArrowInfoWindowContent = (
-  unitLabel: string | null,
+  _unitLabel: string | null,
   data: RouteArrowMarkerData,
   velMax = 0,
 ): string => {

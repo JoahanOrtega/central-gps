@@ -5,8 +5,7 @@ import { AforosEmptyState } from "./AforosEmptyState";
 import { AforoModal } from "./AforoModal";
 import { BulkUploadModal } from "./BulkUploadModal";
 import { BulkExportModal } from "./BulkExportModal"; 
-import ExcelJS from "exceljs";
-import { saveAs } from "file-saver";
+import { cargarExcelJS, descargarBlob } from "@/lib/excel-lazy";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { CatalogLayout, CatalogHeader, useDebounce, usePagination } from "@/components/shared";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
@@ -217,6 +216,9 @@ export const OperatorsAforosView = () => {
       return;
     }
 
+    // Carga perezosa: ExcelJS (~650 kB) solo se descarga cuando alguien
+    // exporta de verdad — ver src/lib/excel-lazy.ts.
+    const ExcelJS = await cargarExcelJS();
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Catálogo Activo");
     worksheet.views = [{ showGridLines: true }];
@@ -271,10 +273,11 @@ export const OperatorsAforosView = () => {
     const cleanName = fileName.replace(/\.csv$/, "");
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     
-    saveAs(blob, `${cleanName}.xlsx`);
+    await descargarBlob(blob, `${cleanName}.xlsx`);
   };
 
   const handleDownloadTemplate = async () => {
+    const ExcelJS = await cargarExcelJS();
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Plantilla Base");
     worksheet.views = [{ showGridLines: true }];
@@ -312,7 +315,7 @@ export const OperatorsAforosView = () => {
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     
-    saveAs(blob, "plantilla_base_aforos.xlsx");
+    await descargarBlob(blob, "plantilla_base_aforos.xlsx");
   };
 
   const toolbarExtra = (

@@ -2,21 +2,14 @@ import { useAuthStore } from "@/stores/authStore";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
-// ── Tipos de respuesta de error que aceptamos ────────────────────────────────
-// El backend puede devolver el error en varias formas:
-//   { error: "Mensaje plano" }
-//   { error: { campo: ["msg1", "msg2"] } }    ← Marshmallow validate
-//   { message: "..." }
-//   "Mensaje suelto"
+// Tipos de respuesta de error de la API
 
 interface ApiErrorResponse {
   error?: string | Record<string, string[] | string>;
   message?: string;
 }
 
-// ── Clase de error tipada ────────────────────────────────────────────────────
-// Reemplaza al `new Error(...)` plano. La vista puede inspeccionar .status
-// para decidir qué banner mostrar (ver clasificarError en ErrorBanner.tsx).
+// Clase de error personalizada para manejar errores de la API
 
 export class ApiError extends Error {
   readonly status: number;
@@ -34,14 +27,7 @@ export class ApiError extends Error {
   }
 }
 
-// ── Parser de mensajes de error ──────────────────────────────────────────────
-// Convierte cualquier formato de error del backend en:
-//   { message: string, fieldErrors?: { campo: string } }
-//
-// CLAVE: cuando `error` es un objeto (Marshmallow validation), antes se hacía
-// `String(error)` → "[object Object]". Ahora aplanamos a un mensaje legible
-// y guardamos el detalle por campo para la UI.
-
+// Parseo de errores del backend
 interface ParsedError {
   message: string;
   fieldErrors?: Record<string, string>;
@@ -88,37 +74,79 @@ const parseError = (data: unknown, fallback: string): ParsedError => {
   return { message: fallback };
 };
 
-// ── Renovación automática del access token ───────────────────────────────────
+//  Renovación automática del access token ─
 
 interface ApiRequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
   requiresAuth?: boolean;
   _isRetryAfterRefresh?: boolean;
+  // Timeout en milisegundos para la petición. Si se supera, aborta y lanza un ApiError 408.
+  timeoutMs?: number;
 }
 
+// Timeout por defecto para las peticiones. Se puede sobreescribir en cada llamada.
+const DEFAULT_TIMEOUT_MS = 30000;
+
 let _refreshPromise: Promise<boolean> | null = null;
+
+// BroadcastChannel para compartir tokens entre pestañas y evitar múltiples refreshes simultáneos
+const AUTH_CHANNEL = "cgps-auth";
+const REFRESH_LOCK = "cgps-refresh";
+
+const authChannel: BroadcastChannel | null =
+  typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(AUTH_CHANNEL) : null;
+
+// Adoptar tokens difundidos por otras pestañas.
+authChannel?.addEventListener("message", (event: MessageEvent) => {
+  const msg = event.data as { type?: string; token?: string };
+  if (msg?.type === "token-refreshed" && msg.token) {
+    useAuthStore.getState().setToken(msg.token);
+  }
+});
+
+const _doRefresh = async (): Promise<boolean> => {
+  try {
+    const response = await fetch(`${API_URL}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      await useAuthStore.getState().logout();
+      return false;
+    }
+
+    const data = (await response.json()) as { token: string };
+    useAuthStore.getState().setToken(data.token);
+    // Compartir con las demás pestañas: su cookie ya rotó, este token es
+    // ahora el único válido para todas.
+    authChannel?.postMessage({ type: "token-refreshed", token: data.token });
+    return true;
+  } catch {
+    await useAuthStore.getState().logout();
+    return false;
+  }
+};
 
 const refreshAccessToken = async (): Promise<boolean> => {
   if (_refreshPromise) return _refreshPromise;
 
+  const tokenAlSolicitar = useAuthStore.getState().token;
+
   _refreshPromise = (async () => {
     try {
-      const response = await fetch(`${API_URL}/auth/refresh`, {
-        method: "POST",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        await useAuthStore.getState().logout();
-        return false;
+      // Si el navegador soporta locks, pedimos uno para que solo una pestaña haga el refresh.
+      if (typeof navigator !== "undefined" && "locks" in navigator) {
+        return await navigator.locks.request(REFRESH_LOCK, async () => {
+          // Si otra pestaña ya hizo el refresh mientras esperábamos el lock, no hacemos nada.
+          const tokenActual = useAuthStore.getState().token;
+          if (tokenActual && tokenActual !== tokenAlSolicitar) {
+            return true;
+          }
+          return _doRefresh();
+        });
       }
-
-      const data = (await response.json()) as { token: string };
-      useAuthStore.getState().setToken(data.token);
-      return true;
-    } catch {
-      await useAuthStore.getState().logout();
-      return false;
+      return await _doRefresh();
     } finally {
       _refreshPromise = null;
     }
@@ -127,7 +155,7 @@ const refreshAccessToken = async (): Promise<boolean> => {
   return _refreshPromise;
 };
 
-// ── Cliente HTTP centralizado ────────────────────────────────────────────────
+//  Cliente HTTP centralizado 
 
 export const apiFetch = async <T>(
   endpoint: string,
@@ -137,6 +165,7 @@ export const apiFetch = async <T>(
     body,
     requiresAuth = true,
     _isRetryAfterRefresh = false,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
     headers: extraHeaders,
     ...rest
   } = options;
@@ -152,14 +181,37 @@ export const apiFetch = async <T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...rest,
-    headers,
-    credentials: "include",
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  // Timeout y abort controller para la petición
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
 
-  // ── Interceptor de renovación de token ───────────────────────────────────
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${endpoint}`, {
+      ...rest,
+      headers,
+      credentials: "include",
+      signal: rest.signal ?? timeoutController.signal,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (err) {
+    // Timeout de la petición (AbortError). Se lanza un ApiError 408 para que la UI pueda mostrar un banner.
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new ApiError(
+        "El servidor tardó demasiado en responder. Intenta nuevamente.",
+        408,
+      );
+    }
+    // Fallo de red real (sin conexión, DNS, etc.).
+    throw new ApiError(
+      "No se pudo conectar con el servidor. Revisa tu conexión.",
+      0,
+    );
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  //  Interceptor de renovación de token ─
   if (response.status === 401 && requiresAuth && !_isRetryAfterRefresh) {
     const refreshed = await refreshAccessToken();
 
@@ -203,13 +255,12 @@ export const apiFetch = async <T>(
 
   return data as T;
 };
-// Sube un archivo por multipart/form-data. No usa apiFetch porque este fuerza
-// Content-Type: application/json; con FormData hay que dejar que el navegador
-// ponga el multipart con su boundary. Reusa el token y el API_URL.
+// Función para subir archivos al backend con autenticación y manejo de errores
 export const apiUpload = async <T>(
   endpoint: string,
   file: File,
   fieldName = "file",
+  _esReintento = false,
 ): Promise<T> => {
   const token = useAuthStore.getState().token;
 
@@ -225,6 +276,16 @@ export const apiUpload = async <T>(
     credentials: "include",
     body: formData,
   });
+
+  // Si la respuesta es 401 y no es un reintento, intentamos refrescar el token y reintentar la subida
+  if (response.status === 401 && !_esReintento) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      return apiUpload<T>(endpoint, file, fieldName, true);
+    }
+    await useAuthStore.getState().logout();
+    throw new ApiError("Sesión expirada. Por favor inicia sesión nuevamente.", 401);
+  }
 
   const data = await response.json().catch(() => null);
 

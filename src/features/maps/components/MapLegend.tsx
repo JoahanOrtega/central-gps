@@ -1,19 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { CircleHelp } from "lucide-react";
 import {
     UNIT_COLORS,
-    APAGADO_PROLONGADO_SEGS,
+    SIN_REPORTE_PROLONGADO_SEGS,
 } from "../lib/telemetry-status";
 
-// ── Estilo del botón ───────────────────────────
+//  Estilo del botón
 const toolbarButtonClass =
-    "flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700";
+    "flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700";
 
-// ── Umbral legible para humanos ───────────────────────────────────────────────
-// Derivado del valor real para que la leyenda nunca mienta.
-const HORAS_APAGADO_PROLONGADO = Math.round(APAGADO_PROLONGADO_SEGS / 3600);
+const HORAS_SIN_REPORTE = Math.round(SIN_REPORTE_PROLONGADO_SEGS / 3600);
 
-// ── Swatch: círculo que imita el marcador real (fill + stroke) ────────────────
+// Swatch: círculo que imita el marcador real (fill + stroke) 
 interface SwatchProps {
     fill: string;
     stroke: string;
@@ -31,7 +29,7 @@ const MarkerSwatch = ({ fill, stroke }: SwatchProps) => (
     />
 );
 
-// ── Fila de la leyenda: swatch + descripción ──────────────────────────────────
+// Fila de la leyenda: swatch + descripción 
 interface LegendRowProps {
     fill: string;
     stroke: string;
@@ -51,7 +49,7 @@ const LegendRow = ({ fill, stroke, label, detail }: LegendRowProps) => (
     </li>
 );
 
-// ── Encabezado de sección dentro del popover ──────────────────────────────────
+// Encabezado de sección dentro del popover 
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
     <p className="mb-1 mt-3 text-[10px] font-semibold uppercase tracking-wide text-slate-400 first:mt-0">
         {children}
@@ -61,26 +59,8 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
 // Botón de ayuda + popover con la leyenda de colores de los marcadores.
 export const MapLegend = () => {
     const [open, setOpen] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
 
-    // ── Cerrar con clic fuera ───────────────────────────────────────────────
-    useEffect(() => {
-        if (!open) return;
-
-        const handleClickOutside = (event: MouseEvent) => {
-            if (
-                containerRef.current &&
-                !containerRef.current.contains(event.target as Node)
-            ) {
-                setOpen(false);
-            }
-        };
-
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [open]);
-
-    // ── Cerrar con Escape (control y libertad del usuario, Nielsen #3) ──────
+    //  Cerrar con Escape (control y libertad del usuario, Nielsen #3) 
     useEffect(() => {
         if (!open) return;
 
@@ -93,7 +73,7 @@ export const MapLegend = () => {
     }, [open]);
 
     return (
-        <div ref={containerRef} className="relative">
+        <div className="relative">
             <button
                 type="button"
                 className={toolbarButtonClass}
@@ -106,49 +86,57 @@ export const MapLegend = () => {
             </button>
 
             {open && (
-                <div
-                    role="dialog"
-                    aria-label="Leyenda de colores del mapa"
-                    className="absolute right-0 top-12 z-50 w-72 rounded-lg border border-slate-200 bg-white p-4 shadow-lg"
-                >
-                    <p className="mb-2 text-sm font-semibold text-slate-800">
-                        ¿Qué significan los colores?
-                    </p>
+                <>
+                    <div
+                        className="fixed inset-0 z-40"
+                        aria-hidden="true"
+                        onClick={() => setOpen(false)}
+                    />
 
-                    {/* ── Eje 1: centro del marcador = estado del motor ── */}
-                    <SectionTitle>Centro — estado del motor</SectionTitle>
-                    <ul>
-                        <LegendRow
-                            fill={UNIT_COLORS.VERDE}
-                            stroke={UNIT_COLORS.BLANCO}
-                            label="Encendida"
-                            detail="En movimiento o en relentí"
-                        />
-                        <LegendRow
-                            fill={UNIT_COLORS.GRIS_OSCURO}
-                            stroke={UNIT_COLORS.BLANCO}
-                            label="Apagada"
-                            detail="Apagado normal (fin de jornada, pernocta)"
-                        />
-                        <LegendRow
-                            fill={UNIT_COLORS.ROJO}
-                            stroke={UNIT_COLORS.BLANCO}
-                            label="Apagada — prolongado"
-                            detail={`Más de ${HORAS_APAGADO_PROLONGADO} horas sin encender`}
-                        />
-                        <LegendRow
-                            fill={UNIT_COLORS.GRIS}
-                            stroke={UNIT_COLORS.BLANCO}
-                            label="Sin telemetría"
-                            detail="El sistema no tiene datos de esta unidad"
-                        />
-                    </ul>
+                    <div
+                        role="dialog"
+                        aria-label="Leyenda de colores del mapa"
+                        className="fixed left-1/2 top-24 z-50 w-[calc(100vw-2rem)] max-w-xs -translate-x-1/2 sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-72 sm:translate-x-0 rounded-lg border border-slate-200 bg-white p-4 shadow-lg"
+                    >
+                        <p className="mb-2 text-sm font-semibold text-slate-800">
+                            ¿Qué significan los colores?
+                        </p>
 
-                    {/* ── Nota de lectura ── */}
-                    <p className="mt-3 border-t border-slate-100 pt-2 text-[11px] leading-snug text-slate-400">
-                        El color del centro indica el estado del motor de la unidad.
-                    </p>
-                </div>
+                        {/* centro del marcador = estado del motor */}
+                        <SectionTitle>Centro — estado del motor</SectionTitle>
+                        <ul>
+                            <LegendRow
+                                fill={UNIT_COLORS.VERDE}
+                                stroke={UNIT_COLORS.BLANCO}
+                                label="Encendida"
+                                detail="En movimiento o en relentí"
+                            />
+                            <LegendRow
+                                fill={UNIT_COLORS.GRIS_OSCURO}
+                                stroke={UNIT_COLORS.BLANCO}
+                                label="Apagada"
+                                detail="Apagado normal (fin de jornada, pernocta)"
+                            />
+                            <LegendRow
+                                fill={UNIT_COLORS.ROJO}
+                                stroke={UNIT_COLORS.BLANCO}
+                                label="Apagada — prolongado"
+                                detail={`Más de ${HORAS_SIN_REPORTE} horas sin recibir datos`}
+                            />
+                            <LegendRow
+                                fill={UNIT_COLORS.GRIS}
+                                stroke={UNIT_COLORS.BLANCO}
+                                label="Sin telemetría"
+                                detail="El sistema no tiene datos de esta unidad"
+                            />
+                        </ul>
+
+                        {/* Nota de lectura */}
+                        <p className="mt-3 border-t border-slate-100 pt-2 text-[11px] leading-snug text-slate-400">
+                            El color del centro indica el estado del motor de la unidad.
+                        </p>
+                    </div>
+                </>
             )}
         </div>
     );

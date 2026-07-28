@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { NOTIFICACIONES_KEY } from "@/features/notifications/hooks/useNotificaciones";
 import { useAuthStore } from "@/stores/authStore";
 import { useCompanyStore } from "@/stores/companyStore";
 import { usePoiEventsStore } from "@/stores/poiEventsStore";
@@ -25,6 +27,7 @@ const resolverWsUrl = (): string => {
 };
 
 export const usePoiEvents = (): void => {
+    const queryClient = useQueryClient();
     const token = useAuthStore((state) => state.token);
     const user = useAuthStore((state) => state.user);
     const currentCompany = useCompanyStore((state) => state.currentCompany);
@@ -128,6 +131,12 @@ export const usePoiEvents = (): void => {
                         "clientId" | "recibido_en"
                     >;
                     if (!raw.tipo_evento || !raw.id_unidad) return;
+                    // El worker persiste este mismo evento como notificación:
+                    // invalidar la key hace que el badge de la campanita
+                    // suba EN VIVO sin esperar el refetch de respaldo.
+                    queryClient.invalidateQueries({
+                        queryKey: [NOTIFICACIONES_KEY],
+                    });
                     agregarAlerta({
                         ...raw,
                         tipo_evento: raw.tipo_evento as TipoAlertaEstado,

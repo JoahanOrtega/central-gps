@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { CalendarRange, Plus, Trash2, Moon } from "lucide-react";
+import { CalendarRange, Moon } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { useNotificationStore } from "@/stores/notificationStore";

@@ -1,4 +1,3 @@
-// src/features/maps/hooks/useUnitsLive.ts
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { monitorService } from "../services/monitorService";
@@ -7,7 +6,7 @@ import { useEmpresaActiva } from "@/hooks/useEmpresaActiva";
 import { useAutoRefresh } from "./useAutoRefresh";
 import { useUnitsDrawerStore } from "../stores/unitsDrawerStore";
 
-// ── Conteos vacíos por defecto ────────────────────────────────────────────────
+// Conteos vacíos por defecto
 const EMPTY_COUNTS: UnitsLiveCounts = {
   total: 0,
   engine_on: 0,
@@ -15,7 +14,7 @@ const EMPTY_COUNTS: UnitsLiveCounts = {
   engine_unknown: 0,
 };
 
-// ── Configuración del polling ────────────────────────────────────────────────
+// Configuración del polling
 const DEFAULT_REFRESH_INTERVAL_MS = 15_000;
 
 interface UseUnitsLiveOptions {
@@ -23,29 +22,7 @@ interface UseUnitsLiveOptions {
   intervalMs?: number;
 }
 
-/**
- * Hook para manejar el panel de unidades en vivo.
- *
- * Responsabilidades:
- *   - Cargar unidades desde backend vía monitorService.
- *   - Detectar cambios REALES de empresa activa y resetear estado.
- *   - Polling automático cada N segundos.
- *   - Mantener estado de carga y conteos.
- *
- * Estado persistente en `unitsDrawerStore`:
- *   - `selectedIds`, `search`, `lastEmpresaId` viven en el store.
- *   - Razón: deben sobrevivir al desmontaje del componente UnitsDrawer.
- *
- * Distinción crítica — mount inicial vs cambio real de empresa:
- *   El useEffect de `idEmpresa` se dispara en 3 escenarios:
- *     1. Mount inicial (primer abrir del drawer)          → cargar datos
- *     2. Remount (cerrar + reabrir drawer)                → cargar datos, NO resetear
- *     3. Cambio real de empresa (dropdown del header)     → resetear TODO + cargar
- *
- *   Comparando `idEmpresa` con `store.lastEmpresaId` distinguimos los 3 casos.
- *   `lastEmpresaId` sobrevive al desmontaje (está en el store), así que al
- *   remount el valor sigue ahí y detectamos que no es un cambio real.
- */
+// Hook que encapsula la lógica de polling y estado de las unidades en vivo.
 export const useUnitsLive = (options: UseUnitsLiveOptions = {}) => {
   const {
     autoRefresh = true,
@@ -56,7 +33,14 @@ export const useUnitsLive = (options: UseUnitsLiveOptions = {}) => {
   const [units, setUnits] = useState<MapUnitItem[]>([]);
   const [counts, setCounts] = useState<UnitsLiveCounts>(EMPTY_COUNTS);
   const [isLoading, setIsLoading] = useState(false);
+  // Revalidación en segundo plano (polling): datos previos visibles.
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  // El último refresco falló pero HAY datos previos que seguimos mostrando.
+  const [refreshError, setRefreshError] = useState(false);
   const [error, setError] = useState("");
+  const isLoadingRef = useRef(false);
+  // ¿Ya hubo al menos una carga exitosa? Decide skeleton vs revalidación.
+  const hasLoadedRef = useRef(false);
 
   // Estado persistente desde el store (suscripciones granulares).
   const selectedIds = useUnitsDrawerStore((state) => state.selectedIds);
@@ -74,8 +58,16 @@ export const useUnitsLive = (options: UseUnitsLiveOptions = {}) => {
   }, [search]);
 
   const loadUnits = useCallback(async (searchValue = "") => {
-    setIsLoading(true);
-    setError("");
+    if (isLoadingRef.current) return;
+
+    isLoadingRef.current = true;
+    // Si no hay datos previos, mostramos skeleton. Si ya había datos, solo indicamos que se está refrescando.
+    if (!hasLoadedRef.current) {
+      setIsLoading(true);
+      setError("");
+    } else {
+      setIsRefreshing(true);
+    }
 
     try {
       const { units: freshUnits, counts: freshCounts } =
@@ -83,52 +75,59 @@ export const useUnitsLive = (options: UseUnitsLiveOptions = {}) => {
 
       setUnits(freshUnits);
       setCounts(freshCounts);
+      hasLoadedRef.current = true;
+      setError("");
+      setRefreshError(false);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "No fue posible cargar las unidades";
-      setError(message);
-      setUnits([]);
-      setCounts(EMPTY_COUNTS);
+      if (hasLoadedRef.current) {
+        // Si ya había datos previos, no los borramos solo indicamos que el refresco falló.
+        setRefreshError(true);
+      } else {
+        setError(message);
+        setUnits([]);
+        setCounts(EMPTY_COUNTS);
+      }
     } finally {
+      isLoadingRef.current = false;
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, [idEmpresa]);
 
-  // ── Reacción a idEmpresa ───────────────────────────────────────────────────
-  // Distingue cambio REAL de empresa vs mount/remount del componente.
+  // Efecto que carga las unidades al montar y cuando cambia la empresa activa.
   useEffect(() => {
-    // Acceso imperativo al store para comparar sin suscripción.
-    // Usamos getState() porque solo necesitamos leer el valor actual,
-    // no re-renderizar cuando cambia.
+    // Guard: si la empresa activa cambia, reseteamos el store y los datos locales.
     const { lastEmpresaId, reset, setLastEmpresaId } =
       useUnitsDrawerStore.getState();
 
-    // Normalizamos a string|null para comparación consistente.
-    // (idEmpresa puede venir como number, undefined o null según tu hook).
+    // Guard: si la empresa activa cambia, reseteamos el store y los datos locales.
     const currentEmpresaId: string | null =
       idEmpresa !== null && idEmpresa !== undefined ? String(idEmpresa) : null;
 
     if (lastEmpresaId !== currentEmpresaId) {
-      // Cambio REAL de empresa (o primer mount absoluto de la sesión).
-      // Solo reseteamos si ya había una empresa previa — evitamos resetear
-      // en el primer mount absoluto (donde lastEmpresaId es null por inicio
-      // del store, pero no porque el usuario cambió de empresa).
+      // Si la empresa activa cambió, reseteamos el store y los datos locales.
       if (lastEmpresaId !== null) {
         reset();
       }
       setLastEmpresaId(currentEmpresaId);
       setUnits([]);
       setCounts(EMPTY_COUNTS);
+      hasLoadedRef.current = false;
     }
 
-    // Siempre cargar datos frescos al reaccionar a idEmpresa.
-    // Esto cubre: primer mount, remount, y cambio de empresa.
+    // Guard: si no hay empresa activa, no hacemos nada más.
+    if (currentEmpresaId === null) {
+      setIsLoading(false);
+      return;
+    }
+
+    // Carga inicial de unidades.
     void loadUnits();
-    // loadUnits depende de idEmpresa, así que cuando cambie idEmpresa,
-    // loadUnits también cambiará de referencia y dispara el efecto.
   }, [idEmpresa, loadUnits]);
 
-  // ── Polling automático ─────────────────────────────────────────────────────
+  // Polling automático
   useAutoRefresh({
     callback: () => loadUnits(searchRef.current),
     intervalMs,
@@ -136,7 +135,7 @@ export const useUnitsLive = (options: UseUnitsLiveOptions = {}) => {
     immediate: false,
   });
 
-  // ── Handlers que proxean al store ──────────────────────────────────────────
+  // Handlers que proxean al store 
   // Mantienen la API pública del hook estable — UnitsDrawer.tsx no cambia.
   const toggleUnit = useCallback((unit: MapUnitItem) => {
     toggleUnitInStore(unit.id);
@@ -154,6 +153,8 @@ export const useUnitsLive = (options: UseUnitsLiveOptions = {}) => {
     setUnits([]);
     setCounts(EMPTY_COUNTS);
     setError("");
+    setRefreshError(false);
+    hasLoadedRef.current = false;
     useUnitsDrawerStore.getState().reset();
   }, []);
 
@@ -170,6 +171,12 @@ export const useUnitsLive = (options: UseUnitsLiveOptions = {}) => {
     search,
     isLoading,
     error,
+    // Revalidación silenciosa en curso
+    isRefreshing,
+    // El último refresco falló pero se conservan los datos previos.
+    refreshError,
+    // esperandoEmpresa indica si el hook está a la espera de que se resuelva la empresa activa.
+    esperandoEmpresa: idEmpresa === null || idEmpresa === undefined,
     setSearch,
     loadUnits,
     toggleUnit,

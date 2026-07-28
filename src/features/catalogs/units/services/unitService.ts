@@ -137,20 +137,15 @@ export const unitService = {
     });
   },
 
-  // Genera (o regenera) el token y activa el acceso público. Al regenerar, el
-  // enlace anterior deja de funcionar.
+  // Genera (o regenera) el token PERMANENTE (sin expiración).
   regenerateToken(
     idUnidad: number,
     idEmpresa?: number | null,
-    payload?: { minutos_expiracion: number | null }
   ): Promise<RegenerateUnitTokenResponse> {
     const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
     return apiFetch<RegenerateUnitTokenResponse>(
       `/units/${idUnidad}/token/regenerar${query}`,
-      { 
-          method: "POST",
-          body: payload 
-      },
+      { method: "POST" },
     );
   },
 
@@ -203,4 +198,28 @@ export const unitService = {
     const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
     return apiFetch<any[]>(`/units/pois${query}`);
   }
+  // Genera el token TEMPORAL con expiración.
+  regenerateTemporalToken(
+    idUnidad: number,
+    idEmpresa?: number | null,
+    payload?: { minutos_expiracion: number }
+  ): Promise<RegenerateUnitTokenResponse> {
+    const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
+    return apiFetch<RegenerateUnitTokenResponse>(
+      `/units/${idUnidad}/token/temporal/regenerar${query}`,
+      { method: "POST", body: payload },
+    );
+  },
+
+  // Revoca SOLO el token temporal.
+  revokeTemporalToken(
+    idUnidad: number,
+    idEmpresa?: number | null,
+  ): Promise<{ message: string }> {
+    const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
+    return apiFetch<{ message: string }>(
+      `/units/${idUnidad}/token/temporal${query}`,
+      { method: "DELETE" },
+    );
+  },
 };

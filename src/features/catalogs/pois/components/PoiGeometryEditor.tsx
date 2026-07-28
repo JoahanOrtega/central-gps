@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react"
+import { geocodeAddressCached, reverseGeocodeCached } from "@/lib/geocode-cache";
 import { loadGoogleMaps } from "@/lib/loadGoogleMaps"
 
 interface PoiGeometryValue {
@@ -307,16 +308,7 @@ export const PoiGeometryEditor = forwardRef<
         const geocoder = geocoderRef.current
         if (!geocoder) return null
 
-        return new Promise((resolve) => {
-            geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-                if (status === "OK" && results && results.length > 0) {
-                    resolve(results[0].formatted_address)
-                    return
-                }
-
-                resolve(null)
-            })
-        })
+        return reverseGeocodeCached(geocoder, lat, lng)
     }
 
     const geocodeAddress = async (
@@ -325,27 +317,8 @@ export const PoiGeometryEditor = forwardRef<
         const geocoder = geocoderRef.current
         if (!geocoder || !address.trim()) return null
 
-        return new Promise((resolve) => {
-            geocoder.geocode({ address }, (results, status) => {
-                if (
-                    status === "OK" &&
-                    results &&
-                    results.length > 0 &&
-                    results[0].geometry.location
-                ) {
-                    const location = results[0].geometry.location
-
-                    resolve({
-                        lat: location.lat(),
-                        lng: location.lng(),
-                        formattedAddress: results[0].formatted_address,
-                    })
-                    return
-                }
-
-                resolve(null)
-            })
-        })
+        // Con caché: la misma dirección no se vuelve a pagar a Google.
+        return geocodeAddressCached(geocoder, address)
     }
 
     const handleAddressSearch = async () => {
