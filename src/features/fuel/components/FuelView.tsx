@@ -8,6 +8,7 @@ export const FuelView = ({ activeItem }: FuelViewProps) => {
       <section className="flex min-h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <h1 className="text-2xl font-semibold text-slate-800">Combustible</h1>
         <p className="mt-2 text-slate-500">Vista activa: {activeItem}</p>
+        
       </section>
     </main>
   );

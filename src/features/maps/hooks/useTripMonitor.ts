@@ -231,19 +231,22 @@ export const useTripMonitor = () => {
         setActiveModeInStore(mode);
 
         const points = await telemetryService.getRouteByMode(
-          selectedUnitImei,
-          mode,
-          idEmpresa,
-        );
+    selectedUnitImei,
+    mode,
+    idEmpresa,
+);
 
-        if (!points.length) {
-          setCurrentRoutePointsInStore([]);
-          notify.warning("No hay información para mostrar");
-          return [];
-        }
+console.log("loadRouteByMode -> points", points.length, points);
 
-        setCurrentRoutePointsInStore(points);
-        return points;
+setCurrentRoutePointsInStore(points);
+
+console.log(
+    "store después de guardar",
+    useTripDrawerStore.getState().currentRoutePoints.length,
+    useTripDrawerStore.getState().currentRoutePoints
+);
+
+return points;
       } catch (error) {
         const message =
           error instanceof Error
