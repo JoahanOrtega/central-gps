@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   BarChart3, Building2, ClipboardList, FolderOpen, Fuel,
-  LayoutDashboard, Map, MapPinned, Route, ScanBarcode,
+  LayoutDashboard, Map, MapPinned, MessageSquare, Route, ScanBarcode,
   ShieldCheck, Tag, Truck, Users, X,
 } from "lucide-react";
 import { usePermiso } from "@/hooks/usePermiso";
@@ -221,6 +221,8 @@ export const MobileSidebarDrawer = ({
                 icon={<ShieldCheck className="h-4 w-4" />} onClose={onClose} />
               <DrawerLink to="/home/admin-erp/auditoria" label="Auditoría"
                 icon={<Tag className="h-4 w-4" />} onClose={onClose} />
+              <DrawerLink to="/home/admin-erp/whatsapp-destinos" label="Destinos WhatsApp"
+                icon={<MessageSquare className="h-4 w-4" />} onClose={onClose} /> ... /
             </div>
           )}
         </nav>

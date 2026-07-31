@@ -3,10 +3,10 @@ import { useAuthStore } from "@/stores/authStore";
 import { useCompanyStore } from "@/stores/companyStore";
 import { usePermisos } from "@/hooks/usePermiso";
 import {
-  History,
   Building2, CalendarClock, ChevronDown,
   Fuel, MapPinned, Menu, Route, ShieldCheck,
   Tag, Truck, Users, Map, FolderOpen, ClipboardList,
+  MessageSquare,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -130,6 +130,7 @@ const ERP_NAV_ITEMS = [
   { id: "erp-empresas", label: "Empresas", path: "/home/admin-erp/empresas", icon: <Building2 className="h-4 w-4 shrink-0" /> },
   { id: "erp-permisos", label: "Permisos", path: "/home/admin-erp/permisos", icon: <ShieldCheck className="h-4 w-4 shrink-0" /> },
   { id: "erp-auditoria", label: "Auditoría", path: "/home/admin-erp/auditoria", icon: <Tag className="h-4 w-4 shrink-0" /> },
+  { id: "erp-whatsapp", label: "Destinos WhatsApp", path: "/home/admin-erp/whatsapp-destinos", icon: <MessageSquare className="h-4 w-4 shrink-0" /> },
 ];
 
 // Badge "Nuevo" — se muestra solo hasta la fecha de expiración
