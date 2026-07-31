@@ -27,6 +27,7 @@ const ItinerariesPage = lazyConRecarga(() => import("@/features/operation/itiner
 const AforosPage = lazyConRecarga(() => import("@/features/operation/aforos/pages/AforosPage").then(m => ({ default: m.AforosPage })));
 const UsersPage = lazyConRecarga(() => import("@/features/catalogs/users/pages/UsersPage").then(m => ({ default: m.UsersPage })));
 const PublicUnitTrackPage = lazyConRecarga(() => import("@/features/public-track/pages/PublicUnitTrackPage").then(m => ({ default: m.PublicUnitTrackPage })));
+const DestinosWhatsappPage = lazyConRecarga(() => import("@/features/erp/pages/DestinosWhatsappPage").then(m => ({ default: m.DestinosWhatsappPage })));
 
 // El panel ERP solo lo descarga sudo_erp.
 const EmpresasPage = lazyConRecarga(() => import("@/features/erp/pages/EmpresasPage").then(m => ({ default: m.EmpresasPage })));
@@ -163,6 +164,10 @@ export const appRouter = createBrowserRouter([
           {
             path: "auditoria",
             element: <ErpRoute><LazyPage name="Auditoría"><AuditoriaPage /></LazyPage></ErpRoute>,
+          },
+          {
+            path: "whatsapp-destinos",
+            element: <ErpRoute><LazyPage name="Destinos WhatsApp"><DestinosWhatsappPage /></LazyPage></ErpRoute>,
           },
         ],
       },
