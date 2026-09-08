@@ -198,11 +198,15 @@ export const unitService = {
     const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
     return apiFetch<any[]>(`/units/pois${query}`);
   },
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
   // Genera el token TEMPORAL con expiración.
   regenerateTemporalToken(
     idUnidad: number,
     idEmpresa?: number | null,
-    payload?: { minutos_expiracion: number }
+    payload?: { minutos_expiracion: number },
   ): Promise<RegenerateUnitTokenResponse> {
     const query = idEmpresa ? `?id_empresa=${idEmpresa}` : "";
     return apiFetch<RegenerateUnitTokenResponse>(
