@@ -3,9 +3,16 @@ import { useTripDrawer } from '../../hooks/useTripDrawer';
 import { formatAppDateTimeShort } from '@/lib/date-time';
 import { getTelemetryStatusMeta } from '../../lib/telemetry-status';
 import { X, ChevronDown, Calendar, RotateCcw } from 'lucide-react';
-import type { RoutePoint, RouteDisplayOptions, CustomRangeParams } from '../../types/map.types';
 import { getRouteIconDataUri } from '../../lib/map-icon-svgs';
+import { GenerateRouteModal } from "../modals/GenerateRouteModal";
+import { NewRouteModal } from "@/features/operation/routes/components/NewRouteModal";
+import type {
+    RoutePoint,
+    RouteDisplayOptions,
+    CustomRangeParams,
+} from '../../types/map.types';
 
+import type { Parada } from "@/features/operation/routes/types/route.types";
 interface TripDrawerProps {
   onClose: () => void;
   onRouteSelected: (points: RoutePoint[]) => void;
@@ -59,7 +66,7 @@ export const TripDrawer = ({
     displayOptions, setDisplayOptions,
     extendedSummary, formatDuration,
     activeRangeKey, setActiveRangeKey,
-    loadUnits, handleUnitChange,
+    loadUnits, handleUnitChange, currentRoutePoints,
     handleLoadPredefinedRoute, handleLoadCustomRange,
     handleLoadTripById, handleClose,
   } = useTripDrawer({
@@ -80,6 +87,9 @@ export const TripDrawer = ({
 
   const [showHours, setShowHours] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
+const [showGenerateRoute, setShowGenerateRoute] = useState(false);
+const [showNewRouteModal, setShowNewRouteModal] = useState(false);
+const [routeDraft, setRouteDraft] = useState<any>(null);
 
   const toggleLayer = useCallback((key: keyof RouteDisplayOptions) => {
     const newValue = !displayOptions[key];
@@ -205,7 +215,15 @@ export const TripDrawer = ({
             <RotateCcw className="h-3.5 w-3.5" />
             Cambiar periodo
           </button>
+          <button
+    type="button"
+    onClick={() => setShowGenerateRoute(true)}
+    className="ml-3 rounded bg-cyan-600 px-3 py-1 text-xs text-white"
+>
+    Generar ruta
+</button>
         </div>
+
       </div>
     );
   };
@@ -275,7 +293,118 @@ export const TripDrawer = ({
       )}
     </div>
   );
+  const distanciaMetros = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+) => {
+    const R = 6371000;
 
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) *
+            Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) ** 2;
+
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+const generarParadas = (
+    points: typeof currentRoutePoints,
+    useStops: boolean,
+    useEngineOff: boolean,
+): Parada[] => {
+
+    if (points.length === 0) return [];
+
+    const paradas: Parada[] = [];
+
+    paradas.push({
+        id: "fija-inicio",
+        numero: 1,
+        nombre: "Inicio de ruta",
+        direccion: "",
+        latitud: Number(points[0].latitud),
+        longitud: Number(points[0].longitud),
+        tipo_geocerca: "circular",
+        radio: 200,
+        esFija: "inicio",
+        id_poi: null,
+    });
+
+    let ultimoEstado = points[0].movement_state;
+
+    for (let i = 1; i < points.length - 1; i++) {
+
+        const p = points[i];
+
+        const cambioStop =
+            useStops &&
+            ultimoEstado !== "stop" &&
+            p.movement_state === "stop";
+
+        const cambioApagado =
+            useEngineOff &&
+            ultimoEstado !== "apagado" &&
+            p.movement_state === "apagado";
+
+        if (cambioStop || cambioApagado) {
+
+            const ultima = paradas[paradas.length - 1];
+
+            if (
+                ultima &&
+                !ultima.esFija &&
+                distanciaMetros(
+                    ultima.latitud,
+                    ultima.longitud,
+                    Number(p.latitud),
+                    Number(p.longitud),
+                ) < 30
+            ) {
+                ultimoEstado = p.movement_state;
+                continue;
+            }
+
+            paradas.push({
+                id: crypto.randomUUID(),
+                numero: 0,
+                nombre: cambioApagado
+                    ? `Motor apagado ${paradas.length}`
+                    : `Parada ${paradas.length}`,
+                direccion: "",
+                latitud: Number(p.latitud),
+                longitud: Number(p.longitud),
+                tipo_geocerca: "circular",
+                radio: 100,
+                id_poi: null,
+            });
+        }
+
+        ultimoEstado = p.movement_state;
+    }
+
+    paradas.push({
+        id: "fija-fin",
+        numero: 0,
+        nombre: "Fin de ruta",
+        direccion: "",
+        latitud: Number(points[points.length - 1].latitud),
+        longitud: Number(points[points.length - 1].longitud),
+        tipo_geocerca: "circular",
+        radio: 200,
+        esFija: "fin",
+        id_poi: null,
+    });
+
+    return paradas.map((parada, index) => ({
+        ...parada,
+        numero: index + 1,
+    }));
+};
   return (
     <aside className="absolute inset-x-0 bottom-0 top-auto z-20 flex h-[55vh] flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-xl md:inset-x-auto md:right-2 md:top-2 md:bottom-2 md:h-auto md:w-[340px] md:rounded-xl">
       {/* Asa: solo en móvil, indica que es un panel inferior. */}
@@ -412,6 +541,7 @@ export const TripDrawer = ({
             )}
 
             {renderSummaryInline()}
+            
 
             {renderCustomRange()}
           </>
@@ -428,6 +558,54 @@ export const TripDrawer = ({
           <span className="text-xs font-medium text-emerald-700">Cargando recorrido…</span>
         </div>
       )}
+      <GenerateRouteModal
+    open={showGenerateRoute}
+    onClose={() => setShowGenerateRoute(false)}
+    onGenerate={(options) => {
+
+       console.table(
+    currentRoutePoints.slice(0, 20).map((p) => ({
+        movement: p.movement_state,
+        engine: p.engine_state,
+        speed: p.velocidad,
+        alerta: p.tipo_alerta,
+    }))
+);
+        
+
+        const path = currentRoutePoints.map((p) => ({
+            lat: Number(p.latitud),
+            lng: Number(p.longitud),
+        }));
+
+        if (path.length === 0) {
+            return;
+        }
+
+ const paradas = generarParadas(
+    currentRoutePoints,
+    options.useStops,
+    options.useEngineOff,
+);
+
+setRouteDraft({
+    logisticaAB: {
+        tipo_logistica: 1,
+        path,
+        paradas,
+    },
+});
+
+        setShowGenerateRoute(false);
+        setShowNewRouteModal(true);
+    }}
+/>
+<NewRouteModal
+    open={showNewRouteModal}
+    onOpenChange={setShowNewRouteModal}
+    onSuccess={() => {}}
+    initialData={routeDraft}
+/>
     </aside>
   );
 };

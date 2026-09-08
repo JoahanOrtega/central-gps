@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Route as RouteIcon } from "lucide-react";
 import { routeService } from "../services/routeService";
 import type { CreateRoutePayload, Logistica, TipoRuta } from "../types/route.types";
@@ -8,10 +8,13 @@ import { ModalWithTabs } from "@/components/shared/ModalWithTabs";
 import { RouteInfoTab } from "./tabs/RouteInfoTab";
 import { RouteLogisticaTab } from "./tabs/RouteLogisticaTab";
 
+
 interface NewRouteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+
+  initialData?: Partial<RouteForm>;
 }
 
 // Una logística vacía para inicializar cada sentido de la ruta
@@ -55,6 +58,7 @@ export const NewRouteModal = ({
   open,
   onOpenChange,
   onSuccess,
+  initialData,
 }: NewRouteModalProps) => {
   const { idEmpresa } = useEmpresaActiva();
 
@@ -64,6 +68,27 @@ export const NewRouteModal = ({
   const [fieldErrors, setFieldErrors] = useState<{ nombre?: string; tipo?: string }>({});
   const [activeTab, setActiveTab] = useState("info");
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+  if (!open) return;
+
+  if (initialData) {
+    setForm({
+    ...EMPTY_FORM,
+    ...initialData,
+    logisticaAB: {
+        ...EMPTY_FORM.logisticaAB,
+        ...initialData.logisticaAB,
+    },
+    logisticaBA: {
+        ...EMPTY_FORM.logisticaBA,
+        ...initialData.logisticaBA,
+    },
+});
+  } else {
+    setForm(EMPTY_FORM);
+  }
+}, [open, initialData]);
 
   // Detectar si hay cambios sin guardar para mostrar confirmación al cerrar
   const hasUnsavedChanges = useMemo(

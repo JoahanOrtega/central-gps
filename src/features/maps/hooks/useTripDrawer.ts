@@ -2,6 +2,7 @@ import { useCallback, useEffect } from "react";
 import { useTripMonitor } from "./useTripMonitor";
 import { telemetryService } from "../services/telemetryService";
 import { notify } from "@/stores/notificationStore";
+
 import type {
     RoutePoint,
     PredefinedRange,
@@ -303,6 +304,7 @@ export const useTripDrawer = ({
             }
 
             applyRouteToMap(points);
+            
         } catch {
             notify.error("No se pudo cargar el recorrido");
         }
